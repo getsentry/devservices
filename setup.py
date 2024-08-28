@@ -11,7 +11,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "devservices=devservices.main:main",
+            "devservices=main:main",
         ],
     },
 )
