@@ -1,6 +1,6 @@
 import argparse
 
-from devservices.commands import start, stop
+from commands import start, stop
 
 
 def main():

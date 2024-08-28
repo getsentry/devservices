@@ -7,7 +7,6 @@ setup(
     package_dir={"": "src"},
     include_package_data=True,
     install_requires=[
-        "rich",
         "pyyaml",
     ],
     entry_points={

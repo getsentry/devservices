@@ -1,6 +1,3 @@
-from rich import print
-
-
 def add_parser(subparsers):
     parser = subparsers.add_parser("start", help="Start a service and its dependencies")
     parser.add_argument("service_name", help="Name of the service to start")
