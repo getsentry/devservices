@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Optional, Union
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Union
 
 import yaml
-from pydantic import BaseModel, Field, model_validator, validator
-
-from constants import DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
+from constants import DEVSERVICES_DIR_NAME
+from constants import DOCKER_COMPOSE_FILE_NAME
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import model_validator
+from pydantic import validator
+from utils.devenv import get_code_root
 
 
 class Dependency(BaseModel):
@@ -48,7 +55,9 @@ class DevservicesConfig(BaseModel):
         modes: Dict[str, List[str]],
         values: Dict[str, Union[float, str, Dict[str, Dependency]]],
     ) -> Dict[str, List[str]]:
-        dependencies: Dict[str, Dependency] = values.get("dependencies", {})
+        dependencies = values.get("dependencies", {})
+        if not isinstance(dependencies, dict):
+            raise ValueError("Dependencies must be a dictionary")
         for mode, services in modes.items():
             for service in services:
                 if service not in dependencies:
@@ -85,13 +94,27 @@ class Config(BaseModel):
         return self
 
 
-def load_devservices_config(service_path: str) -> Dict[str, Dict[str, str]]:
+def load_devservices_config(service_name: Optional[str]) -> Config:
     """Load the devservices config for a service."""
-    config_path = os.path.join(
-        service_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
-    )
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Config file not found: {config_path}")
+    if not service_name:
+        current_dir = os.getcwd()
+        config_path = os.path.join(
+            current_dir, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
+        )
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(
+                f"Config file not found in current directory: {config_path}"
+            )
+    else:
+        code_root = get_code_root()
+        service_path = os.path.join(code_root, service_name)
+        config_path = os.path.join(
+            service_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
+        )
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(
+                f"Config file for {service_name} not found from code root: {config_path}"
+            )
     with open(config_path, "r") as stream:
         try:
             config = yaml.safe_load(stream)
