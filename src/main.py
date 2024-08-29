@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import argparse
 
-from commands import start, stop
+from commands import start, stop, list_dependencies
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="DevServices CLI tool for managing Docker Compose services."
     )
@@ -14,6 +16,7 @@ def main():
     # Add subparsers for each command
     start.add_parser(subparsers)
     stop.add_parser(subparsers)
+    list_dependencies.add_parser(subparsers)
 
     args = parser.parse_args()
 
