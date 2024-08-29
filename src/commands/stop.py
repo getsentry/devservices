@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from argparse import _SubParsersAction
+from argparse import ArgumentParser
+from argparse import Namespace
 
-def add_parser(subparsers) -> None:
+
+def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser = subparsers.add_parser("stop", help="Stop a service and its dependencies")
     parser.add_argument("service_name", help="Name of the service to stop")
     parser.set_defaults(func=stop)
 
 
-def stop(args) -> None:
+def stop(args: Namespace) -> None:
     """Stop a service and its dependencies."""
     service_name = args.service_name
     # Implementation here

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 
-from commands import start, stop, list_dependencies
+from commands import list_dependencies
+from commands import start
+from commands import stop
 
 
 def main() -> None:

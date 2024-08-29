@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import os
+from argparse import _SubParsersAction
+from argparse import ArgumentParser
+from argparse import Namespace
+
+import yaml
 from utils.config import load_devservices_config
 from utils.devenv import get_code_root
 
-import yaml
-import os
 
-
-def add_parser(subparsers):
+def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser = subparsers.add_parser(
         "list-dependencies", help="List the dependencies of a service"
     )
@@ -20,7 +23,7 @@ def add_parser(subparsers):
     parser.set_defaults(func=list_dependencies)
 
 
-def list_dependencies(args):
+def list_dependencies(args: Namespace) -> None:
     """List the dependencies of a service."""
     service_name = args.service_name
     if not service_name:
@@ -32,7 +35,7 @@ def list_dependencies(args):
     try:
         config = load_devservices_config(service_path)
     except FileNotFoundError:
-        print(f"Service \"{service_name}\" not found")
+        print(f'Service "{service_name}" not found')
         return
     except yaml.YAMLError as e:
         raise Exception(f"Failed to load service config: {e}")

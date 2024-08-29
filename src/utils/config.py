@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from constants import DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
-
-import yaml
 import os
 from typing import Dict
 
+import yaml
+from constants import DEVSERVICES_DIR_NAME
+from constants import DOCKER_COMPOSE_FILE_NAME
 
-def load_devservices_config(service_path: str) -> Dict[str, Dict]:
+
+def load_devservices_config(service_path: str) -> Dict[str, Dict[str, str]]:
     """Load the devservices config for a service."""
     config_path = os.path.join(
         service_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
@@ -21,6 +22,10 @@ def load_devservices_config(service_path: str) -> Dict[str, Dict]:
             if devservices_config is None:
                 raise KeyError(
                     "Key 'x-sentry-devservices-config' not found in the config file."
+                )
+            if not isinstance(devservices_config, dict):
+                raise TypeError(
+                    "Value of 'x-sentry-devservices-config' must be a dictionary."
                 )
             return devservices_config
         except FileNotFoundError as fnf:

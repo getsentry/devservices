@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
-from configparser import ConfigParser, NoSectionError, NoOptionError
+from configparser import ConfigParser
+from configparser import NoOptionError
+from configparser import NoSectionError
 
-from utils.config import load_devservices_config
 from devenv.constants import home
 from devenv.lib.config import read_config
 
