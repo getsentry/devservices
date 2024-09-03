@@ -21,6 +21,7 @@ repos:
         additional_dependencies:
           - "pytest"
           - "types-PyYAML"
+          - "pydantic-settings"
         language_version: python3.12
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.9.0.6
