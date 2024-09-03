@@ -17,6 +17,7 @@ from utils.devenv import get_code_root
 
 class Dependency(BaseModel):
     description: str
+    link: Optional[str] = None
 
 
 class DevservicesConfig(BaseModel):
