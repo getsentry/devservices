@@ -11,30 +11,12 @@ from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
 from pydantic import BaseModel
 from pydantic import Field
-from pydantic import model_validator
 from pydantic import validator
 from utils.devenv import get_code_root
 
 
 class Dependency(BaseModel):
     description: str
-
-
-class HealthCheck(BaseModel):
-    test: str
-
-
-class Ulimits(BaseModel):
-    nofile: Dict[str, int]
-
-
-class ServiceDefinition(BaseModel):
-    image: str
-    healthcheck: Optional[HealthCheck] = None
-    ulimits: Optional[Ulimits] = None
-    ports: Optional[List[str]] = None
-    environment: Optional[Dict[str, str]] = None
-    volumes: Optional[List[str]] = None
 
 
 class DevservicesConfig(BaseModel):
@@ -69,29 +51,6 @@ class DevservicesConfig(BaseModel):
 
 class Config(BaseModel):
     devservices_config: DevservicesConfig = Field(alias="x-sentry-devservices-config")
-    services: Dict[str, ServiceDefinition]
-    volumes: Optional[Dict[str, None]]
-
-    @model_validator(mode="after")
-    def check_services_match(self) -> Config:
-        dev_config = self.devservices_config
-        services = self.services
-
-        # Check if all dependencies are defined in services
-        for service in dev_config.dependencies:
-            if service not in services:
-                raise ValueError(
-                    f"Service '{service}' defined in x-sentry-devservices-config is not present in services"
-                )
-
-        # Check if all services are defined in dependencies
-        for service in services:
-            if service not in dev_config.dependencies:
-                raise ValueError(
-                    f"Service '{service}' defined in services is not present in x-sentry-devservices-config dependencies"
-                )
-
-        return self
 
 
 def load_devservices_config(service_name: Optional[str]) -> Config:
