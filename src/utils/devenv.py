@@ -9,7 +9,7 @@ from devenv.constants import home
 from devenv.lib.config import read_config
 
 
-def get_code_root() -> str:
+def get_coderoot() -> str:
     config_path = os.path.join(home, ".config", "sentry-devenv", "config.ini")
     try:
         devenv_config: ConfigParser = read_config(config_path)
