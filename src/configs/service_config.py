@@ -51,7 +51,7 @@ class ServiceConfig(BaseModel):
 
 
 class Config(BaseModel):
-    devservices_config: ServiceConfig = Field(alias="x-sentry-service-config")
+    service_config: ServiceConfig = Field(alias="x-sentry-service-config")
 
 
 def load_service_config(service_name: Optional[str]) -> Config:
