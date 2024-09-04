@@ -4,7 +4,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from utils.config import load_devservices_config
+from configs.service_config import load_service_config
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -22,7 +22,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 def list_dependencies(args: Namespace) -> None:
     """List the dependencies of a service."""
-    config = load_devservices_config(args.service_name)
+    config = load_service_config(args.service_name)
 
     dependencies = config.devservices_config.dependencies
 
