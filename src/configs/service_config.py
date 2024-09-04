@@ -12,7 +12,6 @@ from constants import DOCKER_COMPOSE_FILE_NAME
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import validator
-from utils.devenv import get_coderoot
 
 
 class Dependency(BaseModel):
@@ -54,9 +53,9 @@ class Config(BaseModel):
     service_config: ServiceConfig = Field(alias="x-sentry-service-config")
 
 
-def load_service_config(service_name: Optional[str]) -> Config:
-    """Load the devservices config for a service."""
-    if not service_name:
+def load_service_config(repo_path: Optional[str] = None) -> Config:
+    """Load the service config for a repo."""
+    if repo_path is None:
         current_dir = os.getcwd()
         config_path = os.path.join(
             current_dir, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
@@ -66,14 +65,12 @@ def load_service_config(service_name: Optional[str]) -> Config:
                 f"Config file not found in current directory: {config_path}"
             )
     else:
-        coderoot = get_coderoot()
-        service_path = os.path.join(coderoot, service_name)
         config_path = os.path.join(
-            service_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
+            repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
         )
         if not os.path.exists(config_path):
             raise FileNotFoundError(
-                f"Config file for {service_name} not found from code root: {config_path}"
+                f"Config file not found in service directory: {config_path}"
             )
     with open(config_path, "r") as stream:
         try:

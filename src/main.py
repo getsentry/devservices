@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from commands import list_dependencies
+from commands import list_services
 from commands import start
 from commands import stop
 
@@ -19,6 +20,7 @@ def main() -> None:
     start.add_parser(subparsers)
     stop.add_parser(subparsers)
     list_dependencies.add_parser(subparsers)
+    list_services.add_parser(subparsers)
 
     args = parser.parse_args()
 
