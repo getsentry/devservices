@@ -6,8 +6,6 @@ from argparse import Namespace
 
 from configs.service_config import load_service_config
 from services import find_matching_service
-from services import get_local_services
-from utils.devenv import get_coderoot
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -27,15 +25,10 @@ def list_dependencies(args: Namespace) -> None:
     """List the dependencies of a service."""
     service_name = args.service_name
 
-    # Get all of the services installed locally
-    coderoot = get_coderoot()
-    local_services = get_local_services(coderoot)
-
     repo_path = None
-    # If a service name is provided, try to find the matching service
     if service_name is not None:
         try:
-            repo_path = find_matching_service(local_services, service_name).repo_path
+            repo_path = find_matching_service(service_name).repo_path
         except Exception as e:
             print(e)
             return

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import List
 
 from configs.service_config import load_service_config
+from utils.devenv import get_coderoot
 
 
 @dataclass
@@ -34,8 +35,10 @@ def get_local_services(coderoot: str) -> List[Service]:
     return services
 
 
-def find_matching_service(services: List[Service], service_name: str) -> Service:
+def find_matching_service(service_name: str) -> Service:
     """Find a service with the given name."""
+    coderoot = get_coderoot()
+    services = get_local_services(coderoot)
     for service in services:
         if service.name.lower() == service_name.lower():
             return service
