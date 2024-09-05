@@ -69,7 +69,7 @@ def load_service_config(service_name: Optional[str]) -> Config:
     with open(config_path, "r") as stream:
         try:
             config = yaml.safe_load(stream)
-            service_config_data = config.get("x-sentry-devservices-config", {})
+            service_config_data = config.get("x-sentry-service-config", {})
             dependencies = {
                 key: Dependency(**value)
                 for key, value in service_config_data.get("dependencies", {}).items()
