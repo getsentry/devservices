@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import List
 
 from configs.service_config import load_service_config
-from pydantic import BaseModel
 
 
-class Service(BaseModel):
+@dataclass
+class Service:
     name: str
     repo_path: str
 

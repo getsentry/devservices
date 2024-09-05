@@ -1,56 +1,47 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Union
 
 import yaml
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
-from pydantic import BaseModel
-from pydantic import Field
-from pydantic import validator
 
 
-class Dependency(BaseModel):
+@dataclass
+class Dependency:
     description: str
     link: Optional[str] = None
 
 
-class ServiceConfig(BaseModel):
+@dataclass
+class ServiceConfig:
     version: float
     service_name: str
     dependencies: Dict[str, Dependency]
     modes: Dict[str, List[str]]
 
-    @validator("version")
-    def check_version(cls, version: float) -> float:
-        if version != 0.1:
-            raise ValueError("Version must be 0.1")
-        return version
+    def __post_init__(self) -> None:
+        self._validate()
 
-    @validator("modes")
-    def check_modes(
-        cls,
-        modes: Dict[str, List[str]],
-        values: Dict[str, Union[float, str, Dict[str, Dependency]]],
-    ) -> Dict[str, List[str]]:
-        dependencies = values.get("dependencies", {})
-        if not isinstance(dependencies, dict):
-            raise ValueError("Dependencies must be a dictionary")
-        for mode, services in modes.items():
+    def _validate(self) -> None:
+        if self.version != 0.1:
+            raise ValueError("Version must be 0.1")
+
+        for mode, services in self.modes.items():
             for service in services:
-                if service not in dependencies:
+                if service not in self.dependencies:
                     raise ValueError(
                         f"Service '{service}' in mode '{mode}' is not defined in dependencies"
                     )
-        return modes
 
 
-class Config(BaseModel):
-    service_config: ServiceConfig = Field(alias="x-sentry-service-config")
+@dataclass
+class Config:
+    service_config: ServiceConfig
 
 
 def load_service_config(repo_path: Optional[str] = None) -> Config:
@@ -75,7 +66,19 @@ def load_service_config(repo_path: Optional[str] = None) -> Config:
     with open(config_path, "r") as stream:
         try:
             config = yaml.safe_load(stream)
-            return Config(**config)
+            service_config_data = config.get("x-sentry-devservices-config", {})
+            dependencies = {
+                key: Dependency(**value)
+                for key, value in service_config_data.get("dependencies", {}).items()
+            }
+            service_config = ServiceConfig(
+                version=service_config_data.get("version"),
+                service_name=service_config_data.get("service_name"),
+                dependencies=dependencies,
+                modes=service_config_data.get("modes", {}),
+            )
+
+            return Config(service_config=service_config)
         except FileNotFoundError as fnf:
             raise FileNotFoundError(f"Config file not found: {config_path}") from fnf
         except yaml.YAMLError as yml_error:

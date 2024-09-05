@@ -9,7 +9,7 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     include_package_data=True,
-    install_requires=["pyyaml", "sentry-devenv", "pydantic"],
+    install_requires=["pyyaml", "sentry-devenv"],
     extras_requires={
         "dev": ["black", "mypy", "pre-commit", "pytest", "types-PyYAML"],
     },
