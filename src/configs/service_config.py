@@ -5,10 +5,14 @@ from dataclasses import dataclass
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import TYPE_CHECKING
 
 import yaml
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
+
+if TYPE_CHECKING:
+    from services import Service
 
 
 @dataclass
@@ -44,25 +48,14 @@ class Config:
     service_config: ServiceConfig
 
 
-def load_service_config(repo_path: Optional[str] = None) -> Config:
-    """Load the service config for a repo."""
-    if repo_path is None:
-        current_dir = os.getcwd()
-        config_path = os.path.join(
-            current_dir, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
+def load_service_config_for_repo(repo_path: str) -> ServiceConfig:
+    config_path = os.path.join(
+        repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
+    )
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(
+            f"Config file not found in current directory: {config_path}"
         )
-        if not os.path.exists(config_path):
-            raise FileNotFoundError(
-                f"Config file not found in current directory: {config_path}"
-            )
-    else:
-        config_path = os.path.join(
-            repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
-        )
-        if not os.path.exists(config_path):
-            raise FileNotFoundError(
-                f"Config file not found in service directory: {config_path}"
-            )
     with open(config_path, "r") as stream:
         try:
             config = yaml.safe_load(stream)
@@ -78,10 +71,20 @@ def load_service_config(repo_path: Optional[str] = None) -> Config:
                 modes=service_config_data.get("modes", {}),
             )
 
-            return Config(service_config=service_config)
+            return service_config
         except FileNotFoundError as fnf:
             raise FileNotFoundError(f"Config file not found: {config_path}") from fnf
         except yaml.YAMLError as yml_error:
             raise yaml.YAMLError(
                 f"Error parsing config file: {config_path}"
             ) from yml_error
+
+
+def load_service_config(service: Optional[Service] = None) -> ServiceConfig:
+    """Load the service config for a repo."""
+    if service is None:
+        current_dir = os.getcwd()
+        return load_service_config_for_repo(current_dir)
+    if not isinstance(service.service_config, ServiceConfig):
+        raise TypeError("service_config must be of type ServiceConfig")
+    return service.service_config

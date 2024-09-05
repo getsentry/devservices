@@ -3,33 +3,40 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import List
+from typing import TYPE_CHECKING
 
-from configs.service_config import load_service_config
 from utils.devenv import get_coderoot
+
+if TYPE_CHECKING:
+    from configs.service_config import ServiceConfig
 
 
 @dataclass
 class Service:
     name: str
     repo_path: str
+    service_config: ServiceConfig
 
 
 def get_local_services(coderoot: str) -> List[Service]:
     """Get a list of services in the coderoot."""
+    from configs.service_config import load_service_config_for_repo
+
     services = []
     for repo in os.listdir(coderoot):
         repo_path = os.path.join(coderoot, repo)
         try:
-            service_config = load_service_config(repo_path)
+            service_config = load_service_config_for_repo(repo_path)
         except FileNotFoundError:
             continue
         except Exception:
             continue
-        service_name = service_config.service_config.service_name
+        service_name = service_config.service_name
         services.append(
             Service(
                 name=service_name,
                 repo_path=repo_path,
+                service_config=service_config,
             )
         )
     return services
