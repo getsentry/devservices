@@ -3,12 +3,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import List
-from typing import TYPE_CHECKING
 
+from configs.service_config import ServiceConfig
 from utils.devenv import get_coderoot
-
-if TYPE_CHECKING:
-    from configs.service_config import ServiceConfig
 
 
 @dataclass

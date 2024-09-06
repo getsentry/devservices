@@ -6,8 +6,8 @@ from argparse import Namespace
 from typing import Optional
 
 from configs.service_config import load_service_config
+from configs.service_config import ServiceConfig
 from services import find_matching_service
-from services import Service
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -27,16 +27,20 @@ def list_dependencies(args: Namespace) -> None:
     """List the dependencies of a service."""
     service_name = args.service_name
 
-    service: Optional[Service] = None
+    service_config: Optional[ServiceConfig] = None
     if service_name is not None:
         try:
-            service = find_matching_service(service_name)
+            service_config = find_matching_service(service_name).service_config
+        except Exception as e:
+            print(e)
+            return
+    else:
+        try:
+            service_config = load_service_config()
         except Exception as e:
             print(e)
             return
 
-    # Note: If no service name is provided, the current directory is assumed to be the location of the service
-    service_config = load_service_config(service)
     dependencies = service_config.dependencies
 
     if not dependencies:
