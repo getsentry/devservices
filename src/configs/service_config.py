@@ -36,6 +36,9 @@ class ServiceConfig:
                 f"Invalid version '{self.version}' in service config"
             )
 
+        if not self.service_name:
+            raise ConfigValidationError("Service name is required in service config")
+
         for mode, services in self.modes.items():
             for service in services:
                 if service not in self.dependencies:
