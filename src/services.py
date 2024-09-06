@@ -20,13 +20,13 @@ class Service:
 
 def get_local_services(coderoot: str) -> List[Service]:
     """Get a list of services in the coderoot."""
-    from configs.service_config import load_service_config_for_repo
+    from configs.service_config import load_service_config_from_file
 
     services = []
     for repo in os.listdir(coderoot):
         repo_path = os.path.join(coderoot, repo)
         try:
-            service_config = load_service_config_for_repo(repo_path)
+            service_config = load_service_config_from_file(repo_path)
         except FileNotFoundError:
             continue
         except Exception:

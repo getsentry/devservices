@@ -48,7 +48,7 @@ class Config:
     service_config: ServiceConfig
 
 
-def load_service_config_for_repo(repo_path: str) -> ServiceConfig:
+def load_service_config_from_file(repo_path: str) -> ServiceConfig:
     config_path = os.path.join(
         repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
@@ -84,7 +84,7 @@ def load_service_config(service: Optional[Service] = None) -> ServiceConfig:
     """Load the service config for a repo."""
     if service is None:
         current_dir = os.getcwd()
-        return load_service_config_for_repo(current_dir)
+        return load_service_config_from_file(current_dir)
     if not isinstance(service.service_config, ServiceConfig):
         raise TypeError("service_config must be of type ServiceConfig")
     return service.service_config
