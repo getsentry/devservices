@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from typing import List
 
 from configs.service_config import ServiceConfig
+from exceptions import ConfigNotFoundError
+from exceptions import ConfigParseError
+from exceptions import ConfigValidationError
+from exceptions import ServiceNotFoundError
 from utils.devenv import get_coderoot
 
 
@@ -24,9 +28,7 @@ def get_local_services(coderoot: str) -> List[Service]:
         repo_path = os.path.join(coderoot, repo)
         try:
             service_config = load_service_config_from_file(repo_path)
-        except FileNotFoundError:
-            continue
-        except Exception:
+        except (ConfigNotFoundError, ConfigParseError, ConfigValidationError):
             continue
         service_name = service_config.service_name
         services.append(
@@ -46,4 +48,4 @@ def find_matching_service(service_name: str) -> Service:
     for service in services:
         if service.name.lower() == service_name.lower():
             return service
-    raise Exception(f'Service "{service_name}" not found')
+    raise ServiceNotFoundError(f'Service "{service_name}" not found')

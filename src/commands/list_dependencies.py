@@ -7,6 +7,8 @@ from typing import Optional
 
 from configs.service_config import load_service_config
 from configs.service_config import ServiceConfig
+from exceptions import ConfigError
+from exceptions import ServiceNotFoundError
 from services import find_matching_service
 
 
@@ -31,13 +33,13 @@ def list_dependencies(args: Namespace) -> None:
     if service_name is not None:
         try:
             service_config = find_matching_service(service_name).service_config
-        except Exception as e:
+        except ServiceNotFoundError as e:
             print(e)
             return
     else:
         try:
             service_config = load_service_config()
-        except Exception as e:
+        except ConfigError as e:
             print(e)
             return
 

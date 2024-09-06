@@ -9,6 +9,9 @@ from typing import Optional
 import yaml
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
+from exceptions import ConfigNotFoundError
+from exceptions import ConfigParseError
+from exceptions import ConfigValidationError
 
 
 @dataclass
@@ -29,12 +32,14 @@ class ServiceConfig:
 
     def _validate(self) -> None:
         if self.version != 0.1:
-            raise ValueError("Version must be 0.1")
+            raise ConfigValidationError(
+                f"Invalid version '{self.version}' in service config"
+            )
 
         for mode, services in self.modes.items():
             for service in services:
                 if service not in self.dependencies:
-                    raise ValueError(
+                    raise ConfigValidationError(
                         f"Service '{service}' in mode '{mode}' is not defined in dependencies"
                     )
 
@@ -49,7 +54,7 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
         repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
     if not os.path.exists(config_path):
-        raise FileNotFoundError(
+        raise ConfigNotFoundError(
             f"Config file not found in current directory: {config_path}"
         )
     with open(config_path, "r") as stream:
@@ -68,10 +73,12 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             )
 
             return service_config
-        except FileNotFoundError as fnf:
-            raise FileNotFoundError(f"Config file not found: {config_path}") from fnf
+        except FileNotFoundError as fnf_error:
+            raise ConfigNotFoundError(
+                f"Config file not found: {config_path}"
+            ) from fnf_error
         except yaml.YAMLError as yml_error:
-            raise yaml.YAMLError(
+            raise ConfigParseError(
                 f"Error parsing config file: {config_path}"
             ) from yml_error
 
