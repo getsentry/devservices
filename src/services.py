@@ -3,16 +3,13 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import List
-from typing import TYPE_CHECKING
 
+from configs.service_config import ServiceConfig
 from exceptions import ConfigNotFoundError
 from exceptions import ConfigParseError
 from exceptions import ConfigValidationError
 from exceptions import ServiceNotFoundError
 from utils.devenv import get_coderoot
-
-if TYPE_CHECKING:
-    from configs.service_config import ServiceConfig
 
 
 @dataclass

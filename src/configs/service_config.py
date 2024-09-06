@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import TYPE_CHECKING
 
 import yaml
 from constants import DEVSERVICES_DIR_NAME
@@ -13,9 +12,6 @@ from constants import DOCKER_COMPOSE_FILE_NAME
 from exceptions import ConfigNotFoundError
 from exceptions import ConfigParseError
 from exceptions import ConfigValidationError
-
-if TYPE_CHECKING:
-    from services import Service
 
 
 @dataclass
@@ -87,11 +83,6 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             ) from yml_error
 
 
-def load_service_config(service: Optional[Service] = None) -> ServiceConfig:
-    """Load the service config for a repo."""
-    if service is None:
-        current_dir = os.getcwd()
-        return load_service_config_from_file(current_dir)
-    if not isinstance(service.service_config, ServiceConfig):
-        raise TypeError("service_config must be of type ServiceConfig")
-    return service.service_config
+def load_service_config() -> ServiceConfig:
+    """Load the service config for the current directory."""
+    return load_service_config_from_file(os.getcwd())
