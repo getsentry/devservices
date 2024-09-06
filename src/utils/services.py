@@ -1,22 +1,14 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from typing import List
 
-from configs.service_config import ServiceConfig
 from exceptions import ConfigNotFoundError
 from exceptions import ConfigParseError
 from exceptions import ConfigValidationError
 from exceptions import ServiceNotFoundError
 from utils.devenv import get_coderoot
-
-
-@dataclass
-class Service:
-    name: str
-    repo_path: str
-    service_config: ServiceConfig
+from utils.types import Service
 
 
 def get_local_services(coderoot: str) -> List[Service]:
