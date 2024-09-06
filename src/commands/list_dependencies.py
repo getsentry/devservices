@@ -6,6 +6,8 @@ from argparse import Namespace
 from typing import Optional
 
 from configs.service_config import load_service_config
+from exceptions import ConfigError
+from exceptions import ServiceNotFoundError
 from services import find_matching_service
 from services import Service
 
@@ -31,12 +33,16 @@ def list_dependencies(args: Namespace) -> None:
     if service_name is not None:
         try:
             service = find_matching_service(service_name)
-        except Exception as e:
+        except ServiceNotFoundError as e:
             print(e)
             return
 
     # Note: If no service name is provided, the current directory is assumed to be the location of the service
-    service_config = load_service_config(service)
+    try:
+        service_config = load_service_config(service)
+    except ConfigError as e:
+        print(e)
+        return
     dependencies = service_config.dependencies
 
     if not dependencies:
