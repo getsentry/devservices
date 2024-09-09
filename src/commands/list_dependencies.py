@@ -3,13 +3,8 @@ from __future__ import annotations
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
-from typing import Optional
 
-from configs.service_config import load_service_config
-from configs.service_config import ServiceConfig
-from exceptions import ConfigError
-from exceptions import ServiceNotFoundError
-from services import find_matching_service
+from utils.services import find_matching_service
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -29,26 +24,18 @@ def list_dependencies(args: Namespace) -> None:
     """List the dependencies of a service."""
     service_name = args.service_name
 
-    service_config: Optional[ServiceConfig] = None
-    if service_name is not None:
-        try:
-            service_config = find_matching_service(service_name).service_config
-        except ServiceNotFoundError as e:
-            print(e)
-            return
-    else:
-        try:
-            service_config = load_service_config()
-        except ConfigError as e:
-            print(e)
-            return
+    try:
+        service = find_matching_service(service_name)
+    except Exception as e:
+        print(e)
+        exit(1)
 
-    dependencies = service_config.dependencies
+    dependencies = service.config.dependencies
 
     if not dependencies:
-        print(f"No dependencies found for {service_config.service_name}")
+        print(f"No dependencies found for {service.name}")
         return
 
-    print(f"Dependencies of {service_config.service_name}:")
+    print(f"Dependencies of {service.name}:")
     for dependency_key, dependency_info in dependencies.items():
         print("-", dependency_key, ":", dependency_info.description)

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import subprocess
-from typing import Optional
 
 
 def run_docker_compose_command(
-    command: str, service: Optional[str] = None
+    command: str, service: str | None = None
 ) -> subprocess.CompletedProcess[str]:
     cmd = ["docker", "compose"] + command.split()
     if service:

@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 from typing import Dict
 from typing import List
-from typing import Optional
 
 import yaml
 from constants import DEVSERVICES_DIR_NAME
@@ -17,7 +16,7 @@ from exceptions import ConfigValidationError
 @dataclass
 class Dependency:
     description: str
-    link: Optional[str] = None
+    link: str | None = None
 
 
 @dataclass
@@ -47,19 +46,12 @@ class ServiceConfig:
                     )
 
 
-@dataclass
-class Config:
-    service_config: ServiceConfig
-
-
 def load_service_config_from_file(repo_path: str) -> ServiceConfig:
     config_path = os.path.join(
         repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
     if not os.path.exists(config_path):
-        raise ConfigNotFoundError(
-            f"Config file not found in current directory: {config_path}"
-        )
+        raise ConfigNotFoundError(f"Config file not found in directory: {config_path}")
     with open(config_path, "r") as stream:
         try:
             config = yaml.safe_load(stream)
@@ -84,8 +76,3 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             raise ConfigParseError(
                 f"Error parsing config file: {config_path}"
             ) from yml_error
-
-
-def load_service_config() -> ServiceConfig:
-    """Load the service config for the current directory."""
-    return load_service_config_from_file(os.getcwd())
