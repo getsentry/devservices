@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import List
-from typing import Optional
 
 from configs.service_config import ServiceConfig
 from exceptions import ConfigNotFoundError
@@ -42,7 +41,7 @@ def get_local_services(coderoot: str) -> List[Service]:
     return services
 
 
-def find_matching_service(service_name: Optional[str]) -> Service:
+def find_matching_service(service_name: str | None = None) -> Service:
     """Find a service with the given name."""
     if service_name is None:
         from configs.service_config import load_service_config_from_file

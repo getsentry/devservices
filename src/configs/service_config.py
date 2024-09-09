@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 from typing import Dict
 from typing import List
-from typing import Optional
 
 import yaml
 from constants import DEVSERVICES_DIR_NAME
@@ -17,7 +16,7 @@ from exceptions import ConfigValidationError
 @dataclass
 class Dependency:
     description: str
-    link: Optional[str] = None
+    link: str | None = None
 
 
 @dataclass
