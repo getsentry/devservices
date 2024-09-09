@@ -16,7 +16,7 @@ from utils.devenv import get_coderoot
 class Service:
     name: str
     repo_path: str
-    service_config: ServiceConfig
+    config: ServiceConfig
 
 
 def get_local_services(coderoot: str) -> List[Service]:
@@ -35,14 +35,25 @@ def get_local_services(coderoot: str) -> List[Service]:
             Service(
                 name=service_name,
                 repo_path=repo_path,
-                service_config=service_config,
+                config=service_config,
             )
         )
     return services
 
 
-def find_matching_service(service_name: str) -> Service:
+def find_matching_service(service_name: str | None = None) -> Service:
     """Find a service with the given name."""
+    if service_name is None:
+        from configs.service_config import load_service_config_from_file
+
+        repo_path = os.getcwd()
+        service_config = load_service_config_from_file(repo_path)
+
+        return Service(
+            name=service_config.service_name,
+            repo_path=repo_path,
+            config=service_config,
+        )
     coderoot = get_coderoot()
     services = get_local_services(coderoot)
     for service in services:
