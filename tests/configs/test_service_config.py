@@ -77,7 +77,7 @@ def test_load_service_config_from_file_missing_config(tmp_path: Path) -> None:
         load_service_config_from_file(tmp_path)
     assert (
         str(e.value)
-        == f"Config file not found in current directory: {tmp_path / 'devservices' / 'docker-compose.yml'}"
+        == f"Config file not found in directory: {tmp_path / 'devservices' / 'docker-compose.yml'}"
     )
 
 
