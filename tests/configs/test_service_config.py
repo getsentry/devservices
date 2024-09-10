@@ -23,7 +23,7 @@ from exceptions import ConfigValidationError
                 "example-dependency-1": "Example dependency 1",
                 "example-dependency-2": "Example dependency 2",
             },
-            {"default": ["example-dependency", "example-dependency-2"]},
+            {"default": ["example-dependency-1", "example-dependency-2"]},
         ),
         (
             "example-service",
