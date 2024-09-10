@@ -27,31 +27,33 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 
 def format_status_output(status_json: str) -> str:
-    service = json.loads(status_json)
+    # Docker compose ps is line delimited json, so this constructs this into an array we can use
+    service_statuses = status_json.split("\n")[:-1]
     output = []
     output.append("-" * LINE_LENGTH)
+    for service_status in service_statuses:
+        service = json.loads(service_status)
+        name = service["Service"]
+        state = service["State"]
+        health = service.get("Health", "N/A")
+        ports = service.get("Publishers", [])
+        running_for = service.get("RunningFor", "N/A")
 
-    name = service["Service"]
-    state = service["State"]
-    health = service.get("Health", "N/A")
-    ports = service.get("Publishers", [])
-    running_for = service.get("RunningFor", "N/A")
+        output.append(f"{name}")
+        output.append(f"Status: {state}")
+        output.append(f"Health: {health}")
+        output.append(f"Uptime: {running_for}")
 
-    output.append(f"{name}")
-    output.append(f"Status: {state}")
-    output.append(f"Health: {health}")
-    output.append(f"Uptime: {running_for}")
+        if ports:
+            output.append("Ports:")
+            for port in ports:
+                output.append(
+                    f"  {port['PublishedPort']} -> {port['TargetPort']}/{port['Protocol']}"
+                )
+        else:
+            output.append("No ports exposed")
 
-    if ports:
-        output.append("Ports:")
-        for port in ports:
-            output.append(
-                f"  {port['PublishedPort']} -> {port['TargetPort']}/{port['Protocol']}"
-            )
-    else:
-        output.append("No ports exposed")
-
-    output.append("")  # Empty line for readability
+        output.append("")  # Empty line for readability
 
     return "\n".join(output)
 
@@ -72,11 +74,11 @@ def status(args: Namespace) -> None:
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
     output = f"Service: {service.name}\n\n"
-    for dependency in mode_dependencies:
-        status_json = run_docker_compose_command(
-            f"-f {service_config_file_path} ps {dependency} --format json"
-        ).stdout
-        output += format_status_output(status_json)
+    mode_dependencies = " ".join(modes[mode_to_view])
+    status_json = run_docker_compose_command(
+        f"-f {service_config_file_path} ps {mode_dependencies} --format json"
+    ).stdout
+    output += format_status_output(status_json)
     output += "=" * LINE_LENGTH
     sys.stdout.write(output + "\n")
     sys.stdout.flush()
