@@ -42,3 +42,4 @@ def logs(args: Namespace) -> None:
         f"-f {service_config_file_path} logs {mode_dependencies}"
     )
     sys.stdout.write(logs.stdout)
+    sys.stdout.flush()
