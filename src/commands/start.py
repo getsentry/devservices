@@ -34,7 +34,6 @@ def start(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    output = run_docker_compose_command(
+    run_docker_compose_command(
         f"-f {service_config_file_path} up -d {mode_dependencies}"
     )
-    print(output)
