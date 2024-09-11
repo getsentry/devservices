@@ -4,6 +4,7 @@ import argparse
 
 from commands import list_dependencies
 from commands import list_services
+from commands import logs
 from commands import start
 from commands import stop
 
@@ -21,6 +22,7 @@ def main() -> None:
     stop.add_parser(subparsers)
     list_dependencies.add_parser(subparsers)
     list_services.add_parser(subparsers)
+    logs.add_parser(subparsers)
 
     args = parser.parse_args()
 
