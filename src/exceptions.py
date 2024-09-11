@@ -29,3 +29,9 @@ class ConfigParseError(ConfigError):
     """Raised when a configuration file cannot be parsed."""
 
     pass
+
+
+class DockerComposeError(Exception):
+    """Base class for Docker Compose-related errors."""
+
+    pass

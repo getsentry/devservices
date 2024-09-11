@@ -8,6 +8,7 @@ from argparse import Namespace
 
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
+from exceptions import DockerComposeError
 from utils.docker_compose import run_docker_compose_command
 from utils.services import find_matching_service
 
@@ -38,8 +39,12 @@ def logs(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    logs = run_docker_compose_command(
-        f"-f {service_config_file_path} logs {mode_dependencies}"
-    )
+    try:
+        logs = run_docker_compose_command(
+            f"-f {service_config_file_path} logs {mode_dependencies}"
+        )
+    except DockerComposeError as dce:
+        print(f"Failed to get logs for {service.name}: {dce}")
+        exit(1)
     sys.stdout.write(logs.stdout)
     sys.stdout.flush()
