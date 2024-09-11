@@ -32,6 +32,10 @@ class ConfigParseError(ConfigError):
 
 
 class DockerComposeError(Exception):
-    """Base class for Docker Compose-related errors."""
+    """Base class for Docker Compose related errors."""
 
-    pass
+    def __init__(self, command: str, returncode: int, stdout: str, stderr: str):
+        self.command = command
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr

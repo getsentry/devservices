@@ -40,5 +40,5 @@ def stop(args: Namespace) -> None:
             f"-f {service_config_file_path} down {mode_dependencies}"
         )
     except DockerComposeError as dce:
-        print(f"Failed to stop {service.name}: {dce}")
+        print(f"Failed to stop {service.name}: {dce.stderr}")
         exit(1)

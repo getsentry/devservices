@@ -81,7 +81,7 @@ def status(args: Namespace) -> None:
             f"-f {service_config_file_path} ps {mode_dependencies} --format json"
         ).stdout
     except DockerComposeError as dce:
-        print(f"Failed to get status for {service.name}: {dce}")
+        print(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)
     output += format_status_output(status_json)
     output += "=" * LINE_LENGTH

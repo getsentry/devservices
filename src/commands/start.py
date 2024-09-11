@@ -40,5 +40,5 @@ def start(args: Namespace) -> None:
             f"-f {service_config_file_path} up -d {mode_dependencies}"
         )
     except DockerComposeError as dce:
-        print(f"Failed to start {service.name}: {dce}")
+        print(f"Failed to start {service.name}: {dce.stderr}")
         exit(1)
