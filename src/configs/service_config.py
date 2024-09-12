@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Dict
-from typing import List
 
 import yaml
 from constants import DEVSERVICES_DIR_NAME
@@ -23,8 +21,8 @@ class Dependency:
 class ServiceConfig:
     version: float
     service_name: str
-    dependencies: Dict[str, Dependency]
-    modes: Dict[str, List[str]]
+    dependencies: dict[str, Dependency]
+    modes: dict[str, list[str]]
 
     def __post_init__(self) -> None:
         self._validate()
