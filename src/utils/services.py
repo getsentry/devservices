@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import List
 
 from configs.service_config import ServiceConfig
 from exceptions import ConfigNotFoundError
@@ -19,7 +18,7 @@ class Service:
     config: ServiceConfig
 
 
-def get_local_services(coderoot: str) -> List[Service]:
+def get_local_services(coderoot: str) -> list[Service]:
     """Get a list of services in the coderoot."""
     from configs.service_config import load_service_config_from_file
 
