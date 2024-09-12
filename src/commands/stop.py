@@ -9,6 +9,7 @@ from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
 from utils.docker_compose import run_docker_compose_command
 from utils.services import find_matching_service
+from utils.terminal import Status
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -34,6 +35,8 @@ def stop(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    run_docker_compose_command(
-        f"-f {service_config_file_path} down {mode_dependencies}"
-    )
+    with Status(f"Stopping {service_name}"):
+        run_docker_compose_command(
+            f"-f {service_config_file_path} down {mode_dependencies}"
+        )
+    print(f"{service_name} stopped")
