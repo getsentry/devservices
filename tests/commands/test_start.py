@@ -40,12 +40,14 @@ def test_start_simple(tmp_path: Path) -> None:
     start(args)
 
     # Check to make sure services are running
-    assert run_docker_compose_command(
-        f"-f {tmp_path}/{DEVSERVICES_DIR_NAME}/{DOCKER_COMPOSE_FILE_NAME} ps redis --format json"
-    )
-
-    assert run_docker_compose_command(
-        f"-f {tmp_path}/{DEVSERVICES_DIR_NAME}/{DOCKER_COMPOSE_FILE_NAME} ps clickhouse --format json"
+    docker_compose_ps_output = run_docker_compose_command(
+        f"-f {tmp_path}/{DEVSERVICES_DIR_NAME}/{DOCKER_COMPOSE_FILE_NAME} ps --services"
+    ).stdout
+    assert (
+        docker_compose_ps_output
+        == """clickhouse
+redis
+"""
     )
 
     run_docker_compose_command(
