@@ -74,7 +74,6 @@ def status(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    output = f"Service: {service.name}\n\n"
     mode_dependencies = " ".join(modes[mode_to_view])
     try:
         status_json = run_docker_compose_command(
@@ -83,6 +82,11 @@ def status(args: Namespace) -> None:
     except DockerComposeError as dce:
         print(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)
+    # If the service is not running, the status_json will be empty
+    if not status_json:
+        print(f"{service.name} is not running")
+        return
+    output = f"Service: {service.name}\n\n"
     output += format_status_output(status_json)
     output += "=" * LINE_LENGTH
     sys.stdout.write(output + "\n")
