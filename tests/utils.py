@@ -5,7 +5,9 @@ from pathlib import Path
 import yaml
 
 
-def create_config_file(tmp_path: Path, config: dict[str, object]) -> None:
+def create_config_file(
+    tmp_path: Path, config: dict[str, object] | dict[str, dict[str, object]]
+) -> None:
     devservices_dir = Path(tmp_path, "devservices")
     devservices_dir.mkdir(parents=True, exist_ok=True)
     tmp_file = Path(devservices_dir, "docker-compose.yml")
