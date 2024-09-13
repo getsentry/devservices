@@ -9,6 +9,7 @@ from argparse import Namespace
 
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
+from exceptions import DockerComposeError
 from utils.docker_compose import run_docker_compose_command
 from utils.services import find_matching_service
 
@@ -74,9 +75,13 @@ def status(args: Namespace) -> None:
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
     mode_dependencies = " ".join(modes[mode_to_view])
-    status_json = run_docker_compose_command(
-        f"-f {service_config_file_path} ps {mode_dependencies} --format json"
-    ).stdout
+    try:
+        status_json = run_docker_compose_command(
+            f"-f {service_config_file_path} ps {mode_dependencies} --format json"
+        ).stdout
+    except DockerComposeError as dce:
+        print(f"Failed to get status for {service.name}: {dce.stderr}")
+        exit(1)
     # If the service is not running, the status_json will be empty
     if not status_json:
         print(f"{service.name} is not running")
