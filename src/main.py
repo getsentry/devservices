@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 
 import sentry_sdk
 from commands import list_dependencies
@@ -19,6 +20,11 @@ sentry_sdk.init(
     enable_tracing=True,
     integrations=[ArgvIntegration()],
 )
+
+
+@atexit.register
+def cleanup() -> None:
+    sentry_sdk.flush()
 
 
 def main() -> None:
