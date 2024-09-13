@@ -12,6 +12,15 @@ from commands import stop
 from sentry_sdk.integrations.argv import ArgvIntegration
 
 
+sentry_sdk.init(
+    dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
+    traces_sample_rate=1.0,
+    profiles_sample_rate=1.0,
+    enable_tracing=True,
+    integrations=[ArgvIntegration()],
+)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="DevServices CLI tool for managing Docker Compose services."
@@ -29,18 +38,6 @@ def main() -> None:
     logs.add_parser(subparsers)
 
     args = parser.parse_args()
-
-    # Set up Sentry
-    sentry_sdk.init(
-        dsn="https://e9f6505edbde9a6b4528b7f56ce0c508@o1383316.ingest.us.sentry.io/4507942331875328",
-        # Set traces_sample_rate to 1.0 to capture 100%
-        # of transactions for performance monitoring.
-        traces_sample_rate=1.0,
-        # Enable performance monitoring
-        enable_tracing=True,
-        # Enable the Argv integration
-        integrations=[ArgvIntegration()],
-    )
 
     if args.command:
         # Call the appropriate function based on the command
