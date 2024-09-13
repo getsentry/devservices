@@ -4,19 +4,12 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-import yaml
 from configs.service_config import load_service_config_from_file
 from exceptions import ConfigNotFoundError
 from exceptions import ConfigParseError
 from exceptions import ConfigValidationError
 
-
-def create_config_file(tmp_path: Path, config: dict[str, dict[str, object]]) -> None:
-    devservices_dir = Path(tmp_path, "devservices")
-    devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "docker-compose.yml")
-    with tmp_file.open("w") as f:
-        yaml.dump(config, f, sort_keys=False, default_flow_style=False)
+from tests.utils import create_config_file
 
 
 @pytest.mark.parametrize(
@@ -67,7 +60,8 @@ def test_load_service_config_from_file(
             "service_name": service_name,
             "dependencies": {key: value for key, value in dependencies.items()},
             "modes": {key: value for key, value in modes.items()},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -89,7 +83,8 @@ def test_load_service_config_from_file_no_dependencies(tmp_path: Path) -> None:
             "version": 0.1,
             "service_name": "example-service",
             "modes": {"default": []},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -120,7 +115,8 @@ def test_load_service_config_from_file_invalid_version(tmp_path: Path) -> None:
                 "example-dependency": {"description": "Example dependency"}
             },
             "modes": {"default": ["example-dependency"]},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -136,7 +132,8 @@ def test_load_service_config_from_file_missing_version(tmp_path: Path) -> None:
                 "example-dependency": {"description": "Example dependency"}
             },
             "modes": {"default": ["example-dependency"]},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -153,7 +150,8 @@ def test_load_service_config_from_file_missing_service_name(tmp_path: Path) -> N
                 "example-dependency": {"description": "Example dependency"}
             },
             "modes": {"default": ["example-dependency"]},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -171,7 +169,8 @@ def test_load_service_config_from_file_invalid_dependency(tmp_path: Path) -> Non
                 "example-dependency": {"description": "Example dependency"}
             },
             "modes": {"default": ["example-dependency", "unknown-dependency"]},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -192,7 +191,8 @@ def test_load_service_config_from_file_missing_default_mode(tmp_path: Path) -> N
                 "example-dependency": {"description": "Example dependency"}
             },
             "modes": {"custom": ["example-dependency"]},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -209,7 +209,8 @@ def test_load_service_config_from_file_no_modes(tmp_path: Path) -> None:
             "dependencies": {
                 "example-dependency": {"description": "Example dependency"}
             },
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -230,7 +231,8 @@ def test_load_service_config_from_file_invalid_dependencies(tmp_path: Path) -> N
                 }
             },
             "modes": {"default": ["example-dependency"]},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -254,7 +256,8 @@ def test_load_service_config_from_file_invalid_modes(tmp_path: Path) -> None:
                 "default": ["example-dependency"],
                 "custom": "example-dependency",
             },
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 
@@ -274,7 +277,8 @@ def test_load_service_config_from_file_no_x_sentry_service_config(
                 "example-dependency": {"description": "Example dependency"}
             },
             "modes": {"default": ["example-dependency"]},
-        }
+        },
+        "services": {},
     }
     create_config_file(tmp_path, config)
 

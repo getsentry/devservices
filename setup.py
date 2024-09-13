@@ -11,7 +11,7 @@ setup(
     include_package_data=True,
     install_requires=["pyyaml", "sentry-devenv"],
     extras_requires={
-        "dev": ["black", "mypy", "pre-commit", "pytest", "types-PyYAML"],
+        "dev": ["black", "mypy", "pre-commit", "pytest", "types-PyYAML", "types-mock"],
     },
     entry_points={
         "console_scripts": [
