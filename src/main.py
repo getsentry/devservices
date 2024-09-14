@@ -1,13 +1,30 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 
+import sentry_sdk
 from commands import list_dependencies
 from commands import list_services
 from commands import logs
 from commands import start
 from commands import status
 from commands import stop
+from sentry_sdk.integrations.argv import ArgvIntegration
+
+
+sentry_sdk.init(
+    dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
+    traces_sample_rate=1.0,
+    profiles_sample_rate=1.0,
+    enable_tracing=True,
+    integrations=[ArgvIntegration()],
+)
+
+
+@atexit.register
+def cleanup() -> None:
+    sentry_sdk.flush()
 
 
 def main() -> None:
@@ -30,7 +47,8 @@ def main() -> None:
 
     if args.command:
         # Call the appropriate function based on the command
-        args.func(args)
+        with sentry_sdk.start_transaction(op="command", name=args.command):
+            args.func(args)
     else:
         parser.print_help()
 

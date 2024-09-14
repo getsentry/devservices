@@ -7,6 +7,7 @@ from argparse import Namespace
 
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
+from exceptions import DockerComposeError
 from utils.docker_compose import run_docker_compose_command
 from utils.services import find_matching_service
 from utils.terminal import Status
@@ -36,7 +37,11 @@ def stop(args: Namespace) -> None:
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
     with Status(f"Stopping {service_name}"):
-        run_docker_compose_command(
-            f"-f {service_config_file_path} down {mode_dependencies}"
-        )
+        try:
+            run_docker_compose_command(
+                f"-f {service_config_file_path} down {mode_dependencies}"
+            )
+        except DockerComposeError as dce:
+            print(f"Failed to stop {service.name}: {dce.stderr}")
+            exit(1)
     print(f"{service_name} stopped")

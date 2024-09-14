@@ -29,3 +29,13 @@ class ConfigParseError(ConfigError):
     """Raised when a configuration file cannot be parsed."""
 
     pass
+
+
+class DockerComposeError(Exception):
+    """Base class for Docker Compose related errors."""
+
+    def __init__(self, command: str, returncode: int, stdout: str, stderr: str):
+        self.command = command
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
