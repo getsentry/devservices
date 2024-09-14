@@ -4,19 +4,22 @@ import sys
 import threading
 import time
 from types import TracebackType
-from typing import Type
 
 
-ANIMATION_FRAMES = ["⠁", "⠃", "⠇", "⠏", "⠟", "⠿"]
+ANIMATION_FRAMES = ("⠟", "⠯", "⠷", "⠾", "⠽", "⠻")
 
 
 class Status:
     """Shows loading status in the terminal."""
 
-    def __init__(self, start_message: str | None) -> None:
+    def __init__(
+        self, start_message: str | None = None, end_message: str | None = None
+    ) -> None:
         self.start_message = start_message
+        self.end_message = end_message
         self._stop_loading = threading.Event()
         self._loading_thread = threading.Thread(target=self._loading_animation)
+        self._exception_occured = False
 
     def print(self, message: str) -> None:
         sys.stdout.write("\r" + message + "\n")
@@ -32,6 +35,8 @@ class Status:
         self._loading_thread.join()
         sys.stdout.write("\r")
         sys.stdout.flush()
+        if self.end_message and not self._exception_occured:
+            print(self.end_message)
 
     def _loading_animation(self) -> None:
         idx = 0
@@ -47,12 +52,17 @@ class Status:
 
     def __exit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_inst: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> bool:
+        self._exception_occured = exc_type is not None
         self.stop()
         if exc_type:
-            print(f"An error occurred: {exc_inst}")
-            return True
+            if exc_type in (KeyboardInterrupt,):
+                # Don't print anything if the user interrupts the process
+                return True
+            else:
+                print(f"An error occurred: {exc_inst}")
+                return True
         return False
