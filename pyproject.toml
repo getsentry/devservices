@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devservices"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml",
+    "sentry-devenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "types-PyYAML",
+]
+
+[project.scripts]
+devservices = "main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = {find = {where = ["src"]}}
+include-package-data = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "yaml.*"
+ignore_missing_imports = true
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E501"]
