@@ -4,8 +4,8 @@ import os
 import subprocess
 from argparse import Namespace
 from pathlib import Path
+from unittest import mock
 
-import mock
 import pytest
 from commands.start import start
 from constants import DEVSERVICES_DIR_NAME
