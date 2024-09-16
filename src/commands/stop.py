@@ -36,7 +36,7 @@ def stop(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    with Status(f"Stopping {service_name}", f"{service_name} stopped"):
+    with Status(f"Stopping {service.name}", f"{service.name} stopped"):
         try:
             run_docker_compose_command(
                 f"-f {service_config_file_path} down {mode_dependencies}"

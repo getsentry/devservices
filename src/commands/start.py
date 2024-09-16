@@ -36,7 +36,7 @@ def start(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    with Status(f"Starting {service_name}", f"{service_name} started"):
+    with Status(f"Starting {service.name}", f"{service.name} started"):
         try:
             run_docker_compose_command(
                 f"-f {service_config_file_path} up -d {mode_dependencies}"
