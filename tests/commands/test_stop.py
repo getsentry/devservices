@@ -4,15 +4,15 @@ import os
 import subprocess
 from argparse import Namespace
 from pathlib import Path
+from unittest import mock
 
-import mock
 import pytest
 from commands.stop import stop
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
 from utils.docker_compose import run_docker_compose_command
 
-from tests.utils import create_config_file
+from tests.testutils import create_config_file
 
 
 def test_stop_simple(tmp_path: Path) -> None:
