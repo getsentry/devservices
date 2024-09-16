@@ -9,7 +9,7 @@ from exceptions import ConfigNotFoundError
 from exceptions import ConfigParseError
 from exceptions import ConfigValidationError
 
-from tests.utils import create_config_file
+from tests.testutils import create_config_file
 
 
 @pytest.mark.parametrize(
