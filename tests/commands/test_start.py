@@ -93,5 +93,5 @@ def test_start_error(
     captured = capsys.readouterr()
 
     assert (
-        captured.out.strip() == "Failed to start example-service: Docker Compose error"
+        "Failed to start example-service: Docker Compose error" in captured.out.strip()
     )

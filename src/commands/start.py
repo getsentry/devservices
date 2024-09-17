@@ -36,11 +36,11 @@ def start(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    with Status(f"Starting {service.name}", f"{service.name} started"):
+    with Status(f"Starting {service.name}", f"{service.name} started") as status:
         try:
             run_docker_compose_command(
                 f"-f {service_config_file_path} up -d {mode_dependencies}"
             )
         except DockerComposeError as dce:
-            print(f"Failed to start {service.name}: {dce.stderr}")
+            status.print(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
