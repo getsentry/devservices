@@ -7,6 +7,7 @@ import sentry_sdk
 from commands import list_dependencies
 from commands import list_services
 from commands import logs
+from commands import remove
 from commands import start
 from commands import status
 from commands import stop
@@ -41,6 +42,7 @@ def main() -> None:
     list_services.add_parser(subparsers)
     status.add_parser(subparsers)
     logs.add_parser(subparsers)
+    remove.add_parser(subparsers)
 
     args = parser.parse_args()
 
