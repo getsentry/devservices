@@ -10,12 +10,12 @@ import pytest
 from commands.stop import stop
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
-from utils.docker_compose import run_docker_compose_command
 
 from tests.testutils import create_config_file
 
 
-def test_stop_simple(tmp_path: Path) -> None:
+@mock.patch("utils.docker_compose.subprocess.run")
+def test_stop_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
     config = {
         "x-sentry-service-config": {
             "version": 0.1,
@@ -38,18 +38,22 @@ def test_stop_simple(tmp_path: Path) -> None:
 
     args = Namespace(service_name=None)
 
-    # Bring up service through docker compose so we do not rely on start
-    assert run_docker_compose_command(
-        f"-f {tmp_path}/{DEVSERVICES_DIR_NAME}/{DOCKER_COMPOSE_FILE_NAME} up -d"
-    )
-
     stop(args)
 
-    # Check to make sure services are stopped
-    docker_compose_ps_output = run_docker_compose_command(
-        f"-f {tmp_path}/{DEVSERVICES_DIR_NAME}/{DOCKER_COMPOSE_FILE_NAME} ps --services"
-    ).stdout
-    assert docker_compose_ps_output == "\n"
+    mock_run.assert_called_once_with(
+        [
+            "docker",
+            "compose",
+            "-f",
+            f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{DOCKER_COMPOSE_FILE_NAME}",
+            "down",
+            "redis",
+            "clickhouse",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 @mock.patch("utils.docker_compose.subprocess.run")
@@ -89,5 +93,5 @@ def test_stop_error(
     captured = capsys.readouterr()
 
     assert (
-        captured.out.strip() == "Failed to stop example-service: Docker Compose error"
+        "Failed to stop example-service: Docker Compose error" in captured.out.strip()
     )

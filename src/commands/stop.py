@@ -36,11 +36,11 @@ def stop(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    with Status(f"Stopping {service.name}", f"{service.name} stopped"):
+    with Status(f"Stopping {service.name}", f"{service.name} stopped") as status:
         try:
             run_docker_compose_command(
                 f"-f {service_config_file_path} down {mode_dependencies}"
             )
         except DockerComposeError as dce:
-            print(f"Failed to stop {service.name}: {dce.stderr}")
+            status.print(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
