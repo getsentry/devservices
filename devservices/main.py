@@ -4,13 +4,14 @@ import argparse
 import atexit
 
 import sentry_sdk
-from commands import list_dependencies
-from commands import list_services
-from commands import logs
-from commands import start
-from commands import status
-from commands import stop
 from sentry_sdk.integrations.argv import ArgvIntegration
+
+from devservices.commands import list_dependencies
+from devservices.commands import list_services
+from devservices.commands import logs
+from devservices.commands import start
+from devservices.commands import status
+from devservices.commands import stop
 
 sentry_sdk.init(
     dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",

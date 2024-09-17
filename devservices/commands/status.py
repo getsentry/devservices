@@ -7,11 +7,11 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from constants import DEVSERVICES_DIR_NAME
-from constants import DOCKER_COMPOSE_FILE_NAME
-from exceptions import DockerComposeError
-from utils.docker_compose import run_docker_compose_command
-from utils.services import find_matching_service
+from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_FILE_NAME
+from devservices.exceptions import DockerComposeError
+from devservices.utils.docker_compose import run_docker_compose_command
+from devservices.utils.services import find_matching_service
 
 LINE_LENGTH = 40
 
@@ -70,11 +70,10 @@ def status(args: Namespace) -> None:
     modes = service.config.modes
     # TODO: allow custom modes to be used
     mode_to_view = "default"
-    mode_dependencies = modes[mode_to_view]
+    mode_dependencies = " ".join(modes[mode_to_view])
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    mode_dependencies = " ".join(modes[mode_to_view])
     try:
         status_json = run_docker_compose_command(
             f"-f {service_config_file_path} ps {mode_dependencies} --format json"

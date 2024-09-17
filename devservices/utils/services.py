@@ -3,12 +3,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from configs.service_config import ServiceConfig
-from exceptions import ConfigNotFoundError
-from exceptions import ConfigParseError
-from exceptions import ConfigValidationError
-from exceptions import ServiceNotFoundError
-from utils.devenv import get_coderoot
+from devservices.configs.service_config import ServiceConfig
+from devservices.exceptions import ConfigNotFoundError
+from devservices.exceptions import ConfigParseError
+from devservices.exceptions import ConfigValidationError
+from devservices.exceptions import ServiceNotFoundError
+from devservices.utils.devenv import get_coderoot
 
 
 @dataclass
@@ -20,7 +20,7 @@ class Service:
 
 def get_local_services(coderoot: str) -> list[Service]:
     """Get a list of services in the coderoot."""
-    from configs.service_config import load_service_config_from_file
+    from devservices.configs.service_config import load_service_config_from_file
 
     services = []
     for repo in os.listdir(coderoot):
@@ -43,7 +43,7 @@ def get_local_services(coderoot: str) -> list[Service]:
 def find_matching_service(service_name: str | None = None) -> Service:
     """Find a service with the given name."""
     if service_name is None:
-        from configs.service_config import load_service_config_from_file
+        from devservices.configs.service_config import load_service_config_from_file
 
         repo_path = os.getcwd()
         service_config = load_service_config_from_file(repo_path)

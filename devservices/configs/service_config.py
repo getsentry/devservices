@@ -4,12 +4,12 @@ import os
 from dataclasses import dataclass
 
 import yaml
-from constants import DEVSERVICES_DIR_NAME
-from constants import DOCKER_COMPOSE_FILE_NAME
-from exceptions import ConfigNotFoundError
-from exceptions import ConfigParseError
-from exceptions import ConfigValidationError
 
+from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_FILE_NAME
+from devservices.exceptions import ConfigNotFoundError
+from devservices.exceptions import ConfigParseError
+from devservices.exceptions import ConfigValidationError
 
 VALID_VERSIONS = [0.1]
 

@@ -22,12 +22,11 @@ dev = [
 ]
 
 [project.scripts]
-devservices = "main:main"
+devservices = "devservices.main:main"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-packages = {find = {where = ["src"]}}
-include-package-data = true
+[tool.setuptools.packages]
+find = {}
+
 
 [tool.mypy]
 python_version = "3.12"
