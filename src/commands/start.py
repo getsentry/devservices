@@ -8,6 +8,7 @@ from argparse import Namespace
 from constants import DEVSERVICES_DIR_NAME
 from constants import DOCKER_COMPOSE_FILE_NAME
 from exceptions import DockerComposeError
+from utils.console import Status
 from utils.docker_compose import run_docker_compose_command
 from utils.services import find_matching_service
 
@@ -35,10 +36,11 @@ def start(args: Namespace) -> None:
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
     )
-    try:
-        run_docker_compose_command(
-            f"-f {service_config_file_path} up -d {mode_dependencies}"
-        )
-    except DockerComposeError as dce:
-        print(f"Failed to start {service.name}: {dce.stderr}")
-        exit(1)
+    with Status(f"Starting {service.name}", f"{service.name} started") as status:
+        try:
+            run_docker_compose_command(
+                f"-f {service_config_file_path} up -d {mode_dependencies}"
+            )
+        except DockerComposeError as dce:
+            status.print(f"Failed to start {service.name}: {dce.stderr}")
+            exit(1)
