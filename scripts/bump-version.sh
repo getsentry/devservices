@@ -13,4 +13,4 @@ function replace() {
     grep "$2" "$3"  # verify that replacement was successful
 }
 
-replace "version=\"[0-9.]+\"" "version = \"$NEW_VERSION\"" pyproject.toml
+replace "version = \"$OLD_VERSION\"" "version = \"$NEW_VERSION\"" pyproject.toml

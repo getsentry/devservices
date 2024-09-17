@@ -12,7 +12,6 @@ from commands import status
 from commands import stop
 from sentry_sdk.integrations.argv import ArgvIntegration
 
-
 sentry_sdk.init(
     dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
     traces_sample_rate=1.0,
@@ -31,7 +30,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="DevServices CLI tool for managing Docker Compose services."
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 0.0.1")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
