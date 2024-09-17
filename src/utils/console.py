@@ -63,6 +63,5 @@ class Status:
                 # Don't print anything if the user interrupts the process
                 return True
             else:
-                print(f"An error occurred: {exc_inst}")
-                return True
+                return False
         return False

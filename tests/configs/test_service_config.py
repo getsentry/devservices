@@ -4,19 +4,12 @@ from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-import yaml
 from configs.service_config import load_service_config_from_file
 from exceptions import ConfigNotFoundError
 from exceptions import ConfigParseError
 from exceptions import ConfigValidationError
 
-
-def create_config_file(tmp_path: Path, config: dict[str, dict[str, object]]) -> None:
-    devservices_dir = Path(tmp_path, "devservices")
-    devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "docker-compose.yml")
-    with tmp_file.open("w") as f:
-        yaml.dump(config, f, sort_keys=False, default_flow_style=False)
+from tests.testutils import create_config_file
 
 
 @pytest.mark.parametrize(
