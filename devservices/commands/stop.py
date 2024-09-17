@@ -5,12 +5,12 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from constants import DEVSERVICES_DIR_NAME
-from constants import DOCKER_COMPOSE_FILE_NAME
-from exceptions import DockerComposeError
-from utils.console import Status
-from utils.docker_compose import run_docker_compose_command
-from utils.services import find_matching_service
+from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_FILE_NAME
+from devservices.exceptions import DockerComposeError
+from devservices.utils.console import Status
+from devservices.utils.docker_compose import run_docker_compose_command
+from devservices.utils.services import find_matching_service
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:

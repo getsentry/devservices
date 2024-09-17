@@ -7,14 +7,14 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from commands.start import start
-from constants import DEVSERVICES_DIR_NAME
-from constants import DOCKER_COMPOSE_FILE_NAME
 
+from devservices.commands.start import start
+from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_FILE_NAME
 from tests.testutils import create_config_file
 
 
-@mock.patch("utils.docker_compose.subprocess.run")
+@mock.patch("devservices.utils.docker_compose.subprocess.run")
 def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
     config = {
         "x-sentry-service-config": {
@@ -56,7 +56,7 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
     )
 
 
-@mock.patch("utils.docker_compose.subprocess.run")
+@mock.patch("devservices.utils.docker_compose.subprocess.run")
 def test_start_error(
     mock_run: mock.Mock, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

@@ -4,7 +4,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from utils.services import find_matching_service
+from devservices.utils.services import find_matching_service
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:

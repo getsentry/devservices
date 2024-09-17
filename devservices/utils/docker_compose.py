@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import subprocess
 
-from exceptions import DockerComposeError
+from devservices.exceptions import DockerComposeError
 
 
 def run_docker_compose_command(command: str) -> subprocess.CompletedProcess[str]:
