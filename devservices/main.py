@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+from importlib import metadata
 
 import sentry_sdk
 from sentry_sdk.integrations.argv import ArgvIntegration
@@ -31,7 +32,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="DevServices CLI tool for managing Docker Compose services."
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.0.1")
+    parser.add_argument(
+        "--version", action="version", version=metadata.version("devservices")
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
