@@ -30,13 +30,14 @@ def cleanup() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="DevServices CLI tool for managing Docker Compose services."
+        description="CLI tool for managing service dependencies.",
+        usage="devservices [-h] [--version] COMMAND ...",
     )
     parser.add_argument(
         "--version", action="version", version=metadata.version("devservices")
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(dest="command", title="commands", metavar="")
 
     # Add subparsers for each command
     start.add_parser(subparsers)
