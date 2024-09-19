@@ -47,7 +47,6 @@ def format_status_output(status_json: str) -> str:
 
         if ports:
             output.append("Ports:")
-            print(ports)
             for port in ports:
                 output.append(
                     f"  {port['URL']}:{port['PublishedPort']} -> {port['TargetPort']}/{port['Protocol']}"
