@@ -27,8 +27,8 @@ jobs:
       - name: Cache dist
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
-          path: dist/*
-          key: devservices-dist-files
+          path: dist
+          key: devservices-dist-${{ github.sha }}
 
   binary:
     name: Build on ${{ matrix.os }}
@@ -70,7 +70,7 @@ jobs:
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
           path: ${{ steps.locate_binary.outputs.binary_path }}
-          key: ${{ matrix.asset_name }}
+          key: ${{ matrix.asset_name }}-${{ github.sha }}
 
 
   upload-artifacts:
@@ -83,19 +83,19 @@ jobs:
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
           path: dist
-          key: devservices-dist-files
+          key: devservices-dist-${{ github.sha }}
 
       - name: Restore Linux binary cache
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
           path: devservices-linux
-          key: devservices-linux
+          key: devservices-linux-${{ github.sha }}
 
       - name: Restore macOS binary cache
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
           path: devservices-darwin
-          key: devservices-darwin
+          key: devservices-darwin-${{ github.sha }}
 
       - name: Upload combined artifacts
         uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
