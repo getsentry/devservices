@@ -76,7 +76,7 @@ jobs:
   upload-artifacts:
     name: Upload build artifacts
     needs: [dist, binary]
-    if: github.event_name != 'pull_request'
+    # if: github.event_name != 'pull_request'
     steps:
       - name: Restore dist cache
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
