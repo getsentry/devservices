@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - release/**
+  pull_request:
 
 jobs:
   dist:
@@ -23,10 +24,11 @@ jobs:
       - name: "Prepare Artifacts"
         run: python -m build
 
-      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+      - name: Cache dist
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
-          name: ${{ github.sha }}
-          path: dist/*
+          path: dist
+          key: devservices-dist-files
 
   binary:
     name: Build on ${{ matrix.os }}
@@ -64,8 +66,42 @@ jobs:
         shell: bash
         run: echo "binary_path=$(find build -name devservices -type f)" >> $GITHUB_OUTPUT
 
-      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+      - name: Cache binary
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
-          name: ${{ matrix.asset_name }}
           path: ${{ steps.locate_binary.outputs.binary_path }}
+          key: ${{ matrix.asset_name }}
+
+
+  upload-artifacts:
+    name: Upload build artifacts
+    needs: [dist, binary]
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Restore dist cache
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: dist
+          key: devservices-dist-files
+
+      - name: Restore Linux binary cache
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: devservices-linux
+          key: devservices-linux
+
+      - name: Restore macOS binary cache
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: devservices-darwin
+          key: devservices-darwin
+
+      - name: Upload combined artifacts
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: ${{ github.sha }}
+          path: |
+            dist/*
+            devservices-linux
+            devservices-darwin
 
