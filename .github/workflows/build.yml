@@ -4,6 +4,8 @@ on:
     branches:
       - main
       - release/**
+  # delete after verifying CI
+  pull_request:
 
 jobs:
   dist:
