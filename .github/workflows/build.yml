@@ -9,7 +9,7 @@ on:
 jobs:
   dist:
     name: Create Distribution
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -75,6 +75,7 @@ jobs:
 
   upload-artifacts:
     name: Upload build artifacts
+    runs-on: ubuntu-22.04
     needs: [dist, binary]
     # if: github.event_name != 'pull_request'
     steps:
