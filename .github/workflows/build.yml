@@ -23,3 +23,38 @@ jobs:
         with:
           name: ${{ github.sha }}
           path: dist/*
+
+    binary:
+      name: Build on ${{ matrix.os }}
+      runs-on: ${{ matrix.os }}
+      strategy:
+        matrix:
+          os: [ubuntu-22.04, macos-14]
+          include:
+            - os: ubuntu-latest
+              asset_name: devservices-linux
+            - os: macos-latest
+              asset_name: devservices-macos
+
+      steps:
+        - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+          with:
+            python-version: 3.12
+
+        - name: Install pyoxidizer
+          run: pip install pyoxidizer==0.24.0
+
+        - name: Build binary
+          run: pyoxidizer build --release
+
+        - name: Locate binary
+          id: locate_binary
+          shell: bash
+          run: echo "::set-output name=binary_path::$(find build -name devservices -type f)"
+
+        - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+          with:
+            name: ${{ github.sha }}
+            path: ${{ steps.locate_binary.outputs.binary_path }}
+

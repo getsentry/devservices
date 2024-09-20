@@ -30,7 +30,8 @@ def cleanup() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="DevServices CLI tool for managing Docker Compose services."
+        prog="devservices",
+        description="DevServices CLI tool for managing Docker Compose services.",
     )
     parser.add_argument(
         "--version", action="version", version=metadata.version("devservices")
