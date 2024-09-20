@@ -44,6 +44,9 @@ jobs:
         with:
           python-version: 3.12
 
+      - name: Install pyoxidizer
+        run: pip install pyoxidizer==0.24.0
+
       - name: Install dev requirements
         run: pip install -r requirements-dev.txt
 
