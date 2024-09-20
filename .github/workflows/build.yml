@@ -27,7 +27,7 @@ jobs:
       - name: Cache dist
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
-          path: dist
+          path: dist/*
           key: devservices-dist-files
 
   binary:
