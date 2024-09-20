@@ -36,7 +36,7 @@ jobs:
           - os: ubuntu-22.04
             asset_name: devservices-linux
           - os: macos-14
-            asset_name: devservices-macos
+            asset_name: devservices-darwin
 
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -59,4 +59,5 @@ jobs:
         with:
           name: ${{ github.sha }}
           path: ${{ steps.locate_binary.outputs.binary_path }}
+          name: ${{ ${{ matrix.asset_name }}
 
