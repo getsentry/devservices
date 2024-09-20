@@ -64,6 +64,7 @@ def make_exe():
 
     # Invoke `pip install` using a requirements file and add the collected resources
     # to our binary.
+    exe.add_python_resources(exe.pip_install(["."], optimize=True))
     exe.add_python_resources(exe.pip_install(["-r", "requirements.txt"]))
 
 
