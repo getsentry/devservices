@@ -47,6 +47,11 @@ jobs:
       - name: Install pyoxidizer
         run: pip install pyoxidizer==0.24.0
 
+      - name: Generate metadata
+        run: |
+          pip install build
+          python -m build --sdist --no-isolation
+
       - name: Build binary
         run: pyoxidizer build --release
 
