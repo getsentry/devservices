@@ -64,12 +64,15 @@ jobs:
       - name: Locate binary
         id: locate_binary
         shell: bash
-        run: echo "binary_path=$(find build -name devservices -type f)" >> $GITHUB_OUTPUT
+        run: |
+          echo "binary_path=$(find build -name devservices -type f)" >> $GITHUB_OUTPUT
+          mkdir -p binaries
+          cp $BINARY_PATH binaries/${{ matrix.asset_name }}
 
       - name: Cache binary
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
-          path: ${{ steps.locate_binary.outputs.binary_path }}
+          path: binaries/${{ matrix.asset_name }}
           key: ${{ matrix.asset_name }}-${{ github.sha }}
 
 
@@ -88,13 +91,13 @@ jobs:
       - name: Restore Linux binary cache
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
-          path: devservices-linux
+          path: binaries/devservices-linux
           key: devservices-linux-${{ github.sha }}
 
       - name: Restore macOS binary cache
         uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
         with:
-          path: devservices-darwin
+          path: binaries/devservices-darwin
           key: devservices-darwin-${{ github.sha }}
 
       - name: Upload combined artifacts
