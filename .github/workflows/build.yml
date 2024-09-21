@@ -106,6 +106,6 @@ jobs:
           name: ${{ github.sha }}
           path: |
             dist/*
-            devservices-linux
-            devservices-darwin
+            binaries/devservices-darwin
+            binaries/devservices-linux
 
