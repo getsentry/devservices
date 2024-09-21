@@ -65,7 +65,7 @@ jobs:
         id: locate_binary
         shell: bash
         run: |
-          echo "binary_path=$(find build -name devservices -type f)" >> $GITHUB_OUTPUT
+          BINARY_PATH=$(find build -name devservices -type f)
           mkdir -p binaries
           cp $BINARY_PATH binaries/${{ matrix.asset_name }}
 
