@@ -30,6 +30,7 @@ def cleanup() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
+        prog="devservices",
         description="CLI tool for managing service dependencies.",
         usage="devservices [-h] [--version] COMMAND ...",
     )

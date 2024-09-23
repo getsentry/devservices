@@ -7,3 +7,7 @@ targets:
   - name: pypi
   - name: sentry-pypi
     internalPypiRepo: getsentry/pypi
+
+requireNames:
+  - /^devservices-darwin$/
+  - /^devservices-linux$/

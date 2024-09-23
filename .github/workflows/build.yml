@@ -4,22 +4,107 @@ on:
     branches:
       - main
       - release/**
+  pull_request:
 
 jobs:
   dist:
     name: Create Distribution
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
       - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: 3.12
+
+      - name: Install dev requirements
+        run: pip install -r requirements-dev.txt
+
       - name: "Prepare Artifacts"
+        run: python -m build
+
+      - name: Cache dist
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: dist
+          key: devservices-dist-${{ github.sha }}
+
+  binary:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-14]
+        include:
+          - os: ubuntu-22.04
+            asset_name: devservices-linux
+          - os: macos-14
+            asset_name: devservices-darwin
+
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: 3.12
+
+      - name: Install pyoxidizer
+        run: pip install pyoxidizer==0.24.0
+
+      - name: Install dev requirements
+        run: pip install -r requirements-dev.txt
+
+      - name: Generate metadata
+        run: python -m build --sdist --no-isolation
+
+      - name: Build binary
+        run: pyoxidizer build --release
+
+      - name: Locate binary
+        id: locate_binary
+        shell: bash
         run: |
-          pip install build
-          python -m build
-      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+          BINARY_PATH=$(find build -name devservices -type f)
+          mkdir -p binaries
+          cp $BINARY_PATH binaries/${{ matrix.asset_name }}
+
+      - name: Cache binary
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: binaries/${{ matrix.asset_name }}
+          key: ${{ matrix.asset_name }}-${{ github.sha }}
+
+
+  upload-artifacts:
+    name: Upload build artifacts
+    runs-on: ubuntu-22.04
+    needs: [dist, binary]
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Restore dist cache
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: dist
+          key: devservices-dist-${{ github.sha }}
+
+      - name: Restore Linux binary cache
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: binaries/devservices-linux
+          key: devservices-linux-${{ github.sha }}
+
+      - name: Restore macOS binary cache
+        uses: actions/cache@ab5e6d0c87105b4c9c2047343972218f562e4319 # v4.0.1
+        with:
+          path: binaries/devservices-darwin
+          key: devservices-darwin-${{ github.sha }}
+
+      - name: Upload combined artifacts
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: ${{ github.sha }}
-          path: dist/*
+          path: |
+            dist/*
+            binaries/*
+
