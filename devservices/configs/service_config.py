@@ -15,9 +15,16 @@ VALID_VERSIONS = [0.1]
 
 
 @dataclass
+class RemoteConfig:
+    repo_name: str
+    branch: str
+    repo_link: str
+
+
+@dataclass
 class Dependency:
     description: str
-    link: str | None = None
+    remote: RemoteConfig | None = None
 
 
 @dataclass

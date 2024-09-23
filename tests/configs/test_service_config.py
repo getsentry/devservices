@@ -25,7 +25,11 @@ from tests.testutils import create_config_file
             {
                 "example-dependency-1": {
                     "description": "Example dependency 1",
-                    "link": "https://example.com",
+                    "remote": {
+                        "repo_name": "example-dependency-1",
+                        "branch": "main",
+                        "repo_link": "https://example.com",
+                    },
                 },
                 "example-dependency-2": {
                     "description": "Example dependency 2",
@@ -38,7 +42,11 @@ from tests.testutils import create_config_file
             {
                 "example-dependency-1": {
                     "description": "Example dependency 1",
-                    "link": "https://example.com",
+                    "remote": {
+                        "repo_name": "example-dependency-1",
+                        "branch": "main",
+                        "repo_link": "https://example.com",
+                    },
                 },
                 "example-dependency-2": {
                     "description": "Example dependency 2",
@@ -69,7 +77,10 @@ def test_load_service_config_from_file(
         "version": 0.1,
         "service_name": service_name,
         "dependencies": {
-            key: {"description": value["description"], "link": value.get("link")}
+            key: {
+                "description": value["description"],
+                "remote": value.get("remote"),
+            }
             for key, value in dependencies.items()
         },
         "modes": modes,
