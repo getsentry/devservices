@@ -111,7 +111,7 @@ def test_load_service_config_from_file_missing_config(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Config file not found in directory: {tmp_path / 'devservices' / 'docker-compose.yml'}"
+        == f"Config file not found in directory: {tmp_path / 'devservices' / 'config.yml'}"
     )
 
 
@@ -298,7 +298,7 @@ def test_load_service_config_from_file_invalid_yaml(tmp_path: Path) -> None:
         default: ["example-dependency"]"""
     devservices_dir = Path(tmp_path, "devservices")
     devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "docker-compose.yml")
+    tmp_file = Path(devservices_dir, "config.yml")
     with tmp_file.open("w") as f:
         f.write(config)
 
@@ -306,7 +306,7 @@ def test_load_service_config_from_file_invalid_yaml(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Error parsing config file: mapping values are not allowed here\n  in \"{tmp_path / 'devservices' / 'docker-compose.yml'}\", line 2, column 12"
+        == f"Error parsing config file: mapping values are not allowed here\n  in \"{tmp_path / 'devservices' / 'config.yml'}\", line 2, column 12"
     )
 
 
@@ -322,7 +322,7 @@ def test_load_service_config_from_file_invalid_yaml_tag(tmp_path: Path) -> None:
         default: ["example-dependency"]"""
     devservices_dir = Path(tmp_path, "devservices")
     devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "docker-compose.yml")
+    tmp_file = Path(devservices_dir, "config.yml")
     with tmp_file.open("w") as f:
         f.write(config)
 
@@ -330,5 +330,5 @@ def test_load_service_config_from_file_invalid_yaml_tag(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Error parsing config file: could not determine a constructor for the tag 'tag:yaml.org,2002:invalid_tag'\n  in \"{tmp_path / 'devservices' / 'docker-compose.yml'}\", line 7, column 19"
+        == f"Error parsing config file: could not determine a constructor for the tag 'tag:yaml.org,2002:invalid_tag'\n  in \"{tmp_path / 'devservices' / 'config.yml'}\", line 7, column 19"
     )

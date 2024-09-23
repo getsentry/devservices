@@ -10,6 +10,6 @@ def create_config_file(
 ) -> None:
     devservices_dir = Path(tmp_path, "devservices")
     devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "docker-compose.yml")
+    tmp_file = Path(devservices_dir, "config.yml")
     with tmp_file.open("w") as f:
         yaml.dump(config, f, sort_keys=False, default_flow_style=False)

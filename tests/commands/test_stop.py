@@ -9,8 +9,8 @@ from unittest import mock
 import pytest
 
 from devservices.commands.stop import stop
+from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import DOCKER_COMPOSE_FILE_NAME
 from tests.testutils import create_config_file
 
 
@@ -45,7 +45,7 @@ def test_stop_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
             "docker",
             "compose",
             "-f",
-            f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{DOCKER_COMPOSE_FILE_NAME}",
+            f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
             "down",
             "redis",
             "clickhouse",
