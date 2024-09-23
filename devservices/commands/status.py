@@ -7,8 +7,8 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import DOCKER_COMPOSE_FILE_NAME
 from devservices.exceptions import DockerComposeError
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
@@ -72,7 +72,7 @@ def status(args: Namespace) -> None:
     mode_to_view = "default"
     mode_dependencies = " ".join(modes[mode_to_view])
     service_config_file_path = os.path.join(
-        service.repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
+        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     try:
         status_json = run_docker_compose_command(

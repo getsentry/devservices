@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 import yaml
 
+from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import DOCKER_COMPOSE_FILE_NAME
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
@@ -63,9 +63,7 @@ class ServiceConfig:
 
 
 def load_service_config_from_file(repo_path: str) -> ServiceConfig:
-    config_path = os.path.join(
-        repo_path, DEVSERVICES_DIR_NAME, DOCKER_COMPOSE_FILE_NAME
-    )
+    config_path = os.path.join(repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME)
     if not os.path.exists(config_path):
         raise ConfigNotFoundError(f"Config file not found in directory: {config_path}")
     with open(config_path, "r") as stream:
