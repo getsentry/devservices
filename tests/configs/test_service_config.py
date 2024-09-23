@@ -25,7 +25,11 @@ from tests.testutils import create_config_file
             {
                 "example-dependency-1": {
                     "description": "Example dependency 1",
-                    "link": "https://example.com",
+                    "remote": {
+                        "repo_name": "example-dependency-1",
+                        "branch": "main",
+                        "repo_link": "https://example.com",
+                    },
                 },
                 "example-dependency-2": {
                     "description": "Example dependency 2",
@@ -38,7 +42,11 @@ from tests.testutils import create_config_file
             {
                 "example-dependency-1": {
                     "description": "Example dependency 1",
-                    "link": "https://example.com",
+                    "remote": {
+                        "repo_name": "example-dependency-1",
+                        "branch": "main",
+                        "repo_link": "https://example.com",
+                    },
                 },
                 "example-dependency-2": {
                     "description": "Example dependency 2",
@@ -69,7 +77,10 @@ def test_load_service_config_from_file(
         "version": 0.1,
         "service_name": service_name,
         "dependencies": {
-            key: {"description": value["description"], "link": value.get("link")}
+            key: {
+                "description": value["description"],
+                "remote": value.get("remote"),
+            }
             for key, value in dependencies.items()
         },
         "modes": modes,
@@ -100,7 +111,7 @@ def test_load_service_config_from_file_missing_config(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Config file not found in directory: {tmp_path / 'devservices' / 'docker-compose.yml'}"
+        == f"Config file not found in directory: {tmp_path / 'devservices' / 'config.yml'}"
     )
 
 
@@ -287,7 +298,7 @@ def test_load_service_config_from_file_invalid_yaml(tmp_path: Path) -> None:
         default: ["example-dependency"]"""
     devservices_dir = Path(tmp_path, "devservices")
     devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "docker-compose.yml")
+    tmp_file = Path(devservices_dir, "config.yml")
     with tmp_file.open("w") as f:
         f.write(config)
 
@@ -295,7 +306,7 @@ def test_load_service_config_from_file_invalid_yaml(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Error parsing config file: mapping values are not allowed here\n  in \"{tmp_path / 'devservices' / 'docker-compose.yml'}\", line 2, column 12"
+        == f"Error parsing config file: mapping values are not allowed here\n  in \"{tmp_path / 'devservices' / 'config.yml'}\", line 2, column 12"
     )
 
 
@@ -311,7 +322,7 @@ def test_load_service_config_from_file_invalid_yaml_tag(tmp_path: Path) -> None:
         default: ["example-dependency"]"""
     devservices_dir = Path(tmp_path, "devservices")
     devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "docker-compose.yml")
+    tmp_file = Path(devservices_dir, "config.yml")
     with tmp_file.open("w") as f:
         f.write(config)
 
@@ -319,5 +330,5 @@ def test_load_service_config_from_file_invalid_yaml_tag(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Error parsing config file: could not determine a constructor for the tag 'tag:yaml.org,2002:invalid_tag'\n  in \"{tmp_path / 'devservices' / 'docker-compose.yml'}\", line 7, column 19"
+        == f"Error parsing config file: could not determine a constructor for the tag 'tag:yaml.org,2002:invalid_tag'\n  in \"{tmp_path / 'devservices' / 'config.yml'}\", line 7, column 19"
     )
