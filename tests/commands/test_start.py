@@ -11,7 +11,7 @@ import pytest
 from devservices.commands.start import start
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from tests.testutils import create_config_file
+from testing.utils import create_config_file
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
