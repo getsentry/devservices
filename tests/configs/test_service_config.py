@@ -9,7 +9,7 @@ from devservices.configs.service_config import load_service_config_from_file
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
-from tests.testutils import create_config_file
+from testing.utils import create_config_file
 
 
 @pytest.mark.parametrize(
