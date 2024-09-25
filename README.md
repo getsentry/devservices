@@ -6,6 +6,22 @@ A standalone cli tool used to manage dependencies for services. It simplifies th
 
 `devservices` reads configuration files located in the `devservices` directory of your repository. These configurations define services, their dependencies, and various modes of operation.
 
+## Installation
+
+A system-wide installation can be done by downloading the binary of the latest release
+
+```
+PLATFORM=darwin # Options: darwin/linux
+INSTALL_DIR="$HOME/.local/bin"
+curl -L "https://github.com/getsentry/devservices/releases/download/0.0.3/devservices-$PLATFORM" -o "$INSTALL_DIR/devservices"
+chmod +x "$INSTALL_DIR/devservices"
+```
+
+Alternatively, if the repository you're working in has a python virtualenv, you can simply add this to the requirements-dev.txt:
+
+```
+devservices==0.0.3
+```
 ## Usage
 
 devservices provides several commands to manage your services:
