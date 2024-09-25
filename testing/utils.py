@@ -33,7 +33,7 @@ def run_git_command(command: list[str], cwd: Path) -> None:
 def create_mock_git_repo(test_repo_src: str, path: Path) -> Path:
     resource_path = get_resource_path(test_repo_src)
     shutil.copytree(resource_path, path)
-    run_git_command(["init"], cwd=path)
+    run_git_command(["-c", "init.defaultBranch=main", "init"], cwd=path)
     run_git_command(["add", "."], cwd=path)
     run_git_command(["commit", "-m", "Initial commit"], cwd=path)
     return path

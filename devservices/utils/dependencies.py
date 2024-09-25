@@ -103,6 +103,7 @@ def _checkout_dependency(
     #       Doign so avoids the issue of updating the config if we inevitably change something.
     #       Alternatively, we can version the dependency directory.
     # Setup config for partial clone and sparse checkout
+    _run_command(["git", "config", "protocol.version", "2"], cwd=dependency_repo_dir)
     _run_command(
         ["git", "config", "extensions.partialClone", "true"], cwd=dependency_repo_dir
     )
