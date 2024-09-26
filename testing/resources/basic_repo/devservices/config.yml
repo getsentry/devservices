@@ -1,0 +1,6 @@
+x-sentry-service-config:
+    version: 0.1,
+    service_name: basic,
+    dependencies:
+    modes:
+      default:
