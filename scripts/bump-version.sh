@@ -14,3 +14,5 @@ function replace() {
 }
 
 replace "version = \"$OLD_VERSION\"" "version = \"$NEW_VERSION\"" pyproject.toml
+replace "devservices==$OLD_VERSION" "devservices==$NEW_VERSION" README.md
+replace "devservices\/releases\/download\/$OLD_VERSION\/" "devservices\/releases\/download\/$NEW_VERSION\/" README.md
