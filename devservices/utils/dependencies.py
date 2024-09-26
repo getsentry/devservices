@@ -100,7 +100,7 @@ def _checkout_dependency(
     )
 
     # TODO: Should we include this with every command we run instead of setting config?
-    #       Doign so avoids the issue of updating the config if we inevitably change something.
+    #       Doing so avoids the issue of updating the config if we inevitably change something.
     #       Alternatively, we can version the dependency directory.
     # Setup config for partial clone and sparse checkout
     _run_command(["git", "config", "protocol.version", "2"], cwd=dependency_repo_dir)
