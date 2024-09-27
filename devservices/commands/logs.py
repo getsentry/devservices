@@ -41,7 +41,7 @@ def logs(args: Namespace) -> None:
     )
     try:
         logs = run_docker_compose_command(
-            f"-f {service_config_file_path} logs {mode_dependencies}"
+            f"-p {service.name} -f {service_config_file_path} logs {mode_dependencies}"
         )
     except DockerComposeError as dce:
         print(f"Failed to get logs for {service.name}: {dce.stderr}")

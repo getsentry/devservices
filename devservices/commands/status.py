@@ -76,7 +76,7 @@ def status(args: Namespace) -> None:
     )
     try:
         status_json = run_docker_compose_command(
-            f"-f {service_config_file_path} ps {mode_dependencies} --format json"
+            f"-p {service.name} -f {service_config_file_path} ps {mode_dependencies} --format json"
         ).stdout
     except DockerComposeError as dce:
         print(f"Failed to get status for {service.name}: {dce.stderr}")
