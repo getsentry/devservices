@@ -39,3 +39,9 @@ class DockerComposeError(Exception):
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
+
+
+class DependencyError(Exception):
+    """Base class for dependency-related errors."""
+
+    pass

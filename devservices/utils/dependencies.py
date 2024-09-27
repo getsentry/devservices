@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
@@ -11,6 +12,7 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
+from devservices.exceptions import DependencyError
 
 
 def install_dependencies(dependencies: list[Dependency]) -> None:
@@ -43,8 +45,7 @@ def install_dependency(dependency: RemoteConfig) -> None:
         DEVSERVICES_LOCAL_DEPENDENCIES_DIR, dependency.repo_name
     )
 
-    # TODO: make this smarter (check if a valid repo)
-    if os.path.exists(dependency_repo_dir):
+    if os.path.exists(dependency_repo_dir) and _is_valid_repo(dependency_repo_dir):
         _update_dependency(dependency, dependency_repo_dir)
     else:
         _checkout_dependency(dependency, dependency_repo_dir)
@@ -54,10 +55,13 @@ def _update_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
-    _run_command(
-        ["git", "fetch", "origin", dependency.branch, "--filter=blob:none"],
-        dependency_repo_dir,
-    )
+    try:
+        _run_command(
+            ["git", "fetch", "origin", dependency.branch, "--filter=blob:none"],
+            cwd=dependency_repo_dir,
+        )
+    except subprocess.CalledProcessError:
+        raise DependencyError
 
     # Check if the local repo is up-to-date
     local_commit = subprocess.check_output(
@@ -76,16 +80,17 @@ def _update_dependency(
         # Already up-to-date, don't pull anything
         return
 
-    # If it's not up-to-date, checkout the latest changes
-    _run_command(["git", "checkout", "FETCH_HEAD"], cwd=dependency_repo_dir)
+    # If it's not up-to-date, checkout the latest changes (forcibly)
+    _run_command(["git", "checkout", "-f", "FETCH_HEAD"], cwd=dependency_repo_dir)
 
 
 def _checkout_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
-    # TODO: Should we clean up the directory if it already exists?
-    os.makedirs(dependency_repo_dir, exist_ok=True)
+    if os.path.exists(dependency_repo_dir):
+        shutil.rmtree(dependency_repo_dir)
+    os.makedirs(dependency_repo_dir, exist_ok=False)
 
     _run_command(
         [
@@ -120,6 +125,16 @@ def _checkout_dependency(
         ["git", "checkout", dependency.branch],
         cwd=dependency_repo_dir,
     )
+
+
+def _is_valid_repo(path: str) -> bool:
+    if not os.path.exists(os.path.join(path, ".git")):
+        return False
+    try:
+        _run_command(["git", "rev-parse", "--is-inside-work-tree"], cwd=path)
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 def _has_remote_config(remote_config: RemoteConfig | None) -> TypeGuard[RemoteConfig]:
