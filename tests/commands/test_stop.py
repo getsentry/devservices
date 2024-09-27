@@ -44,6 +44,8 @@ def test_stop_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
         [
             "docker",
             "compose",
+            "-p",
+            "example-service",
             "-f",
             f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
             "down",
