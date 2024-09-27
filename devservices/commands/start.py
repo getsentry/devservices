@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import os
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Status
 from devservices.utils.docker_compose import run_docker_compose_command
@@ -33,14 +30,9 @@ def start(args: Namespace) -> None:
     # TODO: allow custom modes to be used
     mode_to_start = "default"
     mode_dependencies = " ".join(modes[mode_to_start])
-    service_config_file_path = os.path.join(
-        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-    )
     with Status(f"Starting {service.name}", f"{service.name} started") as status:
         try:
-            run_docker_compose_command(
-                f"-p {service.name} -f {service_config_file_path} up -d {mode_dependencies}"
-            )
+            run_docker_compose_command(service, f"up -d {mode_dependencies}")
         except DockerComposeError as dce:
             status.print(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)

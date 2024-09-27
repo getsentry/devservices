@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import os
 import sys
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DockerComposeError
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
@@ -36,13 +33,8 @@ def logs(args: Namespace) -> None:
     # TODO: allow custom modes to be used
     mode_to_use = "default"
     mode_dependencies = " ".join(modes[mode_to_use])
-    service_config_file_path = os.path.join(
-        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-    )
     try:
-        logs = run_docker_compose_command(
-            f"-p {service.name} -f {service_config_file_path} logs {mode_dependencies}"
-        )
+        logs = run_docker_compose_command(service, f"logs {mode_dependencies}")
     except DockerComposeError as dce:
         print(f"Failed to get logs for {service.name}: {dce.stderr}")
         exit(1)
