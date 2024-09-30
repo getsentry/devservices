@@ -62,7 +62,9 @@ def _update_dependency(
         )
     except subprocess.CalledProcessError:
         raise DependencyError(
-            remote_config=dependency,
+            repo_name=dependency.repo_name,
+            repo_link=dependency.repo_link,
+            branch=dependency.branch,
         )
 
     # Check if the local repo is up-to-date
