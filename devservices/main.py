@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import os
 from importlib import metadata
 
 import sentry_sdk
@@ -14,12 +15,17 @@ from devservices.commands import start
 from devservices.commands import status
 from devservices.commands import stop
 
+sentry_environment = (
+    "development" if os.environ.get("IS_DEV", default=False) else "production"
+)
+
 sentry_sdk.init(
     dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
     traces_sample_rate=1.0,
     profiles_sample_rate=1.0,
     enable_tracing=True,
     integrations=[ArgvIntegration()],
+    environment=sentry_environment,
 )
 
 
