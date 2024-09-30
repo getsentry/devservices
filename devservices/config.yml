@@ -1,4 +1,3 @@
-# Ignored by docker compose, used by devservices
 x-sentry-service-config:
   version: 0.1
   service_name: shared-kafka
