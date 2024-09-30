@@ -39,3 +39,12 @@ class DockerComposeError(Exception):
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
+
+
+class DependencyError(Exception):
+    """Base class for dependency-related errors."""
+
+    def __init__(self, repo_name: str, repo_link: str, branch: str):
+        self.repo_name = repo_name
+        self.repo_link = repo_link
+        self.branch = branch
