@@ -3,13 +3,9 @@ from __future__ import annotations
 import argparse
 import atexit
 import os
-import re
-import subprocess
 from importlib import metadata
-from typing import cast
 
 import sentry_sdk
-from packaging import version
 from sentry_sdk.integrations.argv import ArgvIntegration
 
 from devservices.commands import list_dependencies
@@ -18,8 +14,7 @@ from devservices.commands import logs
 from devservices.commands import start
 from devservices.commands import status
 from devservices.commands import stop
-from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
-from devservices.exceptions import DockerComposeError
+from devservices.utils.docker_compose import check_docker_compose_version
 
 sentry_environment = (
     "development" if os.environ.get("IS_DEV", default=False) else "production"
@@ -33,48 +28,6 @@ sentry_sdk.init(
     integrations=[ArgvIntegration()],
     environment=sentry_environment,
 )
-
-
-def check_docker_compose_version() -> None:
-    cmd = ["docker", "compose", "version", "--short"]
-    try:
-        # Run the docker compose version command
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        # Extract the version number from the output
-        version_output = result.stdout.strip()
-
-        # Use regex to find the version number
-        pattern = r"^(\d+\.\d+\.\d+)"
-
-        match = re.search(pattern, version_output)
-        if match:
-            # There is a chance that Any type is returned, so cast this
-            docker_compose_version = cast(str, match.group(1))
-        else:
-            docker_compose_version = None
-
-    except subprocess.CalledProcessError as e:
-        raise DockerComposeError(
-            command=" ".join(cmd),
-            returncode=e.returncode,
-            stdout=e.stdout,
-            stderr=e.stderr,
-        )
-
-    if docker_compose_version is None:
-        print("Unable to detect docker compose version")
-        exit(1)
-    elif version.parse(docker_compose_version) < version.parse(
-        MINIMUM_DOCKER_COMPOSE_VERSION
-    ):
-        print("Docker compose version unsupported, please upgrade to >= 2.21.0")
-        exit(1)
 
 
 @atexit.register
