@@ -35,4 +35,14 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
       - name: Run tests
-        run: pytest
+        run: pytest --cov --junitxml=junit.xml -o junit_family=legacy
+      - name: Upload results to Codecov
+        uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673 # v4.5.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: getsentry/devservices
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@1b5b448b98e58ba90d1a1a1d9fcb72ca2263be46 # v1.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
