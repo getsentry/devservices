@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from devservices.configs.service_config import RemoteConfig
+
 
 class ServiceNotFoundError(Exception):
     """Raised when a service is not found."""
@@ -44,4 +46,5 @@ class DockerComposeError(Exception):
 class DependencyError(Exception):
     """Base class for dependency-related errors."""
 
-    pass
+    def __init__(self, remote_config: RemoteConfig):
+        self.remote_config = remote_config
