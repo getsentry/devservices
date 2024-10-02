@@ -7,6 +7,7 @@ import tempfile
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
+from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
 from devservices.exceptions import DockerComposeError
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import verify_local_dependencies
@@ -30,7 +31,7 @@ def run_docker_compose_command(
     )
     with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_env_file:
         temp_env_file.write(
-            f"DEVSERVICES_LOCAL_DEPENDENCY_DIR={relative_local_dependency_directory}\n"
+            f"{DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY}={relative_local_dependency_directory}\n"
         )
         temp_env_file_path = temp_env_file.name
     service_config_file_path = os.path.join(
