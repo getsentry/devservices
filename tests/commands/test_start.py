@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
@@ -37,25 +38,40 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
     os.chdir(tmp_path)
 
     args = Namespace(service_name=None)
-    start(args)
 
-    mock_run.assert_called_once_with(
-        [
-            "docker",
-            "compose",
-            "-p",
-            "example-service",
-            "-f",
-            f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-            "up",
-            "-d",
-            "redis",
-            "clickhouse",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    with tempfile.NamedTemporaryFile(delete=False) as temp_env_file:
+        temp_env_file_path = temp_env_file.name
+
+    try:
+        with mock.patch("tempfile.NamedTemporaryFile") as mock_tempfile:
+            mock_tempfile.return_value.__enter__.return_value.name = temp_env_file_path
+
+            start(args)
+
+            mock_run.assert_called_once_with(
+                [
+                    "docker",
+                    "compose",
+                    "-p",
+                    "example-service",
+                    "-f",
+                    f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    "--env-file",
+                    temp_env_file_path,
+                    "up",
+                    "-d",
+                    "redis",
+                    "clickhouse",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    finally:
+        # Ensure the temporary file is removed (even if the test fails)
+        if os.path.exists(temp_env_file_path):
+            os.remove(temp_env_file_path)
+            assert False, f"Failed to remove temporary file {temp_env_file_path}"
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
@@ -88,12 +104,25 @@ def test_start_error(
 
     args = Namespace(service_name=None)
 
-    with pytest.raises(SystemExit):
-        start(args)
+    with tempfile.NamedTemporaryFile(delete=False) as temp_env_file:
+        temp_env_file_path = temp_env_file.name
 
-    # Capture the printed output
-    captured = capsys.readouterr()
+    try:
+        with mock.patch("tempfile.NamedTemporaryFile") as mock_tempfile:
+            mock_tempfile.return_value.__enter__.return_value.name = temp_env_file_path
 
-    assert (
-        "Failed to start example-service: Docker Compose error" in captured.out.strip()
-    )
+            with pytest.raises(SystemExit):
+                start(args)
+
+            # Capture the printed output
+            captured = capsys.readouterr()
+
+            assert (
+                "Failed to start example-service: Docker Compose error"
+                in captured.out.strip()
+            )
+    finally:
+        # Ensure the temporary file is removed (even if the test fails)
+        if os.path.exists(temp_env_file_path):
+            os.remove(temp_env_file_path)
+            assert False, f"Failed to remove temporary file {temp_env_file_path}"

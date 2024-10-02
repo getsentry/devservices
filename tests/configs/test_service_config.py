@@ -242,7 +242,7 @@ def test_load_service_config_from_file_invalid_dependencies(tmp_path: Path) -> N
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == "Error parsing service dependencies: Dependency.__init__() got an unexpected keyword argument 'unknown'"
+        == "Unexpected key(s) in dependency 'example-dependency': {'unknown'}"
     )
 
 
