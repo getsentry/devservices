@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from dataclasses import fields
 
 import yaml
 
@@ -80,11 +81,23 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             )
         service_config_data = config.get("x-sentry-service-config")
 
+        valid_dependency_keys = {field.name for field in fields(Dependency)}
+
+        dependencies = {}
+
         try:
-            dependencies = {
-                key: Dependency(**value)
-                for key, value in service_config_data.get("dependencies", {}).items()
-            }
+            for key, value in service_config_data.get("dependencies", {}).items():
+                unexpected_keys = set(value.keys()) - valid_dependency_keys
+                if unexpected_keys:
+                    raise ConfigParseError(
+                        f"Unexpected key(s) in dependency '{key}': {unexpected_keys}"
+                    )
+                dependencies[key] = Dependency(
+                    description=value.get("description"),
+                    remote=RemoteConfig(**value.get("remote"))
+                    if "remote" in value
+                    else None,
+                )
         except TypeError as type_error:
             raise ConfigParseError(
                 f"Error parsing service dependencies: {type_error}"

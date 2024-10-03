@@ -26,10 +26,12 @@ def stop(args: Namespace) -> None:
     except Exception as e:
         print(e)
         exit(1)
+
     modes = service.config.modes
     # TODO: allow custom modes to be used
     mode_to_stop = "default"
     mode_dependencies = " ".join(modes[mode_to_stop])
+
     with Status(f"Stopping {service.name}", f"{service.name} stopped") as status:
         try:
             run_docker_compose_command(service, f"down {mode_dependencies}")

@@ -7,13 +7,56 @@ from unittest import mock
 
 import pytest
 
+from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.utils.dependencies import install_dependency
+from devservices.utils.dependencies import verify_local_dependencies
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
+
+
+def test_verify_local_dependencies_no_dependencies(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        assert verify_local_dependencies([])
+
+
+def test_verify_local_dependencies_no_remote_dependencies(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        dependency = Dependency(
+            description="Test dependency",
+        )
+        assert verify_local_dependencies([dependency])
+
+
+def test_verify_local_dependencies_with_remote_dependencies(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        remote_config = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+        dependency = Dependency(
+            description="Test dependency",
+            remote=remote_config,
+        )
+        assert not verify_local_dependencies([dependency])
+
+        install_dependency(remote_config)
+
+        assert verify_local_dependencies([dependency])
 
 
 def test_install_dependency_invalid_repo(tmp_path: Path) -> None:

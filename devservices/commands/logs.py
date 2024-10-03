@@ -29,10 +29,12 @@ def logs(args: Namespace) -> None:
     except Exception as e:
         print(e)
         exit(1)
+
     modes = service.config.modes
     # TODO: allow custom modes to be used
     mode_to_use = "default"
     mode_dependencies = " ".join(modes[mode_to_use])
+
     try:
         logs = run_docker_compose_command(service, f"logs {mode_dependencies}")
     except DockerComposeError as dce:
