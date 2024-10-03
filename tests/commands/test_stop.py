@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import tempfile
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
@@ -17,60 +16,58 @@ from testing.utils import create_config_file
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 def test_stop_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
-    config = {
-        "x-sentry-service-config": {
-            "version": 0.1,
-            "service_name": "example-service",
-            "dependencies": {
-                "redis": {"description": "Redis"},
-                "clickhouse": {"description": "Clickhouse"},
+    with mock.patch(
+        "devservices.utils.docker_compose.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
             },
-            "modes": {"default": ["redis", "clickhouse"]},
-        },
-        "services": {
-            "redis": {"image": "redis:6.2.14-alpine"},
-            "clickhouse": {
-                "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
             },
-        },
-    }
-    create_config_file(tmp_path, config)
-    os.chdir(tmp_path)
+        }
 
-    args = Namespace(service_name=None)
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
 
-    with tempfile.NamedTemporaryFile(delete=False) as temp_env_file:
-        temp_env_file_path = temp_env_file.name
+        args = Namespace(service_name=None)
 
-    try:
-        with mock.patch("tempfile.NamedTemporaryFile") as mock_tempfile:
-            mock_tempfile.return_value.__enter__.return_value.name = temp_env_file_path
+        stop(args)
 
-            stop(args)
+        mock_run.assert_called_once_with(
+            [
+                "docker",
+                "compose",
+                "-p",
+                "example-service",
+                "-f",
+                f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                "--env-file",
+                mock.ANY,
+                "down",
+                "redis",
+                "clickhouse",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
-            mock_run.assert_called_once_with(
-                [
-                    "docker",
-                    "compose",
-                    "-p",
-                    "example-service",
-                    "-f",
-                    f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    "--env-file",
-                    temp_env_file_path,
-                    "down",
-                    "redis",
-                    "clickhouse",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-    finally:
-        # Ensure the temporary file is removed (even if the test fails)
-        if os.path.exists(temp_env_file_path):
-            os.remove(temp_env_file_path)
-            assert False, f"Failed to remove temporary file {temp_env_file_path}"
+        # Ensure the temp file got cleaned up properly
+        temp_env_file_path = mock_run.call_args[0][0][7]
+        assert not os.path.exists(temp_env_file_path)
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
@@ -103,25 +100,12 @@ def test_stop_error(
 
     args = Namespace(service_name=None)
 
-    with tempfile.NamedTemporaryFile(delete=False) as temp_env_file:
-        temp_env_file_path = temp_env_file.name
+    with pytest.raises(SystemExit):
+        stop(args)
 
-    try:
-        with mock.patch("tempfile.NamedTemporaryFile") as mock_tempfile:
-            mock_tempfile.return_value.__enter__.return_value.name = temp_env_file_path
+    # Capture the printed output
+    captured = capsys.readouterr()
 
-            with pytest.raises(SystemExit):
-                stop(args)
-
-            # Capture the printed output
-            captured = capsys.readouterr()
-
-            assert (
-                "Failed to stop example-service: Docker Compose error"
-                in captured.out.strip()
-            )
-    finally:
-        # Ensure the temporary file is removed (even if the test fails)
-        if os.path.exists(temp_env_file_path):
-            os.remove(temp_env_file_path)
-            assert False, f"Failed to remove temporary file {temp_env_file_path}"
+    assert (
+        "Failed to stop example-service: Docker Compose error" in captured.out.strip()
+    )

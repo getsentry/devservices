@@ -29,32 +29,37 @@ def run_docker_compose_command(
     relative_local_dependency_directory = os.path.relpath(
         DEVSERVICES_LOCAL_DEPENDENCIES_DIR, service.repo_path
     )
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_env_file:
-        temp_env_file.write(
-            f"{DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY}={relative_local_dependency_directory}\n"
-        )
-        temp_env_file_path = temp_env_file.name
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
-    cmd = [
-        "docker",
-        "compose",
-        "-p",
-        service.name,
-        "-f",
-        service_config_file_path,
-        "--env-file",
-        temp_env_file_path,
-    ] + command.split()
-    try:
-        return subprocess.run(cmd, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
-        raise DockerComposeError(
-            command=command,
-            returncode=e.returncode,
-            stdout=e.stdout,
-            stderr=e.stderr,
+    with tempfile.NamedTemporaryFile(mode="w") as temp_env_file:
+        temp_env_file.write(
+            f"{DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY}={relative_local_dependency_directory}\n"
         )
-    finally:
-        os.remove(temp_env_file_path)
+        temp_env_file.flush()
+        temp_env_file_path = temp_env_file.name
+        cmd = [
+            "docker",
+            "compose",
+            "-p",
+            service.name,
+            "-f",
+            service_config_file_path,
+            "--env-file",
+            temp_env_file_path,
+        ] + command.split()
+        try:
+            result = subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise DockerComposeError(
+                command=command,
+                returncode=e.returncode,
+                stdout=e.stdout,
+                stderr=e.stderr,
+            ) from e
+    return result
