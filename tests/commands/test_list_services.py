@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
@@ -20,7 +19,7 @@ def test_list_running_services(
 ) -> None:
     with mock.patch(
         "devservices.commands.list_services.get_coderoot",
-        return_value=str(tmp_path),
+        return_value=str(tmp_path / "code"),
     ):
         config = {
             "x-sentry-service-config": {
@@ -39,8 +38,7 @@ def test_list_running_services(
                 },
             },
         }
-        create_config_file(tmp_path / "example-service", config)
-        os.chdir(tmp_path)
+        create_config_file(tmp_path / "code" / "example-service", config)
 
         args = Namespace(service_name=None, all=False)
         list_services(args)
@@ -50,7 +48,7 @@ def test_list_running_services(
 
         assert (
             captured.out
-            == f"Running services:\n- example-service\n  status: running\n  location: {tmp_path / 'example-service'}\n"
+            == f"Running services:\n- example-service\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )
 
 
@@ -63,7 +61,7 @@ def test_list_all_services(
 ) -> None:
     with mock.patch(
         "devservices.commands.list_services.get_coderoot",
-        return_value=str(tmp_path),
+        return_value=str(tmp_path / "code"),
     ):
         config = {
             "x-sentry-service-config": {
@@ -82,8 +80,7 @@ def test_list_all_services(
                 },
             },
         }
-        create_config_file(tmp_path / "example-service", config)
-        os.chdir(tmp_path)
+        create_config_file(tmp_path / "code" / "example-service", config)
 
         args = Namespace(service_name=None, all=True)
         list_services(args)
@@ -93,5 +90,5 @@ def test_list_all_services(
 
         assert (
             captured.out
-            == f"Services installed locally:\n- example-service\n  status: running\n  location: {tmp_path / 'example-service'}\n"
+            == f"Services installed locally:\n- example-service\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )
