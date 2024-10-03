@@ -26,13 +26,17 @@ def start(args: Namespace) -> None:
     except Exception as e:
         print(e)
         exit(1)
+
     modes = service.config.modes
     # TODO: allow custom modes to be used
     mode_to_start = "default"
     mode_dependencies = " ".join(modes[mode_to_start])
+
     with Status(f"Starting {service.name}", f"{service.name} started") as status:
         try:
-            run_docker_compose_command(service, f"up -d {mode_dependencies}")
+            run_docker_compose_command(
+                service, f"up -d {mode_dependencies}", force_update_dependencies=True
+            )
         except DockerComposeError as dce:
             status.print(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)

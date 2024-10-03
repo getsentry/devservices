@@ -10,17 +10,37 @@ from typing import TypeGuard
 
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
+from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
 from devservices.exceptions import DependencyError
 
 
+def verify_local_dependencies(dependencies: list[Dependency]) -> bool:
+    remote_configs = _get_remote_configs(dependencies)
+
+    # Short circuit to avoid doing unnecessary work
+    if len(remote_configs) == 0:
+        return True
+
+    if not os.path.exists(DEVSERVICES_LOCAL_DEPENDENCIES_DIR):
+        return False
+
+    return all(
+        os.path.exists(
+            os.path.join(
+                DEVSERVICES_LOCAL_DEPENDENCIES_DIR,
+                remote_config.repo_name,
+                DEVSERVICES_DIR_NAME,
+                CONFIG_FILE_NAME,
+            )
+        )
+        for remote_config in remote_configs
+    )
+
+
 def install_dependencies(dependencies: list[Dependency]) -> None:
-    remote_configs = [
-        dependency.remote
-        for dependency in dependencies
-        if _has_remote_config(dependency.remote)
-    ]
+    remote_configs = _get_remote_configs(dependencies)
 
     # Short circuit to avoid doing unnecessary work
     if len(remote_configs) == 0:
@@ -139,6 +159,14 @@ def _is_valid_repo(path: str) -> bool:
         return True
     except subprocess.CalledProcessError:
         return False
+
+
+def _get_remote_configs(dependencies: list[Dependency]) -> list[RemoteConfig]:
+    return [
+        dependency.remote
+        for dependency in dependencies
+        if _has_remote_config(dependency.remote)
+    ]
 
 
 def _has_remote_config(remote_config: RemoteConfig | None) -> TypeGuard[RemoteConfig]:
