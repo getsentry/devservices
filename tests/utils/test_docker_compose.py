@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 from devservices.exceptions import DockerComposeError
+from devservices.exceptions import DockerComposeVersionError
 from devservices.utils.docker_compose import check_docker_compose_version
 
 
@@ -16,27 +17,22 @@ def test_check_docker_compose_version_success(mock_run: mock.Mock) -> None:
 
 
 @mock.patch("subprocess.run")
-@mock.patch("builtins.print")
-def test_check_docker_compose_version_unsupported(
-    mock_print: mock.Mock, mock_run: mock.Mock
-) -> None:
+def test_check_docker_compose_version_unsupported(mock_run: mock.Mock) -> None:
     mock_run.return_value.stdout = "2.20.0-desktop.1\n"
-    with pytest.raises(SystemExit):
+    with pytest.raises(
+        DockerComposeVersionError,
+        match="Docker compose version unsupported, please upgrade to >= 2.21.0",
+    ):
         check_docker_compose_version()
-        mock_print.assert_called_with(
-            "Docker compose version unsupported, please upgrade to >= 2.21.0"
-        )
 
 
 @mock.patch("subprocess.run")
-@mock.patch("builtins.print")
-def test_check_docker_compose_version_undetected(
-    mock_print: mock.Mock, mock_run: mock.Mock
-) -> None:
+def test_check_docker_compose_version_undetected(mock_run: mock.Mock) -> None:
     mock_run.return_value.stdout = "invalid_version\n"
-    with pytest.raises(SystemExit):
+    with pytest.raises(
+        DockerComposeVersionError, match="Unable to detect docker compose version"
+    ):
         check_docker_compose_version()
-        mock_print.assert_called_with("Unable to detect docker compose version")
 
 
 @mock.patch("subprocess.run")
