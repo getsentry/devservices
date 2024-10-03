@@ -14,6 +14,7 @@ from devservices.commands import logs
 from devservices.commands import start
 from devservices.commands import status
 from devservices.commands import stop
+from devservices.utils.docker_compose import check_docker_compose_version
 
 sentry_environment = (
     "development" if os.environ.get("IS_DEV", default=False) else "production"
@@ -38,6 +39,7 @@ def cleanup() -> None:
 
 
 def main() -> None:
+    check_docker_compose_version()
     parser = argparse.ArgumentParser(
         prog="devservices",
         description="CLI tool for managing service dependencies.",
