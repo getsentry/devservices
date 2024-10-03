@@ -16,46 +16,58 @@ from testing.utils import create_config_file
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 def test_stop_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
-    config = {
-        "x-sentry-service-config": {
-            "version": 0.1,
-            "service_name": "example-service",
-            "dependencies": {
-                "redis": {"description": "Redis"},
-                "clickhouse": {"description": "Clickhouse"},
+    with mock.patch(
+        "devservices.utils.docker_compose.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
             },
-            "modes": {"default": ["redis", "clickhouse"]},
-        },
-        "services": {
-            "redis": {"image": "redis:6.2.14-alpine"},
-            "clickhouse": {
-                "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
             },
-        },
-    }
-    create_config_file(tmp_path, config)
-    os.chdir(tmp_path)
+        }
 
-    args = Namespace(service_name=None)
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
 
-    stop(args)
+        args = Namespace(service_name=None)
 
-    mock_run.assert_called_once_with(
-        [
-            "docker",
-            "compose",
-            "-p",
-            "example-service",
-            "-f",
-            f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-            "down",
-            "redis",
-            "clickhouse",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+        stop(args)
+
+        mock_run.assert_called_once_with(
+            [
+                "docker",
+                "compose",
+                "-p",
+                "example-service",
+                "-f",
+                f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                "--env-file",
+                mock.ANY,
+                "down",
+                "redis",
+                "clickhouse",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # Ensure the temp file got cleaned up properly
+        temp_env_file_path = mock_run.call_args[0][0][7]
+        assert not os.path.exists(temp_env_file_path)
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
