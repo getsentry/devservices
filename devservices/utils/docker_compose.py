@@ -20,6 +20,23 @@ from devservices.utils.dependencies import verify_local_dependencies
 from devservices.utils.services import Service
 
 
+def get_active_docker_compose_projects() -> list[str]:
+    cmd = ["docker", "compose", "ls", "-q"]
+    try:
+        running_projects = subprocess.run(
+            cmd, check=True, capture_output=True, text=True
+        ).stdout
+    except subprocess.CalledProcessError as e:
+        raise DockerComposeError(
+            command=" ".join(cmd),
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        )
+    # docker compose ls always returns newline delimited string with an extra newline at the end
+    return running_projects.split("\n")[:-1]
+
+
 def check_docker_compose_version() -> None:
     cmd = ["docker", "compose", "version", "--short"]
     try:
