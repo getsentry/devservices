@@ -11,6 +11,7 @@ import pytest
 from devservices.commands.start import start
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
 from testing.utils import create_config_file
 
 
@@ -46,6 +47,10 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
 
         start(args)
 
+        # Ensure the DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY is set and is relative
+        env_vars = mock_run.call_args[1]["env"]
+        assert env_vars[DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY] == "../dependency-dir"
+
         mock_run.assert_called_once_with(
             [
                 "docker",
@@ -54,8 +59,6 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
                 "example-service",
                 "-f",
                 f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                "--env-file",
-                mock.ANY,
                 "up",
                 "-d",
                 "redis",
@@ -64,11 +67,8 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
             check=True,
             capture_output=True,
             text=True,
+            env=mock.ANY,
         )
-
-        # Ensure the temp file got cleaned up properly
-        temp_env_file_path = mock_run.call_args[0][0][7]
-        assert not os.path.exists(temp_env_file_path)
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
