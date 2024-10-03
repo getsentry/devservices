@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import tempfile
 from typing import cast
 
 from packaging import version
@@ -97,34 +96,31 @@ def run_docker_compose_command(
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
-    with tempfile.NamedTemporaryFile(mode="w") as temp_env_file:
-        temp_env_file.write(
-            f"{DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY}={relative_local_dependency_directory}\n"
+    # Set the environment variable for the local dependencies directory to be used by docker compose
+    current_env = os.environ.copy()
+    current_env[
+        DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
+    ] = relative_local_dependency_directory
+    cmd = [
+        "docker",
+        "compose",
+        "-p",
+        service.name,
+        "-f",
+        service_config_file_path,
+    ] + command.split()
+    try:
+        return subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=current_env,
         )
-        temp_env_file.flush()
-        temp_env_file_path = temp_env_file.name
-        cmd = [
-            "docker",
-            "compose",
-            "-p",
-            service.name,
-            "-f",
-            service_config_file_path,
-            "--env-file",
-            temp_env_file_path,
-        ] + command.split()
-        try:
-            result = subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            raise DockerComposeError(
-                command=command,
-                returncode=e.returncode,
-                stdout=e.stdout,
-                stderr=e.stderr,
-            ) from e
-    return result
+    except subprocess.CalledProcessError as e:
+        raise DockerComposeError(
+            command=command,
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
