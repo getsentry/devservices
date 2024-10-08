@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import os
+import platform
 import re
+import shutil
 import subprocess
+import tempfile
 from typing import cast
+from urllib.request import urlretrieve
 
 from packaging import version
 
@@ -13,7 +17,7 @@ from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import DockerComposeError
-from devservices.exceptions import DockerComposeVersionError
+from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import verify_local_dependencies
 from devservices.utils.services import Service
@@ -36,6 +40,84 @@ def get_active_docker_compose_projects() -> list[str]:
     return running_projects.split("\n")[:-1]
 
 
+def install_docker_compose() -> None:
+    # Determine the platform
+    system = platform.system()
+    machine = platform.machine()
+
+    # Map machine architecture to Docker's naming convention
+    arch_map = {
+        "x86_64": "x86_64",
+        "AMD64": "x86_64",
+        "arm64": "aarch64",
+        "aarch64": "aarch64",
+        "ARM64": "aarch64",
+    }
+
+    arch = arch_map.get(machine)
+    if not arch:
+        raise DockerComposeInstallationError(f"Unsupported architecture: {machine}")
+
+    # Determine the download URL based on the platform
+    if system == "Linux":
+        binary_name = f"docker-compose-linux-{arch}"
+    elif system == "Darwin":
+        binary_name = f"docker-compose-darwin-{arch}"
+    else:
+        raise DockerComposeInstallationError(f"Unsupported operating system: {system}")
+
+    url = f"https://github.com/docker/compose/releases/download/v{MINIMUM_DOCKER_COMPOSE_VERSION}/{binary_name}"
+
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file = os.path.join(temp_dir, "docker-compose")
+
+        # Download the Docker Compose binary
+        try:
+            print(
+                f"Downloading Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} from {url}..."
+            )
+            urlretrieve(url, temp_file)
+        except Exception as e:
+            raise DockerComposeInstallationError(
+                f"Failed to download Docker Compose: {e}"
+            )
+
+        # Make the binary executable
+        try:
+            os.chmod(temp_file, 0o755)
+        except Exception as e:
+            raise DockerComposeInstallationError(
+                f"Failed to set executable permissions: {e}"
+            )
+
+        # Move the binary to the user's CLI plugins directory
+        destination_dir = os.path.expanduser("~/.docker/cli-plugins/")
+        destination = os.path.join(destination_dir, "docker-compose")
+        os.makedirs(destination_dir, exist_ok=True)
+
+        try:
+            shutil.move(temp_file, destination)
+        except Exception as e:
+            raise DockerComposeInstallationError(
+                f"Failed to move Docker Compose binary to {destination}: {e}"
+            )
+
+        print(
+            f"Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} installed successfully to {destination}"
+        )
+
+    # Verify the installation
+    try:
+        version = subprocess.run(
+            ["docker", "compose", "version"], capture_output=True, text=True
+        ).stdout
+    except Exception as e:
+        print(f"Failed to verify Docker Compose installation: {e}")
+
+    print(f"Verified Docker Compose installation: v{version}")
+
+
 def check_docker_compose_version() -> None:
     cmd = ["docker", "compose", "version", "--short"]
     try:
@@ -46,13 +128,9 @@ def check_docker_compose_version() -> None:
             text=True,
             check=True,
         )
-
-    except subprocess.CalledProcessError as e:
-        raise DockerComposeError(
-            command=" ".join(cmd),
-            returncode=e.returncode,
-            stdout=e.stdout,
-            stderr=e.stderr,
+    except subprocess.CalledProcessError:
+        print(
+            f"Docker Compose is not installed, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
         )
 
     # Extract the version number from the output
@@ -69,13 +147,20 @@ def check_docker_compose_version() -> None:
         docker_compose_version = None
 
     if docker_compose_version is None:
-        raise DockerComposeVersionError("Unable to detect docker compose version")
-    elif version.parse(docker_compose_version) < version.parse(
+        print(
+            f"Unable to detect Docker Compose version, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
+        )
+    elif version.parse(docker_compose_version) != version.parse(
         MINIMUM_DOCKER_COMPOSE_VERSION
     ):
-        raise DockerComposeVersionError(
-            f"Docker compose version unsupported, please upgrade to >= {MINIMUM_DOCKER_COMPOSE_VERSION}"
+        print(
+            f"Docker Compose version v{docker_compose_version} unsupported, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
         )
+    elif version.parse(docker_compose_version) == version.parse(
+        MINIMUM_DOCKER_COMPOSE_VERSION
+    ):
+        return
+    install_docker_compose()
 
 
 def run_docker_compose_command(

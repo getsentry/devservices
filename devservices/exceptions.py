@@ -31,7 +31,7 @@ class ConfigParseError(ConfigError):
     pass
 
 
-class DockerComposeVersionError(Exception):
+class DockerComposeInstallationError(Exception):
     """Raised when the Docker Compose version is unsupported."""
 
     pass
