@@ -10,6 +10,7 @@ import pytest
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.utils.dependencies import install_dependency
@@ -87,6 +88,7 @@ def test_install_dependency_basic(tmp_path: Path) -> None:
         assert not (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -95,11 +97,18 @@ def test_install_dependency_basic(tmp_path: Path) -> None:
         install_dependency(mock_dependency)
 
         # Make sure that files outside of the devservices directory are not copied
-        assert not (tmp_path / "dependency-dir" / "test-repo" / "README.md").exists()
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / "README.md"
+        ).exists()
 
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -122,6 +131,7 @@ def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
         assert not (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -132,6 +142,7 @@ def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -151,6 +162,7 @@ def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -160,6 +172,7 @@ def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
         with open(
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME,
@@ -184,6 +197,7 @@ def test_install_dependency_basic_with_new_tracked_file(tmp_path: Path) -> None:
         assert not (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -192,11 +206,18 @@ def test_install_dependency_basic_with_new_tracked_file(tmp_path: Path) -> None:
         install_dependency(mock_dependency)
 
         # Sanity check that the new file is not in the dependency directory (yet)
-        assert not (tmp_path / "dependency-dir" / "test-repo" / "new-file.txt").exists()
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / "new-file.txt"
+        ).exists()
 
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -214,6 +235,7 @@ def test_install_dependency_basic_with_new_tracked_file(tmp_path: Path) -> None:
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -223,6 +245,7 @@ def test_install_dependency_basic_with_new_tracked_file(tmp_path: Path) -> None:
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / "new-file.txt"
@@ -242,18 +265,27 @@ def test_install_dependency_basic_with_existing_dir(tmp_path: Path) -> None:
         )
 
         # Create the dependency directory and populate it
-        dependency_dir = tmp_path / "dependency-dir" / "test-repo"
+        dependency_dir = (
+            tmp_path / "dependency-dir" / DEPENDENCY_CONFIG_VERSION / "test-repo"
+        )
         dependency_dir.mkdir(parents=True, exist_ok=True)
         (dependency_dir / "existing-file.txt").touch()
 
         install_dependency(mock_dependency)
 
         # Make sure that files outside of the devservices directory are not copied
-        assert not (tmp_path / "dependency-dir" / "test-repo" / "README.md").exists()
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / "README.md"
+        ).exists()
 
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -273,7 +305,9 @@ def test_install_dependency_basic_with_existing_invalid_repo(tmp_path: Path) -> 
         )
 
         # Create the dependency directory and populate it
-        dependency_dir = tmp_path / "dependency-dir" / "test-repo"
+        dependency_dir = (
+            tmp_path / "dependency-dir" / DEPENDENCY_CONFIG_VERSION / "test-repo"
+        )
         dependency_dir.mkdir(parents=True, exist_ok=True)
         dependency_git_dir = dependency_dir / ".git"
         dependency_git_dir.mkdir(parents=True, exist_ok=True)
@@ -287,6 +321,7 @@ def test_install_dependency_basic_with_existing_invalid_repo(tmp_path: Path) -> 
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -308,11 +343,18 @@ def test_install_dependency_basic_with_existing_repo_conflicts(tmp_path: Path) -
         install_dependency(mock_dependency)
 
         # Make sure that files outside of the devservices directory are not copied
-        assert not (tmp_path / "dependency-dir" / "test-repo" / "README.md").exists()
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / "README.md"
+        ).exists()
 
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -331,6 +373,7 @@ def test_install_dependency_basic_with_existing_repo_conflicts(tmp_path: Path) -
         with open(
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME,
@@ -344,6 +387,7 @@ def test_install_dependency_basic_with_existing_repo_conflicts(tmp_path: Path) -
         with open(
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME,
@@ -368,6 +412,7 @@ def test_install_dependency_basic_with_corrupted_repo(tmp_path: Path) -> None:
         assert not (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
@@ -376,11 +421,18 @@ def test_install_dependency_basic_with_corrupted_repo(tmp_path: Path) -> None:
         install_dependency(mock_dependency)
 
         # Sanity check that the new file is not in the dependency directory (yet)
-        assert not (tmp_path / "dependency-dir" / "test-repo" / "new-file.txt").exists()
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / "new-file.txt"
+        ).exists()
 
         assert (
             tmp_path
             / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
             / "test-repo"
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
