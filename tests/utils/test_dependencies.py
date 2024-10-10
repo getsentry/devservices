@@ -133,6 +133,39 @@ def test_install_dependency_invalid_repo(tmp_path: Path) -> None:
             install_dependency(remote_config)
 
 
+@mock.patch("devservices.utils.dependencies.GitConfigManager.ensure_config")
+def test_install_dependency_git_config_failure(
+    ensure_config_mock: mock.Mock, tmp_path: Path
+) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+        ensure_config_mock.side_effect = FailedToSetGitConfigError()
+
+        with pytest.raises(DependencyError) as e:
+            install_dependency(mock_dependency)
+
+        assert e.value.repo_name == "test-repo"
+        assert e.value.repo_link == f"file://{tmp_path / 'test-repo'}"
+        assert e.value.branch == "main"
+
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+
 def test_install_dependency_basic(tmp_path: Path) -> None:
     with mock.patch(
         "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
