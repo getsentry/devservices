@@ -537,3 +537,50 @@ def test_install_dependency_basic_with_corrupted_repo(tmp_path: Path) -> None:
 
         with pytest.raises(DependencyError):
             install_dependency(mock_dependency)
+
+
+def test_install_dependency_basic_with_noop_update(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+
+        # Sanity check that the config file is not in the dependency directory (yet)
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        install_dependency(mock_dependency)
+
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        # Check if the local repo is up-to-date
+        install_dependency(mock_dependency)
+
+        # Sanity check that the existing config file is still there
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
