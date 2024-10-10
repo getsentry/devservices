@@ -54,3 +54,15 @@ class DependencyError(Exception):
         self.repo_name = repo_name
         self.repo_link = repo_link
         self.branch = branch
+
+
+class GitConfigError(Exception):
+    """Base class for git config related errors."""
+
+    pass
+
+
+class FailedToSetGitConfigError(GitConfigError):
+    """Raised when a git config cannot be set."""
+
+    pass

@@ -9,3 +9,10 @@ CONFIG_FILE_NAME = "config.yml"
 DEVSERVICES_LOCAL_DIR = os.path.expanduser("~/.local/share/sentry-devservices")
 DEVSERVICES_LOCAL_DEPENDENCIES_DIR = os.path.join(DEVSERVICES_LOCAL_DIR, "dependencies")
 DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY = "DEVSERVICES_LOCAL_DEPENDENCIES_DIR"
+
+DEPENDENCY_CONFIG_VERSION = "v1"
+DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS = {
+    "protocol.version": "2",
+    "extensions.partialClone": "true",
+    "core.sparseCheckout": "true",
+}
