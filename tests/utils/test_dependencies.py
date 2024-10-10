@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 from subprocess import SubprocessError
 from unittest import mock
@@ -13,10 +14,70 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
+from devservices.exceptions import FailedToSetGitConfigError
+from devservices.utils.dependencies import GitConfigManager
 from devservices.utils.dependencies import install_dependency
 from devservices.utils.dependencies import verify_local_dependencies
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
+
+
+@mock.patch("devservices.utils.dependencies.subprocess.run")
+def test_git_config_manager_ensure_config_failure(
+    mock_run: mock.Mock, tmp_path: Path
+) -> None:
+    repo_dir = tmp_path / "test-repo"
+    create_mock_git_repo("basic_repo", repo_dir)
+    mock_run.side_effect = subprocess.CalledProcessError(returncode=1, cmd="test")
+    git_config_manager = GitConfigManager(
+        str(repo_dir),
+        {
+            "test.config": "test-value",
+        },
+    )
+    with pytest.raises(FailedToSetGitConfigError):
+        git_config_manager.ensure_config()
+
+
+def test_git_config_manager_ensure_config_simple_repo(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "test-repo"
+    create_mock_git_repo("basic_repo", repo_dir)
+    with pytest.raises(subprocess.CalledProcessError):
+        subprocess.check_output(["git", "config", "--get", "test.config"], cwd=repo_dir)
+    git_config_manager = GitConfigManager(
+        str(repo_dir),
+        {
+            "test.config": "test-value",
+        },
+    )
+    git_config_manager.ensure_config()
+    assert (
+        subprocess.check_output(["git", "config", "--get", "test.config"], cwd=repo_dir)
+        .decode()
+        .strip()
+        == "test-value"
+    )
+
+
+def test_git_config_manager_ensure_config_sparse_checkout(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "test-repo"
+    create_mock_git_repo("basic_repo", repo_dir)
+    with pytest.raises(subprocess.CalledProcessError):
+        subprocess.check_output(["git", "sparse-checkout", "list"], cwd=repo_dir)
+    git_config_manager = GitConfigManager(
+        str(repo_dir),
+        {
+            "test.config": "test-value",
+        },
+        sparse_pattern="test-pattern",
+    )
+    git_config_manager.ensure_config()
+    assert (
+        subprocess.check_output(["git", "sparse-checkout", "list"], cwd=repo_dir)
+        .decode()
+        .strip()
+        == "test-pattern"
+    )
 
 
 def test_verify_local_dependencies_no_dependencies(tmp_path: Path) -> None:
