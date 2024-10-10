@@ -81,6 +81,47 @@ def test_git_config_manager_ensure_config_sparse_checkout(tmp_path: Path) -> Non
     )
 
 
+def test_git_config_manager_ensure_config_sparse_checkout_overwrite(
+    tmp_path: Path,
+) -> None:
+    repo_dir = tmp_path / "test-repo"
+    create_mock_git_repo("basic_repo", repo_dir)
+    with pytest.raises(subprocess.CalledProcessError):
+        subprocess.check_output(["git", "sparse-checkout", "list"], cwd=repo_dir)
+    git_config_manager = GitConfigManager(
+        str(repo_dir),
+        {
+            "test.config": "test-value",
+        },
+        sparse_pattern="test-pattern",
+    )
+    git_config_manager.ensure_config()
+    assert (
+        subprocess.check_output(["git", "sparse-checkout", "list"], cwd=repo_dir)
+        .decode()
+        .strip()
+        == "test-pattern"
+    )
+
+    # Overwrite the sparse checkout pattern and ensure it is set correctly
+    git_config_manager = GitConfigManager(
+        str(repo_dir),
+        {
+            "test.config": "test-value",
+        },
+        sparse_pattern="new-pattern",
+    )
+
+    git_config_manager.ensure_config()
+
+    assert (
+        subprocess.check_output(["git", "sparse-checkout", "list"], cwd=repo_dir)
+        .decode()
+        .strip()
+        == "new-pattern"
+    )
+
+
 def test_verify_local_dependencies_no_dependencies(tmp_path: Path) -> None:
     with mock.patch(
         "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
