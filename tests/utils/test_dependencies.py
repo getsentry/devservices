@@ -12,6 +12,7 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
+from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import FailedToSetGitConfigError
@@ -207,6 +208,24 @@ def test_install_dependency_basic(tmp_path: Path) -> None:
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
         ).exists()
+
+        # Check that the git config options are set correctly
+        for (
+            git_config_option_key,
+            git_config_option_value,
+        ) in DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS.items():
+            assert (
+                subprocess.check_output(
+                    ["git", "config", "--get", git_config_option_key],
+                    cwd=tmp_path
+                    / "dependency-dir"
+                    / DEPENDENCY_CONFIG_VERSION
+                    / "test-repo",
+                )
+                .decode()
+                .strip()
+                == git_config_option_value
+            )
 
 
 def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
@@ -584,3 +603,86 @@ def test_install_dependency_basic_with_noop_update(tmp_path: Path) -> None:
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
         ).exists()
+
+
+def test_install_dependency_basic_git_config_self_fix(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+
+        install_dependency(mock_dependency)
+
+        # Check that the git config options are set correctly
+        for (
+            git_config_option_key,
+            git_config_option_value,
+        ) in DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS.items():
+            assert (
+                subprocess.check_output(
+                    ["git", "config", "--get", git_config_option_key],
+                    cwd=tmp_path
+                    / "dependency-dir"
+                    / DEPENDENCY_CONFIG_VERSION
+                    / "test-repo",
+                )
+                .decode()
+                .strip()
+                == git_config_option_value
+            )
+
+        # Mess up the git config by setting the wrong values
+        for (
+            git_config_option_key,
+            git_config_option_value,
+        ) in DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS.items():
+            run_git_command(
+                ["config", git_config_option_key, "wrong-value"],
+                cwd=tmp_path
+                / "dependency-dir"
+                / DEPENDENCY_CONFIG_VERSION
+                / "test-repo",
+            )
+
+        for (
+            git_config_option_key,
+            git_config_option_value,
+        ) in DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS.items():
+            assert (
+                subprocess.check_output(
+                    ["git", "config", "--get", git_config_option_key],
+                    cwd=tmp_path
+                    / "dependency-dir"
+                    / DEPENDENCY_CONFIG_VERSION
+                    / "test-repo",
+                )
+                .decode()
+                .strip()
+                != git_config_option_value
+            )
+
+        install_dependency(mock_dependency)
+
+        # Check that the git config options are set correctly
+        for (
+            git_config_option_key,
+            git_config_option_value,
+        ) in DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS.items():
+            assert (
+                subprocess.check_output(
+                    ["git", "config", "--get", git_config_option_key],
+                    cwd=tmp_path
+                    / "dependency-dir"
+                    / DEPENDENCY_CONFIG_VERSION
+                    / "test-repo",
+                )
+                .decode()
+                .strip()
+                == git_config_option_value
+            )
