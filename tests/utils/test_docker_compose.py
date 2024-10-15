@@ -29,6 +29,34 @@ def test_check_docker_compose_version_unsupported(
     assert mock_install_docker_compose.is_called()
 
 
+@mock.patch("subprocess.run")
+@mock.patch(
+    "devservices.utils.docker_compose.install_docker_compose", side_effect=lambda: None
+)
+def test_check_docker_compose_invalid_version(
+    mock_install_docker_compose: mock.Mock, mock_run: mock.Mock
+) -> None:
+    mock_run.return_value.stdout = "Unable to find version\n"
+    check_docker_compose_version()
+    assert mock_install_docker_compose.is_called()
+
+
+@mock.patch(
+    "subprocess.run",
+    side_effect=subprocess.CalledProcessError(
+        returncode=1, cmd="docker compose version --short"
+    ),
+)
+@mock.patch(
+    "devservices.utils.docker_compose.install_docker_compose", side_effect=lambda: None
+)
+def test_check_docker_compose_command_failure(
+    mock_install_docker_compose: mock.Mock, mock_run: mock.Mock
+) -> None:
+    check_docker_compose_version()
+    assert mock_install_docker_compose.is_called()
+
+
 @mock.patch("platform.system", return_value="UnsupportedSystem")
 @mock.patch("platform.machine", return_value="arm64")
 def test_install_docker_compose_unsupported_os(

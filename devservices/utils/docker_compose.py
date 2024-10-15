@@ -16,6 +16,7 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
+from devservices.constants import DOCKER_USER_PLUGIN_DIR
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
@@ -75,18 +76,20 @@ def install_docker_compose() -> None:
 
         # Download the Docker Compose binary with retries
         max_retries = 3
-        retry_delay = 1  # seconds
+        retry_delay_seconds = 1
+        print(
+            f"Downloading Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} from {url}..."
+        )
         for attempt in range(max_retries):
             try:
-                print(
-                    f"Downloading Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} from {url}... (Attempt {attempt + 1}/{max_retries})"
-                )
                 urlretrieve(url, temp_file)
                 break
             except Exception as e:
                 if attempt < max_retries - 1:
-                    print(f"Download failed. Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
+                    print(
+                        f"Download failed. Retrying in {retry_delay_seconds} seconds... (Attempt {attempt + 1}/{max_retries})"
+                    )
+                    time.sleep(retry_delay_seconds)
                 else:
                     raise DockerComposeInstallationError(
                         f"Failed to download Docker Compose after {max_retries} attempts: {e}"
@@ -100,10 +103,8 @@ def install_docker_compose() -> None:
                 f"Failed to set executable permissions: {e}"
             )
 
-        # Move the binary to the user's CLI plugins directory
-        destination_dir = os.path.expanduser("~/.docker/cli-plugins/")
-        destination = os.path.join(destination_dir, "docker-compose")
-        os.makedirs(destination_dir, exist_ok=True)
+        destination = os.path.join(DOCKER_USER_PLUGIN_DIR, "docker-compose")
+        os.makedirs(DOCKER_USER_PLUGIN_DIR, exist_ok=True)
 
         try:
             shutil.move(temp_file, destination)
@@ -140,12 +141,13 @@ def check_docker_compose_version() -> None:
             check=True,
         )
     except subprocess.CalledProcessError:
+        result = None
         print(
             f"Docker Compose is not installed, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
         )
 
     # Extract the version number from the output
-    version_output = result.stdout.strip()
+    version_output = result.stdout.strip() if result is not None else ""
 
     # Use regex to find the version number
     pattern = r"^(\d+\.\d+\.\d+)"
