@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from typing import cast
 from urllib.request import urlretrieve
 
@@ -72,16 +73,24 @@ def install_docker_compose() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file = os.path.join(temp_dir, "docker-compose")
 
-        # Download the Docker Compose binary
-        try:
-            print(
-                f"Downloading Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} from {url}..."
-            )
-            urlretrieve(url, temp_file)
-        except Exception as e:
-            raise DockerComposeInstallationError(
-                f"Failed to download Docker Compose: {e}"
-            )
+        # Download the Docker Compose binary with retries
+        max_retries = 3
+        retry_delay = 1  # seconds
+        for attempt in range(max_retries):
+            try:
+                print(
+                    f"Downloading Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} from {url}... (Attempt {attempt + 1}/{max_retries})"
+                )
+                urlretrieve(url, temp_file)
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"Download failed. Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    raise DockerComposeInstallationError(
+                        f"Failed to download Docker Compose after {max_retries} attempts: {e}"
+                    )
 
         # Make the binary executable
         try:
@@ -110,10 +119,12 @@ def install_docker_compose() -> None:
     # Verify the installation
     try:
         version = subprocess.run(
-            ["docker", "compose", "version"], capture_output=True, text=True
+            ["docker", "compose", "version", "--short"], capture_output=True, text=True
         ).stdout
     except Exception as e:
-        print(f"Failed to verify Docker Compose installation: {e}")
+        raise DockerComposeInstallationError(
+            f"Failed to verify Docker Compose installation: {e}"
+        )
 
     print(f"Verified Docker Compose installation: v{version}")
 
