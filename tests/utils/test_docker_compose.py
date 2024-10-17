@@ -83,55 +83,9 @@ def test_install_docker_compose_unsupported_architecture(
 
 @mock.patch("platform.system", return_value="Darwin")
 @mock.patch("platform.machine", return_value="arm64")
-@mock.patch(
-    "devservices.utils.docker_compose.urlretrieve",
-    side_effect=Exception("Connection error"),
-)
-def test_install_docker_compose_connection_error(
-    mock_urlretrieve: mock.Mock, mock_machine: mock.Mock, mock_system: mock.Mock
-) -> None:
-    with pytest.raises(
-        DockerComposeInstallationError,
-        match="Failed to download Docker Compose after 3 attempts: Connection error",
-    ):
-        install_docker_compose()
-
-
-@mock.patch("platform.system", return_value="Darwin")
-@mock.patch("platform.machine", return_value="arm64")
-@mock.patch("devservices.utils.docker_compose.urlretrieve")
-def test_install_docker_compose_chmod_error(
-    mock_urlretrieve: mock.Mock, mock_machine: mock.Mock, mock_system: mock.Mock
-) -> None:
-    with pytest.raises(
-        DockerComposeInstallationError,
-        match=r"Failed to set executable permissions: \[Errno 2\] No such file or directory:.*",
-    ):
-        install_docker_compose()
-
-
-@mock.patch("platform.system", return_value="Darwin")
-@mock.patch("platform.machine", return_value="arm64")
-@mock.patch("devservices.utils.docker_compose.urlretrieve")
-@mock.patch("devservices.utils.docker_compose.os.chmod")
-def test_install_docker_compose_shutil_move_error(
-    mock_chmod: mock.Mock,
-    mock_urlretrieve: mock.Mock,
-    mock_machine: mock.Mock,
-    mock_system: mock.Mock,
-) -> None:
-    with pytest.raises(
-        DockerComposeInstallationError,
-        match=r"Failed to move Docker Compose binary to.*",
-    ):
-        install_docker_compose()
-
-
-@mock.patch("platform.system", return_value="Darwin")
-@mock.patch("platform.machine", return_value="arm64")
-@mock.patch("devservices.utils.docker_compose.urlretrieve")
-@mock.patch("devservices.utils.docker_compose.os.chmod")
-@mock.patch("devservices.utils.docker_compose.shutil.move")
+@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.os.chmod")
+@mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
     "devservices.utils.docker_compose.subprocess.run",
     side_effect=Exception("Docker Compose failed"),
@@ -154,9 +108,9 @@ def test_install_docker_compose_compose_verification_error(
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Darwin")
 @mock.patch("platform.machine", return_value="arm64")
-@mock.patch("devservices.utils.docker_compose.urlretrieve")
-@mock.patch("devservices.utils.docker_compose.os.chmod")
-@mock.patch("devservices.utils.docker_compose.shutil.move")
+@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.os.chmod")
+@mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
     "devservices.utils.docker_compose.subprocess.run",
     return_value=subprocess.CompletedProcess(
@@ -193,9 +147,9 @@ def test_install_docker_compose_macos_arm64(
 @mock.patch("tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Linux")
 @mock.patch("platform.machine", return_value="x86_64")
-@mock.patch("devservices.utils.docker_compose.urlretrieve")
-@mock.patch("devservices.utils.docker_compose.os.chmod")
-@mock.patch("devservices.utils.docker_compose.shutil.move")
+@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.os.chmod")
+@mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
     "devservices.utils.docker_compose.subprocess.run",
     return_value=subprocess.CompletedProcess(
