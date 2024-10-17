@@ -7,6 +7,8 @@ from pathlib import Path
 
 import yaml
 
+from devservices.constants import DEVSERVICES_DIR_NAME
+
 TESTING_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -17,7 +19,7 @@ def get_resource_path(resource_name: str) -> Path:
 def create_config_file(
     tmp_path: Path, config: dict[str, object] | dict[str, dict[str, object]]
 ) -> None:
-    devservices_dir = Path(tmp_path, "devservices")
+    devservices_dir = Path(tmp_path, DEVSERVICES_DIR_NAME)
     devservices_dir.mkdir(parents=True, exist_ok=True)
     tmp_file = Path(devservices_dir, "config.yml")
     with tmp_file.open("w") as f:
