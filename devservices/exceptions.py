@@ -31,6 +31,12 @@ class ConfigParseError(ConfigError):
     pass
 
 
+class DevservicesUpdateError(Exception):
+    """Raised when the devservices update fails."""
+
+    pass
+
+
 class DockerComposeInstallationError(Exception):
     """Raised when the Docker Compose installation fails."""
 
