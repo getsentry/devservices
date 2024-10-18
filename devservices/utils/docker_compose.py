@@ -12,8 +12,10 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
+from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
+from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.dependencies import install_dependencies
@@ -67,16 +69,18 @@ def install_docker_compose() -> None:
     else:
         raise DockerComposeInstallationError(f"Unsupported operating system: {system}")
 
-    url = f"https://github.com/docker/compose/releases/download/v{MINIMUM_DOCKER_COMPOSE_VERSION}/{binary_name_with_extension}"
+    url = f"{DOCKER_COMPOSE_DOWNLOAD_URL}/v{MINIMUM_DOCKER_COMPOSE_VERSION}/{binary_name_with_extension}"
     destination = os.path.join(DOCKER_USER_PLUGIN_DIR, binary_name)
 
-    install_binary(
-        binary_name,
-        destination,
-        MINIMUM_DOCKER_COMPOSE_VERSION,
-        url,
-        DockerComposeInstallationError,
-    )
+    try:
+        install_binary(
+            binary_name,
+            destination,
+            MINIMUM_DOCKER_COMPOSE_VERSION,
+            url,
+        )
+    except BinaryInstallError as e:
+        raise DockerComposeInstallationError(f"Failed to install Docker Compose: {e}")
 
     print(
         f"Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} installed successfully to {destination}"

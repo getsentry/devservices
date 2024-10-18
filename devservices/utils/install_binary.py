@@ -6,13 +6,15 @@ import tempfile
 import time
 from urllib.request import urlretrieve
 
+from devservices.constants import BINARY_PERMISSIONS
+from devservices.exceptions import BinaryInstallError
+
 
 def install_binary(
     binary_name: str,
     exec_path: str,
     version: str,
     url: str,
-    exception_type: type[Exception],
 ) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file = os.path.join(temp_dir, binary_name)
@@ -32,19 +34,19 @@ def install_binary(
                     )
                     time.sleep(retry_delay_seconds)
                 else:
-                    raise exception_type(
+                    raise BinaryInstallError(
                         f"Failed to download {binary_name} after {max_retries} attempts: {e}"
                     )
 
         # Make the binary executable
         try:
-            os.chmod(temp_file, 0o755)
+            os.chmod(temp_file, BINARY_PERMISSIONS)
         except Exception as e:
-            raise exception_type(f"Failed to set executable permissions: {e}")
+            raise BinaryInstallError(f"Failed to set executable permissions: {e}")
 
         try:
             shutil.move(temp_file, exec_path)
         except Exception as e:
-            raise exception_type(
+            raise BinaryInstallError(
                 f"Failed to move {binary_name} binary to {exec_path}: {e}"
             )

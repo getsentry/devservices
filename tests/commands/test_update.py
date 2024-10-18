@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 from devservices.commands.update import update
+from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DevservicesUpdateError
 
 
@@ -78,3 +79,23 @@ def test_update_success(
     captured = capsys.readouterr()
     assert "A new version of devservices is available: 1.0.0" in captured.out
     assert "Devservices 1.0.0 updated successfully" in captured.out
+
+
+@mock.patch("devservices.commands.update.metadata.version", return_value="0.0.1")
+@mock.patch("devservices.commands.update.check_for_update", return_value="1.0.0")
+@mock.patch("devservices.commands.update.is_in_virtualenv", return_value=False)
+@mock.patch(
+    "devservices.commands.update.install_binary",
+    side_effect=BinaryInstallError("Installation error"),
+)
+def test_update_install_binary_error(
+    mock_metadata_version: mock.Mock,
+    mock_check_for_update: mock.Mock,
+    mock_is_in_virtualenv: mock.Mock,
+    mock_install_binary: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(
+        DevservicesUpdateError, match="Failed to update devservices: Installation error"
+    ):
+        update(Namespace())

@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.docker_compose import check_docker_compose_version
 from devservices.utils.docker_compose import install_docker_compose
@@ -77,6 +78,24 @@ def test_install_docker_compose_unsupported_architecture(
     with pytest.raises(
         DockerComposeInstallationError,
         match="Unsupported architecture: unsupported_architecture",
+    ):
+        install_docker_compose()
+
+
+@mock.patch("platform.system", return_value="Darwin")
+@mock.patch("platform.machine", return_value="arm64")
+@mock.patch(
+    "devservices.utils.docker_compose.install_binary",
+    side_effect=BinaryInstallError("Installation error"),
+)
+def test_install_docker_compose_binary_install_error(
+    mock_install_binary: mock.Mock,
+    mock_machine: mock.Mock,
+    mock_system: mock.Mock,
+) -> None:
+    with pytest.raises(
+        DockerComposeInstallationError,
+        match="Failed to install Docker Compose: Installation error",
     ):
         install_docker_compose()
 

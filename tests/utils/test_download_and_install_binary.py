@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from devservices.exceptions import DockerComposeInstallationError
+from devservices.exceptions import BinaryInstallError
 from devservices.utils.install_binary import install_binary
 
 
@@ -16,7 +16,7 @@ def test_install_docker_compose_connection_error(
     mock_urlretrieve: mock.Mock, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with pytest.raises(
-        DockerComposeInstallationError,
+        BinaryInstallError,
         match="Failed to download binary-name after 3 attempts: Connection error",
     ):
         install_binary(
@@ -24,7 +24,6 @@ def test_install_docker_compose_connection_error(
             "exec_path",
             "1.0.0",
             "http:://example.com",
-            DockerComposeInstallationError,
         )
         captured = capsys.readouterr()
         assert (
@@ -37,7 +36,7 @@ def test_install_docker_compose_connection_error(
 @mock.patch("devservices.utils.install_binary.urlretrieve")
 def test_install_docker_compose_chmod_error(mock_urlretrieve: mock.Mock) -> None:
     with pytest.raises(
-        DockerComposeInstallationError,
+        BinaryInstallError,
         match=r"Failed to set executable permissions: \[Errno 2\] No such file or directory:.*",
     ):
         install_binary(
@@ -45,7 +44,6 @@ def test_install_docker_compose_chmod_error(mock_urlretrieve: mock.Mock) -> None
             "exec_path",
             "1.0.0",
             "http:://example.com",
-            DockerComposeInstallationError,
         )
 
 
@@ -56,7 +54,7 @@ def test_install_docker_compose_shutil_move_error(
     mock_urlretrieve: mock.Mock,
 ) -> None:
     with pytest.raises(
-        DockerComposeInstallationError,
+        BinaryInstallError,
         match=r"Failed to move binary-name binary to.*",
     ):
         install_binary(
@@ -64,5 +62,4 @@ def test_install_docker_compose_shutil_move_error(
             "exec_path",
             "1.0.0",
             "http:://example.com",
-            DockerComposeInstallationError,
         )
