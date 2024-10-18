@@ -8,6 +8,7 @@ from argparse import Namespace
 from importlib import metadata
 
 from devservices.commands.check_for_update import check_for_update
+from devservices.constants import DEVSERVICES_DOWNLOAD_URL
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DevservicesUpdateError
 from devservices.utils.install_binary import install_binary
@@ -21,7 +22,7 @@ def is_in_virtualenv() -> bool:
 
 def update_version(exec_path: str, latest_version: str) -> None:
     system = platform.system().lower()
-    url = f"https://github.com/getsentry/devservices/releases/download/{latest_version}/devservices-{system}"
+    url = f"{DEVSERVICES_DOWNLOAD_URL}/{latest_version}/devservices-{system}"
     try:
         install_binary("devservices", exec_path, latest_version, url)
     except BinaryInstallError as e:
