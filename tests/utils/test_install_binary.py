@@ -34,7 +34,9 @@ def test_install_docker_compose_connection_error(
 
 
 @mock.patch("devservices.utils.install_binary.urlretrieve")
-def test_install_docker_compose_chmod_error(mock_urlretrieve: mock.Mock) -> None:
+def test_install_docker_compose_chmod_file_not_found_error(
+    mock_urlretrieve: mock.Mock,
+) -> None:
     with pytest.raises(
         BinaryInstallError,
         match=r"Failed to set executable permissions: \[Errno 2\] No such file or directory:.*",
@@ -49,9 +51,53 @@ def test_install_docker_compose_chmod_error(mock_urlretrieve: mock.Mock) -> None
 
 @mock.patch("devservices.utils.install_binary.urlretrieve")
 @mock.patch("devservices.utils.install_binary.os.chmod")
-def test_install_docker_compose_shutil_move_error(
+def test_install_docker_compose_shutil_file_not_found_error(
     mock_chmod: mock.Mock,
     mock_urlretrieve: mock.Mock,
+) -> None:
+    with pytest.raises(
+        BinaryInstallError,
+        match=r"Failed to move binary-name binary to.*",
+    ):
+        install_binary(
+            "binary-name",
+            "exec_path",
+            "1.0.0",
+            "http:://example.com",
+        )
+
+
+@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch(
+    "devservices.utils.install_binary.os.chmod",
+    side_effect=PermissionError("Insufficient Permissions"),
+)
+def test_install_docker_compose_chmod_permission_error(
+    mock_chmod: mock.Mock,
+    mock_urlretrieve: mock.Mock,
+) -> None:
+    with pytest.raises(
+        BinaryInstallError,
+        match=r"Failed to set executable permissions: Insufficient Permissions",
+    ):
+        install_binary(
+            "binary-name",
+            "exec_path",
+            "1.0.0",
+            "http:://example.com",
+        )
+
+
+@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.os.chmod")
+@mock.patch(
+    "devservices.utils.install_binary.shutil.move",
+    side_effect=PermissionError("Insufficient Permissions"),
+)
+def test_install_docker_compose_shutil_move_permission_error(
+    mock_chmod: mock.Mock,
+    mock_urlretrieve: mock.Mock,
+    mock_move: mock.Mock,
 ) -> None:
     with pytest.raises(
         BinaryInstallError,

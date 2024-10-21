@@ -41,12 +41,12 @@ def install_binary(
         # Make the binary executable
         try:
             os.chmod(temp_file, BINARY_PERMISSIONS)
-        except Exception as e:
+        except (PermissionError, FileNotFoundError) as e:
             raise BinaryInstallError(f"Failed to set executable permissions: {e}")
 
         try:
             shutil.move(temp_file, exec_path)
-        except Exception as e:
+        except (PermissionError, FileNotFoundError) as e:
             raise BinaryInstallError(
                 f"Failed to move {binary_name} binary to {exec_path}: {e}"
             )
