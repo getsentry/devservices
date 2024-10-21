@@ -14,6 +14,8 @@ from devservices.commands import logs
 from devservices.commands import start
 from devservices.commands import status
 from devservices.commands import stop
+from devservices.commands import update
+from devservices.commands.check_for_update import check_for_update
 from devservices.utils.docker_compose import check_docker_compose_version
 
 sentry_environment = (
@@ -58,6 +60,7 @@ def main() -> None:
     list_services.add_parser(subparsers)
     status.add_parser(subparsers)
     logs.add_parser(subparsers)
+    update.add_parser(subparsers)
 
     args = parser.parse_args()
 
@@ -67,6 +70,14 @@ def main() -> None:
             args.func(args)
     else:
         parser.print_help()
+
+    if args.command != "update":
+        newest_version = check_for_update(metadata.version("devservices"))
+        if newest_version != metadata.version("devservices"):
+            print(
+                f"\n\033[93mWARNING: A new version of devservices is available: {newest_version}\033[0m"
+            )
+            print("To update, run: \033[1mdevservices update\033[0m")
 
 
 if __name__ == "__main__":

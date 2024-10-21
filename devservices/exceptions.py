@@ -31,8 +31,20 @@ class ConfigParseError(ConfigError):
     pass
 
 
-class DockerComposeVersionError(Exception):
-    """Raised when the Docker Compose version is unsupported."""
+class BinaryInstallError(Exception):
+    """Raised when a binary cannot be installed."""
+
+    pass
+
+
+class DevservicesUpdateError(BinaryInstallError):
+    """Raised when the devservices update fails."""
+
+    pass
+
+
+class DockerComposeInstallationError(BinaryInstallError):
+    """Raised when the Docker Compose installation fails."""
 
     pass
 
