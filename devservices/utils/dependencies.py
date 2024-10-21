@@ -3,20 +3,29 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import tempfile
 from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
 from typing import TextIO
 from typing import TypeGuard
 
 from devservices.configs.service_config import Dependency
+from devservices.configs.service_config import load_service_config_from_file
 from devservices.configs.service_config import RemoteConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
+from devservices.constants import DEVSERVICES_CACHE_DIR
+from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
+from devservices.exceptions import ConfigNotFoundError
+from devservices.exceptions import ConfigParseError
+from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import DependencyError
+from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
+from devservices.exceptions import InvalidDependencyConfigError
+from devservices.utils.file_lock import lock
 
 
 class SparseCheckoutManager:
@@ -90,6 +99,17 @@ class GitConfigManager:
             raise FailedToSetGitConfigError from e
 
 
+def verify_local_dependency(remote_config: RemoteConfig) -> bool:
+    local_dependency_path = os.path.join(
+        DEVSERVICES_DEPENDENCIES_CACHE_DIR,
+        DEPENDENCY_CONFIG_VERSION,
+        remote_config.repo_name,
+        DEVSERVICES_DIR_NAME,
+        CONFIG_FILE_NAME,
+    )
+    return os.path.exists(local_dependency_path)
+
+
 def verify_local_dependencies(dependencies: list[Dependency]) -> bool:
     remote_configs = _get_remote_configs(dependencies)
 
@@ -97,20 +117,11 @@ def verify_local_dependencies(dependencies: list[Dependency]) -> bool:
     if len(remote_configs) == 0:
         return True
 
-    if not os.path.exists(DEVSERVICES_LOCAL_DEPENDENCIES_DIR):
+    if not os.path.exists(DEVSERVICES_DEPENDENCIES_CACHE_DIR):
         return False
 
     return all(
-        os.path.exists(
-            os.path.join(
-                DEVSERVICES_LOCAL_DEPENDENCIES_DIR,
-                DEPENDENCY_CONFIG_VERSION,
-                remote_config.repo_name,
-                DEVSERVICES_DIR_NAME,
-                CONFIG_FILE_NAME,
-            )
-        )
-        for remote_config in remote_configs
+        verify_local_dependency(remote_config) for remote_config in remote_configs
     )
 
 
@@ -121,7 +132,7 @@ def install_dependencies(dependencies: list[Dependency]) -> None:
     if len(remote_configs) == 0:
         return
 
-    os.makedirs(DEVSERVICES_LOCAL_DEPENDENCIES_DIR, exist_ok=True)
+    os.makedirs(DEVSERVICES_DEPENDENCIES_CACHE_DIR, exist_ok=True)
 
     with ThreadPoolExecutor() as executor:
         futures = [
@@ -131,25 +142,65 @@ def install_dependencies(dependencies: list[Dependency]) -> None:
         for future in as_completed(futures):
             try:
                 future.result()
-            except Exception as e:
-                print(e)
+            except DependencyError as e:
+                raise e
 
 
 def install_dependency(dependency: RemoteConfig) -> None:
     dependency_repo_dir = os.path.join(
-        DEVSERVICES_LOCAL_DEPENDENCIES_DIR,
+        DEVSERVICES_DEPENDENCIES_CACHE_DIR,
         DEPENDENCY_CONFIG_VERSION,
         dependency.repo_name,
     )
 
-    if (
-        os.path.exists(dependency_repo_dir)
-        and _is_valid_repo(dependency_repo_dir)
-        and _has_valid_config_file(dependency_repo_dir)
-    ):
-        _update_dependency(dependency, dependency_repo_dir)
-    else:
-        _checkout_dependency(dependency, dependency_repo_dir)
+    os.makedirs(DEVSERVICES_CACHE_DIR, exist_ok=True)
+
+    # Ensure that only one process is installing a specific dependency at a time
+    # TODO: This is a very broad lock, we should consider making it more granular to enable faster installs
+    # TODO: Ideally we would simply not re-install something that is being currently being installed or was recently installed
+    lock_path = os.path.join(DEVSERVICES_CACHE_DIR, f"{dependency.repo_name}.lock")
+    with lock(lock_path):
+        if (
+            os.path.exists(dependency_repo_dir)
+            and _is_valid_repo(dependency_repo_dir)
+            and _has_valid_config_file(dependency_repo_dir)
+        ):
+            _update_dependency(dependency, dependency_repo_dir)
+        else:
+            _checkout_dependency(dependency, dependency_repo_dir)
+
+        if not verify_local_dependency(dependency):
+            # TODO: what should we do if the local dependency isn't installed correctly?
+            raise DependencyNotInstalledError(
+                repo_name=dependency.repo_name,
+                repo_link=dependency.repo_link,
+                branch=dependency.branch,
+            )
+
+        # Once the dependency is installed, install its dependencies (recursively)
+        try:
+            installed_config = load_service_config_from_file(dependency_repo_dir)
+        except (ConfigNotFoundError, ConfigParseError, ConfigValidationError) as e:
+            # TODO: This happens when the dependency has an invalid config
+            raise InvalidDependencyConfigError(
+                repo_name=dependency.repo_name,
+                repo_link=dependency.repo_link,
+                branch=dependency.branch,
+            ) from e
+
+    nested_dependencies = list(installed_config.dependencies.values())
+    nested_remote_configs = _get_remote_configs(nested_dependencies)
+
+    with ThreadPoolExecutor() as nested_executor:
+        nested_futures = [
+            nested_executor.submit(install_dependency, nested_remote_config)
+            for nested_remote_config in nested_remote_configs
+        ]
+        for nested_future in as_completed(nested_futures):
+            try:
+                nested_future.result()
+            except DependencyError as e:
+                raise e
 
 
 def _update_dependency(
@@ -174,12 +225,12 @@ def _update_dependency(
             ["git", "fetch", "origin", dependency.branch, "--filter=blob:none"],
             cwd=dependency_repo_dir,
         )
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
-        )
+        ) from e
 
     # Check if the local repo is up-to-date
     local_commit = subprocess.check_output(
@@ -206,41 +257,58 @@ def _checkout_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
-    if os.path.exists(dependency_repo_dir):
-        shutil.rmtree(dependency_repo_dir)
-    os.makedirs(dependency_repo_dir, exist_ok=False)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        try:
+            _run_command(
+                [
+                    "git",
+                    "clone",
+                    "--filter=blob:none",
+                    "--no-checkout",
+                    dependency.repo_link,
+                    temp_dir,
+                ],
+                cwd=temp_dir,
+            )
+        except subprocess.CalledProcessError as e:
+            raise DependencyError(
+                repo_name=dependency.repo_name,
+                repo_link=dependency.repo_link,
+                branch=dependency.branch,
+            ) from e
 
-    _run_command(
-        [
-            "git",
-            "clone",
-            "--filter=blob:none",
-            "--no-checkout",
-            dependency.repo_link,
-            dependency_repo_dir,
-        ],
-        cwd=dependency_repo_dir,
-    )
+        # Setup config for partial clone and sparse checkout
+        git_config_manager = GitConfigManager(
+            temp_dir,
+            DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS,
+            f"{DEVSERVICES_DIR_NAME}/",
+        )
+        try:
+            git_config_manager.ensure_config()
+        except FailedToSetGitConfigError as e:
+            raise DependencyError(
+                repo_name=dependency.repo_name,
+                repo_link=dependency.repo_link,
+                branch=dependency.branch,
+            ) from e
 
-    # Setup config for partial clone and sparse checkout
-    git_config_manager = GitConfigManager(
-        dependency_repo_dir,
-        DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS,
-        f"{DEVSERVICES_DIR_NAME}/",
-    )
-    try:
-        git_config_manager.ensure_config()
-    except FailedToSetGitConfigError as e:
-        raise DependencyError(
-            repo_name=dependency.repo_name,
-            repo_link=dependency.repo_link,
-            branch=dependency.branch,
-        ) from e
+        _run_command(
+            ["git", "checkout", dependency.branch],
+            cwd=temp_dir,
+        )
 
-    _run_command(
-        ["git", "checkout", dependency.branch],
-        cwd=dependency_repo_dir,
-    )
+        # Clean up the existing directory if it exists
+        if os.path.exists(dependency_repo_dir):
+            shutil.rmtree(dependency_repo_dir)
+        # Copy the cloned repo to the dependency cache directory
+        try:
+            shutil.copytree(temp_dir, dst=dependency_repo_dir)
+        except FileExistsError as e:
+            raise DependencyError(
+                repo_name=dependency.repo_name,
+                repo_link=dependency.repo_link,
+                branch=dependency.branch,
+            ) from e
 
 
 def _is_valid_repo(path: str) -> bool:

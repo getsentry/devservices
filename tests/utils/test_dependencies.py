@@ -3,7 +3,6 @@ from __future__ import annotations
 import shutil
 import subprocess
 from pathlib import Path
-from subprocess import SubprocessError
 from unittest import mock
 
 import pytest
@@ -17,8 +16,10 @@ from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.utils.dependencies import GitConfigManager
+from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
 from devservices.utils.dependencies import verify_local_dependencies
+from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
 
@@ -124,7 +125,7 @@ def test_git_config_manager_ensure_config_sparse_checkout_overwrite(
 
 def test_verify_local_dependencies_no_dependencies(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         assert verify_local_dependencies([])
@@ -132,7 +133,7 @@ def test_verify_local_dependencies_no_dependencies(tmp_path: Path) -> None:
 
 def test_verify_local_dependencies_no_remote_dependencies(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         dependency = Dependency(
@@ -143,7 +144,7 @@ def test_verify_local_dependencies_no_remote_dependencies(tmp_path: Path) -> Non
 
 def test_verify_local_dependencies_with_remote_dependencies(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -165,13 +166,13 @@ def test_verify_local_dependencies_with_remote_dependencies(tmp_path: Path) -> N
 
 def test_install_dependency_invalid_repo(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         remote_config = RemoteConfig(
             repo_name="test-repo", branch="main", repo_link="invalid-link"
         )
-        with pytest.raises(SubprocessError):
+        with pytest.raises(DependencyError):
             install_dependency(remote_config)
 
 
@@ -180,7 +181,7 @@ def test_install_dependency_git_config_failure(
     ensure_config_mock: mock.Mock, tmp_path: Path
 ) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -210,7 +211,7 @@ def test_install_dependency_git_config_failure(
 
 def test_install_dependency_basic(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -271,7 +272,7 @@ def test_install_dependency_basic(tmp_path: Path) -> None:
 
 def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         mock_git_repo = create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -306,7 +307,7 @@ def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
         with open(
             mock_git_repo / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME, mode="a"
         ) as f:
-            f.write("\nEdited config file")
+            f.write("\nedited: true")
 
         run_git_command(["add", "."], cwd=mock_git_repo)
         run_git_command(["commit", "-m", "Edit config file"], cwd=mock_git_repo)
@@ -332,12 +333,12 @@ def test_install_dependency_basic_with_edit(tmp_path: Path) -> None:
             / CONFIG_FILE_NAME,
             mode="r",
         ) as f:
-            assert f.read().endswith("\nEdited config file")
+            assert f.read().endswith("\nedited: true")
 
 
 def test_install_dependency_basic_with_new_tracked_file(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         mock_git_repo = create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -408,7 +409,7 @@ def test_install_dependency_basic_with_new_tracked_file(tmp_path: Path) -> None:
 
 def test_install_dependency_basic_with_existing_dir(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -448,7 +449,7 @@ def test_install_dependency_basic_with_existing_dir(tmp_path: Path) -> None:
 
 def test_install_dependency_basic_with_existing_invalid_repo(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -484,7 +485,7 @@ def test_install_dependency_basic_with_existing_invalid_repo(tmp_path: Path) -> 
 
 def test_install_dependency_basic_with_existing_repo_conflicts(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         mock_git_repo = create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -518,7 +519,7 @@ def test_install_dependency_basic_with_existing_repo_conflicts(tmp_path: Path) -
         with open(
             mock_git_repo / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME, mode="a"
         ) as f:
-            f.write("\nEdited config file")
+            f.write("\nedited: true")
 
         run_git_command(["add", "."], cwd=mock_git_repo)
         run_git_command(["commit", "-m", "Edit config file"], cwd=mock_git_repo)
@@ -547,12 +548,12 @@ def test_install_dependency_basic_with_existing_repo_conflicts(tmp_path: Path) -
             / CONFIG_FILE_NAME,
             mode="r",
         ) as f:
-            assert f.read().endswith("\nEdited config file")
+            assert f.read().endswith("\nedited: true")
 
 
 def test_install_dependency_basic_with_corrupted_repo(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         mock_git_repo = create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -601,7 +602,7 @@ def test_install_dependency_basic_with_corrupted_repo(tmp_path: Path) -> None:
 
 def test_install_dependency_basic_with_noop_update(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -648,7 +649,7 @@ def test_install_dependency_basic_with_noop_update(tmp_path: Path) -> None:
 
 def test_install_dependency_basic_git_config_self_fix(tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.dependencies.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         create_mock_git_repo("basic_repo", tmp_path / "test-repo")
@@ -727,3 +728,320 @@ def test_install_dependency_basic_git_config_self_fix(tmp_path: Path) -> None:
                 .strip()
                 == git_config_option_value
             )
+
+
+def test_install_dependency_nested_dependency(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        nested_repo_path = create_mock_git_repo("basic_repo", tmp_path / "nested-repo")
+        main_repo_path = create_mock_git_repo("blank_repo", tmp_path / "main-repo")
+        mock_git_repo_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "complex",
+                "dependencies": {
+                    "nested-repo": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "nested-repo",
+                            "repo_link": f"file://{nested_repo_path}",
+                            "branch": "main",
+                        },
+                    }
+                },
+                "modes": {"default": ["nested-repo"]},
+            }
+        }
+        create_config_file(main_repo_path, mock_git_repo_config)
+        run_git_command(["add", "."], cwd=main_repo_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=main_repo_path)
+
+        main_repo_dependency = RemoteConfig(
+            repo_name="main-repo",
+            branch="main",
+            repo_link=f"file://{main_repo_path}",
+        )
+
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "main-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "nested-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        install_dependency(main_repo_dependency)
+
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "main-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "nested-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+
+def test_install_dependency_nested_dependency_missing_nested_dependency(
+    tmp_path: Path,
+) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        main_repo_path = create_mock_git_repo("blank_repo", tmp_path / "main-repo")
+        mock_git_repo_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "complex",
+                "dependencies": {
+                    "nested-repo": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "nested-repo",
+                            "repo_link": "invalid-link",
+                            "branch": "main",
+                        },
+                    }
+                },
+                "modes": {"default": ["nested-repo"]},
+            }
+        }
+        create_config_file(main_repo_path, mock_git_repo_config)
+        run_git_command(["add", "."], cwd=main_repo_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=main_repo_path)
+
+        main_repo_dependency = RemoteConfig(
+            repo_name="main-repo",
+            branch="main",
+            repo_link=f"file://{main_repo_path}",
+        )
+
+        with pytest.raises(DependencyError):
+            install_dependency(main_repo_dependency)
+
+
+def test_install_dependency_nested_dependency_with_edits(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        nested_repo_path = create_mock_git_repo("basic_repo", tmp_path / "nested-repo")
+        main_repo_path = create_mock_git_repo("blank_repo", tmp_path / "main-repo")
+        mock_git_repo_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "complex",
+                "dependencies": {
+                    "nested-repo": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "nested-repo",
+                            "repo_link": f"file://{nested_repo_path}",
+                            "branch": "main",
+                        },
+                    }
+                },
+                "modes": {"default": ["nested-repo"]},
+            }
+        }
+        create_config_file(main_repo_path, mock_git_repo_config)
+        run_git_command(["add", "."], cwd=main_repo_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=main_repo_path)
+
+        main_repo_dependency = RemoteConfig(
+            repo_name="main-repo",
+            branch="main",
+            repo_link=f"file://{main_repo_path}",
+        )
+
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "main-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "nested-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        install_dependency(main_repo_dependency)
+
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "main-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "nested-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        with open(
+            main_repo_path / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME, mode="a"
+        ) as f:
+            f.write("\nedited: true")
+
+        run_git_command(["add", "."], cwd=main_repo_path)
+        run_git_command(["commit", "-m", "Edit config file"], cwd=main_repo_path)
+
+        with open(
+            nested_repo_path / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME, mode="a"
+        ) as f:
+            f.write("\nedited: true")
+
+        run_git_command(["add", "."], cwd=nested_repo_path)
+        run_git_command(["commit", "-m", "Edit config file"], cwd=nested_repo_path)
+
+        install_dependency(main_repo_dependency)
+
+        with open(
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "main-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME,
+            mode="r",
+        ) as f:
+            assert f.read().endswith("\nedited: true")
+
+        with open(
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "nested-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME,
+            mode="r",
+        ) as f:
+            assert f.read().endswith("\nedited: true")
+
+
+def test_install_dependencies_nested_dependency_conflict(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        repo_a_path = create_mock_git_repo("blank_repo", tmp_path / "repo-a")
+        repo_b_path = create_mock_git_repo("blank_repo", tmp_path / "repo-b")
+        repo_c_path = create_mock_git_repo("basic_repo", tmp_path / "repo-c")
+        repo_a_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "repo-a",
+                "dependencies": {
+                    "repo-c": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "repo-c",
+                            "repo_link": f"file://{repo_c_path}",
+                            "branch": "main",
+                        },
+                    },
+                },
+                "modes": {"default": ["repo-c"]},
+            }
+        }
+        create_config_file(repo_a_path, repo_a_config)
+        run_git_command(["add", "."], cwd=repo_a_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=repo_a_path)
+
+        repo_b_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "repo-b",
+                "dependencies": {
+                    "repo-c": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "repo-c",
+                            "repo_link": f"file://{repo_c_path}",
+                            "branch": "main",
+                        },
+                    },
+                },
+                "modes": {"default": ["repo-c"]},
+            }
+        }
+        create_config_file(repo_b_path, repo_b_config)
+        run_git_command(["add", "."], cwd=repo_b_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=repo_b_path)
+
+        repo_a_dependency = Dependency(
+            description="repo a",
+            remote=RemoteConfig(
+                repo_name="repo-a",
+                branch="main",
+                repo_link=f"file://{repo_a_path}",
+            ),
+        )
+        repo_b_dependency = Dependency(
+            description="repo b",
+            remote=RemoteConfig(
+                repo_name="repo-b",
+                branch="main",
+                repo_link=f"file://{repo_b_path}",
+            ),
+        )
+        dependencies = [repo_a_dependency, repo_b_dependency]
+
+        install_dependencies(dependencies)
+
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "repo-a"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "repo-b"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "repo-c"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()

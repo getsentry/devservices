@@ -56,6 +56,18 @@ class DependencyError(Exception):
         self.branch = branch
 
 
+class InvalidDependencyConfigError(DependencyError):
+    """Raised when a dependency's config is invalid."""
+
+    pass
+
+
+class DependencyNotInstalledError(DependencyError):
+    """Raised when a dependency is not installed correctly."""
+
+    pass
+
+
 class GitConfigError(Exception):
     """Base class for git config related errors."""
 
