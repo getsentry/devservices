@@ -3,12 +3,8 @@ from __future__ import annotations
 import os
 import platform
 import re
-import shutil
 import subprocess
-import tempfile
-import time
 from typing import cast
-from urllib.request import urlretrieve
 
 from packaging import version
 
@@ -16,12 +12,15 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR
 from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
+from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
+from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import verify_local_dependencies
+from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
 
 
@@ -60,62 +59,32 @@ def install_docker_compose() -> None:
     if not arch:
         raise DockerComposeInstallationError(f"Unsupported architecture: {machine}")
 
+    binary_name = "docker-compose"
+
     # Determine the download URL based on the platform
     if system == "Linux":
-        binary_name = f"docker-compose-linux-{arch}"
+        binary_name_with_extension = f"docker-compose-linux-{arch}"
     elif system == "Darwin":
-        binary_name = f"docker-compose-darwin-{arch}"
+        binary_name_with_extension = f"docker-compose-darwin-{arch}"
     else:
         raise DockerComposeInstallationError(f"Unsupported operating system: {system}")
 
-    url = f"https://github.com/docker/compose/releases/download/v{MINIMUM_DOCKER_COMPOSE_VERSION}/{binary_name}"
+    url = f"{DOCKER_COMPOSE_DOWNLOAD_URL}/v{MINIMUM_DOCKER_COMPOSE_VERSION}/{binary_name_with_extension}"
+    destination = os.path.join(DOCKER_USER_PLUGIN_DIR, binary_name)
 
-    # Create a temporary directory
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_file = os.path.join(temp_dir, "docker-compose")
-
-        # Download the Docker Compose binary with retries
-        max_retries = 3
-        retry_delay_seconds = 1
-        print(
-            f"Downloading Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} from {url}..."
+    try:
+        install_binary(
+            binary_name,
+            destination,
+            MINIMUM_DOCKER_COMPOSE_VERSION,
+            url,
         )
-        for attempt in range(max_retries):
-            try:
-                urlretrieve(url, temp_file)
-                break
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    print(
-                        f"Download failed. Retrying in {retry_delay_seconds} seconds... (Attempt {attempt + 1}/{max_retries})"
-                    )
-                    time.sleep(retry_delay_seconds)
-                else:
-                    raise DockerComposeInstallationError(
-                        f"Failed to download Docker Compose after {max_retries} attempts: {e}"
-                    )
+    except BinaryInstallError as e:
+        raise DockerComposeInstallationError(f"Failed to install Docker Compose: {e}")
 
-        # Make the binary executable
-        try:
-            os.chmod(temp_file, 0o755)
-        except Exception as e:
-            raise DockerComposeInstallationError(
-                f"Failed to set executable permissions: {e}"
-            )
-
-        destination = os.path.join(DOCKER_USER_PLUGIN_DIR, "docker-compose")
-        os.makedirs(DOCKER_USER_PLUGIN_DIR, exist_ok=True)
-
-        try:
-            shutil.move(temp_file, destination)
-        except Exception as e:
-            raise DockerComposeInstallationError(
-                f"Failed to move Docker Compose binary to {destination}: {e}"
-            )
-
-        print(
-            f"Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} installed successfully to {destination}"
-        )
+    print(
+        f"Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} installed successfully to {destination}"
+    )
 
     # Verify the installation
     try:
