@@ -15,6 +15,7 @@ from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import FailedToSetGitConfigError
+from devservices.exceptions import InvalidDependencyConfigError
 from devservices.utils.dependencies import GitConfigManager
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
@@ -951,7 +952,52 @@ def test_install_dependency_nested_dependency_with_edits(tmp_path: Path) -> None
             assert f.read().endswith("\nedited: true")
 
 
-def test_install_dependencies_nested_dependency_conflict(tmp_path: Path) -> None:
+def test_install_dependency_invalid_nested_dependency(tmp_path: Path) -> None:
+    """
+    Test that installing a nested dependency with an invalid config raises an error.
+    """
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        repo_a_path = create_mock_git_repo("blank_repo", tmp_path / "repo-a")
+        repo_c_path = create_mock_git_repo("invalid_repo", tmp_path / "repo-c")
+        repo_a_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "repo-a",
+                "dependencies": {
+                    "repo-c": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "repo-c",
+                            "repo_link": f"file://{repo_c_path}",
+                            "branch": "main",
+                        },
+                    },
+                },
+                "modes": {"default": ["repo-c"]},
+            }
+        }
+        create_config_file(repo_a_path, repo_a_config)
+        run_git_command(["add", "."], cwd=repo_a_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=repo_a_path)
+
+        repo_a_dependency = RemoteConfig(
+            repo_name="repo-a",
+            branch="main",
+            repo_link=f"file://{repo_a_path}",
+        )
+
+        with pytest.raises(InvalidDependencyConfigError):
+            install_dependency(repo_a_dependency)
+
+
+def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) -> None:
+    """
+    Test that installing multiple dependencies that share a nested dependency
+    does not cause file contention issues.
+    """
     with mock.patch(
         "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
