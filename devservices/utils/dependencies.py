@@ -15,7 +15,6 @@ from devservices.configs.service_config import RemoteConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
-from devservices.constants import DEVSERVICES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigNotFoundError
@@ -153,12 +152,14 @@ def install_dependency(dependency: RemoteConfig) -> None:
         dependency.repo_name,
     )
 
-    os.makedirs(DEVSERVICES_CACHE_DIR, exist_ok=True)
+    os.makedirs(DEVSERVICES_DEPENDENCIES_CACHE_DIR, exist_ok=True)
 
     # Ensure that only one process is installing a specific dependency at a time
     # TODO: This is a very broad lock, we should consider making it more granular to enable faster installs
     # TODO: Ideally we would simply not re-install something that is being currently being installed or was recently installed
-    lock_path = os.path.join(DEVSERVICES_CACHE_DIR, f"{dependency.repo_name}.lock")
+    lock_path = os.path.join(
+        DEVSERVICES_DEPENDENCIES_CACHE_DIR, f"{dependency.repo_name}.lock"
+    )
     with lock(lock_path):
         if (
             os.path.exists(dependency_repo_dir)

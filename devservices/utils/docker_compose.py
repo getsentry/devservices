@@ -9,6 +9,7 @@ from typing import cast
 from packaging import version
 
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
@@ -158,7 +159,8 @@ def run_docker_compose_command(
             #       since the dependencies may have changed since the service was started.
             install_dependencies(dependencies)
     relative_local_dependency_directory = os.path.relpath(
-        DEVSERVICES_DEPENDENCIES_CACHE_DIR, service.repo_path
+        os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
+        service.repo_path,
     )
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
