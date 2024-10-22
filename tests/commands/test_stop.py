@@ -10,15 +10,16 @@ import pytest
 
 from devservices.commands.stop import stop
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DEPENDENCY_CONFIG_VERSION
+from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY
 from testing.utils import create_config_file
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 def test_stop_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
     with mock.patch(
-        "devservices.utils.docker_compose.DEVSERVICES_LOCAL_DEPENDENCIES_DIR",
+        "devservices.utils.docker_compose.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         config = {
@@ -47,9 +48,12 @@ def test_stop_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
 
         stop(args)
 
-        # Ensure the DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY is set and is relative
+        # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
         env_vars = mock_run.call_args[1]["env"]
-        assert env_vars[DEVSERVICES_LOCAL_DEPENDENCIES_DIR_KEY] == "../dependency-dir"
+        assert (
+            env_vars[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY]
+            == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
+        )
 
         mock_run.assert_called_once_with(
             [
