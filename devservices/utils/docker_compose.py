@@ -152,17 +152,15 @@ def run_docker_compose_command(
 ) -> subprocess.CompletedProcess[str]:
     dependencies = list(service.config.dependencies.values())
     if force_update_dependencies:
-        remote_dependencies = install_dependencies(dependencies)
+        install_dependencies(dependencies)
     else:
         are_dependencies_valid = verify_local_dependencies(dependencies)
         if not are_dependencies_valid:
             # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
             #       since the dependencies may have changed since the service was started.
-            remote_dependencies = install_dependencies(dependencies)
+            install_dependencies(dependencies)
         else:
-            remote_dependencies = get_installed_remote_dependencies(dependencies)
-    # TODO: remove
-    print(remote_dependencies)
+            get_installed_remote_dependencies(dependencies)
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
         service.repo_path,
