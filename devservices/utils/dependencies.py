@@ -124,14 +124,30 @@ def verify_local_dependencies(dependencies: list[Dependency]) -> bool:
     )
 
 
-def install_dependencies(dependencies: list[Dependency]) -> None:
+def get_remote_service_names(dependencies: list[Dependency]) -> set[str]:
+    service_names: set[str] = set()
+    remote_configs = _get_remote_configs(dependencies)
+    for remote_config in remote_configs:
+        dependency_repo_dir = os.path.join(
+            DEVSERVICES_DEPENDENCIES_CACHE_DIR,
+            DEPENDENCY_CONFIG_VERSION,
+            remote_config.repo_name,
+        )
+        service_config = load_service_config_from_file(dependency_repo_dir)
+        service_names.add(service_config.service_name)
+    return service_names
+
+
+def install_dependencies(dependencies: list[Dependency]) -> set[str]:
     remote_configs = _get_remote_configs(dependencies)
 
     # Short circuit to avoid doing unnecessary work
     if len(remote_configs) == 0:
-        return
+        return set()
 
     os.makedirs(DEVSERVICES_DEPENDENCIES_CACHE_DIR, exist_ok=True)
+
+    service_names: set[str] = set()
 
     with ThreadPoolExecutor() as executor:
         futures = [
@@ -140,12 +156,14 @@ def install_dependencies(dependencies: list[Dependency]) -> None:
         ]
         for future in as_completed(futures):
             try:
-                future.result()
+                nested_service_names = future.result()
+                service_names = service_names.union(nested_service_names)
             except DependencyError as e:
                 raise e
+    return service_names
 
 
-def install_dependency(dependency: RemoteConfig) -> None:
+def install_dependency(dependency: RemoteConfig) -> set[str]:
     dependency_repo_dir = os.path.join(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR,
         DEPENDENCY_CONFIG_VERSION,
@@ -192,6 +210,8 @@ def install_dependency(dependency: RemoteConfig) -> None:
     nested_dependencies = list(installed_config.dependencies.values())
     nested_remote_configs = _get_remote_configs(nested_dependencies)
 
+    service_names: set[str] = set([installed_config.service_name])
+
     with ThreadPoolExecutor() as nested_executor:
         nested_futures = [
             nested_executor.submit(install_dependency, nested_remote_config)
@@ -199,9 +219,11 @@ def install_dependency(dependency: RemoteConfig) -> None:
         ]
         for nested_future in as_completed(nested_futures):
             try:
-                nested_future.result()
+                nested_service_names = nested_future.result()
+                service_names = service_names.union(nested_service_names)
             except DependencyError as e:
                 raise e
+    return service_names
 
 
 def _update_dependency(

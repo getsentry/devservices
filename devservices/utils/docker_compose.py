@@ -19,6 +19,7 @@ from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
+from devservices.utils.dependencies import get_remote_service_names
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import verify_local_dependencies
 from devservices.utils.install_binary import install_binary
@@ -151,13 +152,16 @@ def run_docker_compose_command(
 ) -> subprocess.CompletedProcess[str]:
     dependencies = list(service.config.dependencies.values())
     if force_update_dependencies:
-        install_dependencies(dependencies)
+        remote_service_names = install_dependencies(dependencies)
     else:
         are_dependencies_valid = verify_local_dependencies(dependencies)
         if not are_dependencies_valid:
             # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
             #       since the dependencies may have changed since the service was started.
-            install_dependencies(dependencies)
+            remote_service_names = install_dependencies(dependencies)
+        else:
+            remote_service_names = get_remote_service_names(dependencies)
+    print(remote_service_names)
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
         service.repo_path,
