@@ -14,11 +14,14 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
+from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
+from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import GitConfigManager
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
+from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
@@ -163,6 +166,71 @@ def test_verify_local_dependencies_with_remote_dependencies(tmp_path: Path) -> N
         install_dependency(remote_config)
 
         assert verify_local_dependencies([dependency])
+
+
+def test_get_installed_remote_dependencies_empty(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        installed_remote_dependencies = get_installed_remote_dependencies(
+            dependencies=[]
+        )
+        assert installed_remote_dependencies == set()
+
+
+def test_get_installed_remote_dependencies_single_dep_not_installed(
+    tmp_path: Path,
+) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = Dependency(
+            description="test repo",
+            remote=RemoteConfig(
+                repo_name="test-repo",
+                branch="main",
+                repo_link=f"file://{tmp_path / 'test-repo'}",
+            ),
+        )
+        with pytest.raises(DependencyNotInstalledError):
+            get_installed_remote_dependencies(dependencies=[mock_dependency])
+
+
+def test_get_installed_remote_dependencies_single_dep_installed(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = Dependency(
+            description="test repo",
+            remote=RemoteConfig(
+                repo_name="test-repo",
+                branch="main",
+                repo_link=f"file://{tmp_path / 'test-repo'}",
+            ),
+        )
+        installed_remote_dependencies_initial = install_dependencies([mock_dependency])
+        installed_remote_dependencies = get_installed_remote_dependencies(
+            dependencies=[mock_dependency]
+        )
+        assert installed_remote_dependencies == installed_remote_dependencies_initial
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                )
+            ]
+        )
 
 
 def test_install_dependency_invalid_repo(tmp_path: Path) -> None:
@@ -782,7 +850,30 @@ def test_install_dependency_nested_dependency(tmp_path: Path) -> None:
             / CONFIG_FILE_NAME
         ).exists()
 
-        install_dependency(main_repo_dependency)
+        installed_remote_dependencies = install_dependency(main_repo_dependency)
+
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "nested-repo"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="complex",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "main-repo"
+                    ),
+                ),
+            ]
+        )
 
         assert (
             tmp_path
@@ -892,7 +983,30 @@ def test_install_dependency_nested_dependency_with_edits(tmp_path: Path) -> None
             / CONFIG_FILE_NAME
         ).exists()
 
-        install_dependency(main_repo_dependency)
+        installed_remote_dependencies = install_dependency(main_repo_dependency)
+
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "nested-repo"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="complex",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "main-repo"
+                    ),
+                ),
+            ]
+        )
 
         assert (
             tmp_path
@@ -1065,7 +1179,39 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
         )
         dependencies = [repo_a_dependency, repo_b_dependency]
 
-        install_dependencies(dependencies)
+        installed_remote_dependencies = install_dependencies(dependencies)
+
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="repo-a",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-a"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="repo-b",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-b"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-c"
+                    ),
+                ),
+            ]
+        )
 
         assert (
             tmp_path

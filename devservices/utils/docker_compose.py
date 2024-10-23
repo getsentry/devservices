@@ -19,6 +19,7 @@ from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
+from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import verify_local_dependencies
 from devservices.utils.install_binary import install_binary
@@ -159,6 +160,8 @@ def run_docker_compose_command(
             # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
             #       since the dependencies may have changed since the service was started.
             install_dependencies(dependencies)
+        else:
+            get_installed_remote_dependencies(dependencies)
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
         service.repo_path,
