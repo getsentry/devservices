@@ -178,7 +178,63 @@ def test_get_installed_remote_dependencies_empty(tmp_path: Path) -> None:
         assert installed_remote_dependencies == set()
 
 
+def test_get_installed_remote_dependencies_single_dep_not_installed(
+    tmp_path: Path,
+) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = Dependency(
+            description="test repo",
+            remote=RemoteConfig(
+                repo_name="test-repo",
+                branch="main",
+                repo_link=f"file://{tmp_path / 'test-repo'}",
+            ),
+        )
+        with pytest.raises(InvalidDependencyConfigError):
+            get_installed_remote_dependencies(dependencies=[mock_dependency])
+
+
 def test_get_installed_remote_dependencies_single_dep_installed(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = Dependency(
+            description="test repo",
+            remote=RemoteConfig(
+                repo_name="test-repo",
+                branch="main",
+                repo_link=f"file://{tmp_path / 'test-repo'}",
+            ),
+        )
+        installed_remote_dependencies_initial = install_dependencies([mock_dependency])
+        installed_remote_dependencies = get_installed_remote_dependencies(
+            dependencies=[mock_dependency]
+        )
+        assert installed_remote_dependencies == installed_remote_dependencies_initial
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                )
+            ]
+        )
+
+
+def test_get_installed_remote_dependencies_multiple_dep_installed(
+    tmp_path: Path,
+) -> None:
     with mock.patch(
         "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),

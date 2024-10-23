@@ -143,7 +143,21 @@ def get_installed_remote_dependencies(
             DEPENDENCY_CONFIG_VERSION,
             remote_config.repo_name,
         )
-        service_config = load_service_config_from_file(dependency_repo_dir)
+        if not verify_local_dependency(remote_config):
+            # TODO: what should we do if the local dependency isn't installed correctly?
+            raise DependencyNotInstalledError(
+                repo_name=remote_config.repo_name,
+                repo_link=remote_config.repo_link,
+                branch=remote_config.branch,
+            )
+        try:
+            service_config = load_service_config_from_file(dependency_repo_dir)
+        except (ConfigNotFoundError, ConfigParseError, ConfigValidationError) as e:
+            raise InvalidDependencyConfigError(
+                repo_name=remote_config.repo_name,
+                repo_link=remote_config.repo_link,
+                branch=remote_config.branch,
+            ) from e
         installed_dependencies.add(
             InstalledRemoteDependency(
                 service_name=service_config.service_name, repo_path=dependency_repo_dir
