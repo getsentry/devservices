@@ -72,6 +72,7 @@ def install_docker_compose() -> None:
 
     url = f"{DOCKER_COMPOSE_DOWNLOAD_URL}/v{MINIMUM_DOCKER_COMPOSE_VERSION}/{binary_name_with_extension}"
     destination = os.path.join(DOCKER_USER_PLUGIN_DIR, binary_name)
+    os.makedirs(DOCKER_USER_PLUGIN_DIR, exist_ok=True)
 
     try:
         install_binary(
