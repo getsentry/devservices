@@ -1,12 +1,14 @@
 x-sentry-service-config:
   version: 0.1
   service_name: shared-kafka
-  dependencies: {}
+  dependencies:
+    shared-kafka:
+      description: "A distributed data store optimized for ingesting and processing streaming data in real-time"
   modes:
-    default: []
+    default: [shared-kafka]
 
 services:
-  kafka:
+  shared-kafka:
     image: "confluentinc/cp-kafka:7.6.1"
     environment:
       # https://docs.confluent.io/platform/current/installation/docker/config-reference.html#cp-kakfa-example
