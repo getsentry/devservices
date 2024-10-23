@@ -19,6 +19,7 @@ from devservices.exceptions import InvalidDependencyConfigError
 from devservices.utils.dependencies import GitConfigManager
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
+from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
@@ -782,7 +783,30 @@ def test_install_dependency_nested_dependency(tmp_path: Path) -> None:
             / CONFIG_FILE_NAME
         ).exists()
 
-        install_dependency(main_repo_dependency)
+        installed_remote_dependencies = install_dependency(main_repo_dependency)
+
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "nested-repo"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="complex",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "main-repo"
+                    ),
+                ),
+            ]
+        )
 
         assert (
             tmp_path
@@ -892,7 +916,30 @@ def test_install_dependency_nested_dependency_with_edits(tmp_path: Path) -> None
             / CONFIG_FILE_NAME
         ).exists()
 
-        install_dependency(main_repo_dependency)
+        installed_remote_dependencies = install_dependency(main_repo_dependency)
+
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "nested-repo"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="complex",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "main-repo"
+                    ),
+                ),
+            ]
+        )
 
         assert (
             tmp_path
@@ -1065,7 +1112,39 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
         )
         dependencies = [repo_a_dependency, repo_b_dependency]
 
-        install_dependencies(dependencies)
+        installed_remote_dependencies = install_dependencies(dependencies)
+
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="repo-a",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-a"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="repo-b",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-b"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-c"
+                    ),
+                ),
+            ]
+        )
 
         assert (
             tmp_path
