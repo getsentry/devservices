@@ -4,10 +4,12 @@ import os
 import platform
 import re
 import subprocess
+from collections.abc import Callable
 from typing import cast
 
 from packaging import version
 
+from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
@@ -21,6 +23,7 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import install_dependencies
+from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
 from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
@@ -148,20 +151,105 @@ def check_docker_compose_version() -> None:
     install_docker_compose()
 
 
+def __get_services_defined_in_config(
+    service_config_path: str, current_env: dict[str, str]
+) -> set[str]:
+    config_command = [
+        "docker",
+        "compose",
+        "-f",
+        service_config_path,
+        "config",
+        "--services",
+    ]
+    try:
+        config_services = subprocess.run(
+            config_command, capture_output=True, text=True, env=current_env
+        ).stdout
+    except subprocess.CalledProcessError as e:
+        raise DockerComposeError(
+            command=" ".join(config_command),
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+    services_defined_in_config = set(config_services.split("\n"))
+    return services_defined_in_config
+
+
+def __get_all_commands_to_run(
+    service: Service,
+    remote_dependencies: set[InstalledRemoteDependency],
+    current_env: dict[str, str],
+    command: str,
+    options: list[str],
+    service_config_file_path: str,
+    mode_dependencies: list[str],
+) -> list[list[str]]:
+    all_cmds = []
+    create_docker_compose_command: Callable[[str, str, set[str]], list[str]] = (
+        lambda name, config_path, services_to_use: [
+            "docker",
+            "compose",
+            "-p",
+            name,
+            "-f",
+            config_path,
+            command,
+        ]
+        + list(services_to_use)
+        + options
+    )
+    for dependency in remote_dependencies:
+        dependency_service_config = load_service_config_from_file(dependency.repo_path)
+        dependency_config_path = os.path.join(
+            dependency.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+        )
+        services_defined = __get_services_defined_in_config(
+            dependency_config_path, current_env
+        )
+        services_to_use = services_defined.intersection(
+            set(dependency_service_config.modes[dependency.mode])
+        )
+        all_cmds.append(
+            create_docker_compose_command(
+                dependency_service_config.service_name,
+                dependency_config_path,
+                services_to_use,
+            )
+        )
+
+    # Add docker compose command for the top level service
+    services_defined = __get_services_defined_in_config(
+        service_config_file_path, current_env
+    )
+    services_to_use = services_defined.intersection(set(mode_dependencies))
+    all_cmds.append(
+        create_docker_compose_command(
+            service.name, service_config_file_path, services_to_use
+        )
+    )
+    return all_cmds
+
+
 def run_docker_compose_command(
-    service: Service, command: str, force_update_dependencies: bool = False
-) -> subprocess.CompletedProcess[str]:
+    service: Service,
+    command: str,
+    mode_dependencies: list[str],
+    options: list[str] = [],
+    force_update_dependencies: bool = False,
+) -> list[subprocess.CompletedProcess[str]]:
     dependencies = list(service.config.dependencies.values())
     if force_update_dependencies:
-        install_dependencies(dependencies)
+        remote_dependencies = install_dependencies(dependencies)
     else:
         are_dependencies_valid = verify_local_dependencies(dependencies)
         if not are_dependencies_valid:
             # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
             #       since the dependencies may have changed since the service was started.
-            install_dependencies(dependencies)
+            remote_dependencies = install_dependencies(dependencies)
         else:
-            get_installed_remote_dependencies(dependencies)
+            remote_dependencies = get_installed_remote_dependencies(dependencies)
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
         service.repo_path,
@@ -174,26 +262,30 @@ def run_docker_compose_command(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
-    cmd = [
-        "docker",
-        "compose",
-        "-p",
-        service.name,
-        "-f",
+    all_cmds = __get_all_commands_to_run(
+        service,
+        remote_dependencies,
+        current_env,
+        command,
+        options,
         service_config_file_path,
-    ] + command.split()
-    try:
-        return subprocess.run(
-            cmd,
-            check=True,
-            capture_output=True,
-            text=True,
-            env=current_env,
-        )
-    except subprocess.CalledProcessError as e:
-        raise DockerComposeError(
-            command=command,
-            returncode=e.returncode,
-            stdout=e.stdout,
-            stderr=e.stderr,
-        ) from e
+        mode_dependencies,
+    )
+
+    cmd_outputs = []
+    for cmd in all_cmds:
+        try:
+            cmd_outputs.append(
+                subprocess.run(
+                    cmd, check=True, capture_output=True, text=True, env=current_env
+                )
+            )
+        except subprocess.CalledProcessError as e:
+            raise DockerComposeError(
+                command=command,
+                returncode=e.returncode,
+                stdout=e.stdout,
+                stderr=e.stderr,
+            ) from e
+
+    return cmd_outputs
