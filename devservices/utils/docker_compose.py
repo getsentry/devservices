@@ -197,7 +197,7 @@ def __get_all_commands_to_run(
             config_path,
             command,
         ]
-        + list(services_to_use)
+        + sorted(list(services_to_use))
         + options
     )
     for dependency in remote_dependencies:
