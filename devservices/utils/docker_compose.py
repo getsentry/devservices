@@ -151,7 +151,8 @@ def check_docker_compose_version() -> None:
     install_docker_compose()
 
 
-def __get_services_defined_in_config(
+# TODO: Consider removing this in favor of in house logic for determining non-remote services
+def _get_non_remote_services(
     service_config_path: str, current_env: dict[str, str]
 ) -> set[str]:
     config_command = [
@@ -173,11 +174,11 @@ def __get_services_defined_in_config(
             stdout=e.stdout,
             stderr=e.stderr,
         ) from e
-    services_defined_in_config = set(config_services.split("\n"))
+    services_defined_in_config = set(config_services.splitlines())
     return services_defined_in_config
 
 
-def __get_all_commands_to_run(
+def _get_docker_compose_commands_to_run(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     current_env: dict[str, str],
@@ -186,7 +187,7 @@ def __get_all_commands_to_run(
     service_config_file_path: str,
     mode_dependencies: list[str],
 ) -> list[list[str]]:
-    all_cmds = []
+    docker_compose_commands = []
     create_docker_compose_command: Callable[[str, str, set[str]], list[str]] = (
         lambda name, config_path, services_to_use: [
             "docker",
@@ -197,21 +198,20 @@ def __get_all_commands_to_run(
             config_path,
             command,
         ]
-        + sorted(list(services_to_use))
+        + sorted(list(services_to_use))  # Sort the services to prevent flaky tests
         + options
     )
-    for dependency in remote_dependencies:
+    # Sort the remote dependencies by service name to ensure a deterministic order
+    for dependency in sorted(remote_dependencies, key=lambda x: x.service_name):
         dependency_service_config = load_service_config_from_file(dependency.repo_path)
         dependency_config_path = os.path.join(
             dependency.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
         )
-        services_defined = __get_services_defined_in_config(
-            dependency_config_path, current_env
-        )
+        services_defined = _get_non_remote_services(dependency_config_path, current_env)
         services_to_use = services_defined.intersection(
             set(dependency_service_config.modes[dependency.mode])
         )
-        all_cmds.append(
+        docker_compose_commands.append(
             create_docker_compose_command(
                 dependency_service_config.service_name,
                 dependency_config_path,
@@ -220,16 +220,14 @@ def __get_all_commands_to_run(
         )
 
     # Add docker compose command for the top level service
-    services_defined = __get_services_defined_in_config(
-        service_config_file_path, current_env
-    )
+    services_defined = _get_non_remote_services(service_config_file_path, current_env)
     services_to_use = services_defined.intersection(set(mode_dependencies))
-    all_cmds.append(
+    docker_compose_commands.append(
         create_docker_compose_command(
             service.name, service_config_file_path, services_to_use
         )
     )
-    return all_cmds
+    return docker_compose_commands
 
 
 def run_docker_compose_command(
@@ -262,18 +260,18 @@ def run_docker_compose_command(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
-    all_cmds = __get_all_commands_to_run(
-        service,
-        remote_dependencies,
-        current_env,
-        command,
-        options,
-        service_config_file_path,
-        mode_dependencies,
+    docker_compose_commands = _get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=remote_dependencies,
+        current_env=current_env,
+        command=command,
+        options=options,
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
     )
 
     cmd_outputs = []
-    for cmd in all_cmds:
+    for cmd in docker_compose_commands:
         try:
             cmd_outputs.append(
                 subprocess.run(

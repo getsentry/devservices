@@ -1,0 +1,24 @@
+x-sentry-service-config:
+  version: 0.1
+  service_name: grandparent-service
+  dependencies:
+    parent-service:
+      description: This is a remote parent service that is used for testing purposes.
+      remote:
+        repo_name: parent-service
+        branch: main
+        repo_link: https://github.com/example/parent-service.git
+    grandparent-service:
+      description: This is a remote nested dependency service that is used for testing purposes.
+  modes:
+    default: [parent-service, grandparent-service]
+services:
+  grandparent-service:
+    image: grandparent-service
+    networks:
+      - sentry
+
+networks:
+  sentry:
+    name: sentry
+    external: true

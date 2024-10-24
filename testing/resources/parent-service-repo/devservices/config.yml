@@ -1,0 +1,24 @@
+x-sentry-service-config:
+  version: 0.1
+  service_name: parent-service
+  dependencies:
+    child-service:
+      description: This is a remote child service that is used for testing purposes.
+      remote:
+        repo_name: child-service
+        branch: main
+        repo_link: https://github.com/example/child-service.git
+    parent-service:
+      description: This is a remote parent service that is used for testing purposes.
+  modes:
+    default: [parent-service, child-service]
+services:
+  parent-service:
+    image: parent-service
+    networks:
+      - sentry
+
+networks:
+  sentry:
+    name: sentry
+    external: true
