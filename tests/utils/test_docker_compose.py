@@ -2,14 +2,24 @@ from __future__ import annotations
 
 import os
 import subprocess
+from pathlib import Path
 from unittest import mock
 
 import pytest
 
+from devservices.configs.service_config import load_service_config_from_file
+from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import BinaryInstallError
+from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
+from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.docker_compose import _get_docker_compose_commands_to_run
+from devservices.utils.docker_compose import _get_non_remote_services
 from devservices.utils.docker_compose import check_docker_compose_version
 from devservices.utils.docker_compose import install_docker_compose
+from devservices.utils.services import Service
+from testing.utils import create_mock_git_repo
 
 
 @mock.patch("subprocess.run")
@@ -200,3 +210,273 @@ def test_install_docker_compose_linux_x86(
     mock_subprocess_run.assert_called_once_with(
         ["docker", "compose", "version", "--short"], capture_output=True, text=True
     )
+
+
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    return_value=subprocess.CompletedProcess(
+        args=["docker", "compose", "config", "--services"],
+        returncode=0,
+        stdout="service-1\nservice-2\n",
+    ),
+)
+def test_get_non_remote_services_success(mock_run: mock.Mock) -> None:
+    services = _get_non_remote_services("config_path", {})
+    assert services == {"service-1", "service-2"}
+
+
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    side_effect=subprocess.CalledProcessError(
+        returncode=1, cmd="docker compose config --services", stderr="command failed"
+    ),
+)
+def test_get_non_remote_services_error(mock_run: mock.Mock) -> None:
+    with pytest.raises(DockerComposeError) as e:
+        _get_non_remote_services("config_path", {})
+        assert str(e.value) == "command failed"
+
+
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    return_value=subprocess.CompletedProcess(
+        args=["docker", "compose", "config", "--services"],
+        returncode=0,
+        stdout="child-service\n",
+    ),
+)
+def test_get_all_commands_to_run_simple_local(
+    mock_run: mock.Mock, tmp_path: Path
+) -> None:
+    child_service_repo_path = tmp_path / "child-service-repo"
+    create_mock_git_repo("child-service-repo", child_service_repo_path)
+    child_service_repo_path_str = str(child_service_repo_path)
+
+    service_config = load_service_config_from_file(child_service_repo_path_str)
+    remote_dependencies: set[InstalledRemoteDependency] = set()
+    current_env = os.environ.copy()
+    command = "up"
+    options = ["-d"]
+    service_config_file_path = os.path.join(
+        child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+    )
+    mode_dependencies = service_config.modes["default"]
+    service = Service(
+        name="child-service",
+        repo_path=child_service_repo_path_str,
+        config=service_config,
+    )
+    commands = _get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=remote_dependencies,
+        current_env=current_env,
+        command=command,
+        options=options,
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+    assert commands == [
+        [
+            "docker",
+            "compose",
+            "-p",
+            "child-service",
+            "-f",
+            service_config_file_path,
+            "up",
+            "child-service",
+            "-d",
+        ]
+    ]
+
+
+@mock.patch("devservices.utils.docker_compose.subprocess.run")
+def test_get_all_commands_to_run_simple_remote(
+    mock_run: mock.Mock, tmp_path: Path
+) -> None:
+    child_service_repo_path = tmp_path / "child-service-repo"
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    create_mock_git_repo("child-service-repo", child_service_repo_path)
+    create_mock_git_repo("parent-service-repo", parent_service_repo_path)
+    child_service_repo_path_str = str(child_service_repo_path)
+    parent_service_repo_path_str = str(parent_service_repo_path)
+
+    service_config = load_service_config_from_file(parent_service_repo_path_str)
+    service = Service(
+        name="parent-service",
+        repo_path=parent_service_repo_path_str,
+        config=service_config,
+    )
+    remote_dependencies = set(
+        [
+            InstalledRemoteDependency(
+                service_name="child-service",
+                repo_path=child_service_repo_path_str,
+                mode="default",
+            )
+        ]
+    )
+    current_env = os.environ.copy()
+    command = "up"
+    options = ["-d"]
+    service_config_file_path = os.path.join(
+        parent_service_repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+    )
+    mode_dependencies = service_config.modes["default"]
+    mock_run.side_effect = [
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="child-service\n",
+        ),
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="parent-service\n",
+        ),
+    ]
+    commands = _get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=remote_dependencies,
+        current_env=current_env,
+        command=command,
+        options=options,
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+    assert commands == [
+        [
+            "docker",
+            "compose",
+            "-p",
+            "child-service",
+            "-f",
+            os.path.join(
+                child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            ),
+            "up",
+            "child-service",
+            "-d",
+        ],
+        [
+            "docker",
+            "compose",
+            "-p",
+            "parent-service",
+            "-f",
+            service_config_file_path,
+            "up",
+            "parent-service",
+            "-d",
+        ],
+    ]
+
+
+@mock.patch("devservices.utils.docker_compose.subprocess.run")
+def test_get_all_commands_to_run_complex_remote(
+    mock_run: mock.Mock, tmp_path: Path
+) -> None:
+    child_service_repo_path = tmp_path / "child-service-repo"
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    grandparent_service_repo_path = tmp_path / "grandparent-service-repo"
+    create_mock_git_repo("child-service-repo", tmp_path / "child-service-repo")
+    create_mock_git_repo("parent-service-repo", tmp_path / "parent-service-repo")
+    create_mock_git_repo(
+        "grandparent-service-repo", tmp_path / "grandparent-service-repo"
+    )
+    child_service_repo_path_str = str(child_service_repo_path)
+    parent_service_repo_path_str = str(parent_service_repo_path)
+    grandparent_service_repo_path_str = str(grandparent_service_repo_path)
+
+    service_config = load_service_config_from_file(grandparent_service_repo_path_str)
+    service = Service(
+        name="grandparent-service",
+        repo_path=grandparent_service_repo_path_str,
+        config=service_config,
+    )
+    remote_dependencies = set(
+        [
+            InstalledRemoteDependency(
+                service_name="child-service",
+                repo_path=child_service_repo_path_str,
+                mode="default",
+            ),
+            InstalledRemoteDependency(
+                service_name="parent-service",
+                repo_path=parent_service_repo_path_str,
+                mode="default",
+            ),
+        ]
+    )
+    current_env = os.environ.copy()
+    command = "up"
+    options = ["-d"]
+    service_config_file_path = os.path.join(
+        grandparent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+    )
+    mode_dependencies = service_config.modes["default"]
+    mock_run.side_effect = [
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="child-service\n",
+        ),
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="parent-service\n",
+        ),
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="grandparent-service\n",
+        ),
+    ]
+    commands = _get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=remote_dependencies,
+        current_env=current_env,
+        command=command,
+        options=options,
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+    assert commands == [
+        [
+            "docker",
+            "compose",
+            "-p",
+            "child-service",
+            "-f",
+            os.path.join(
+                child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            ),
+            "up",
+            "child-service",
+            "-d",
+        ],
+        [
+            "docker",
+            "compose",
+            "-p",
+            "parent-service",
+            "-f",
+            os.path.join(
+                parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            ),
+            "up",
+            "parent-service",
+            "-d",
+        ],
+        [
+            "docker",
+            "compose",
+            "-p",
+            "grandparent-service",
+            "-f",
+            service_config_file_path,
+            "up",
+            "grandparent-service",
+            "-d",
+        ],
+    ]

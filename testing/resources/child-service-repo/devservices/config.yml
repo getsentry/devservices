@@ -1,0 +1,19 @@
+x-sentry-service-config:
+  version: 0.1
+  service_name: child-service
+  dependencies:
+    child-service:
+      description: This is a remote child service that is used for testing purposes.
+  modes:
+    default: [child-service]
+
+services:
+  child-service:
+    image: child-service
+    networks:
+      - sentry
+
+networks:
+  sentry:
+    name: sentry
+    external: true

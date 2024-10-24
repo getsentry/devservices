@@ -32,6 +32,7 @@ from devservices.utils.file_lock import lock
 class InstalledRemoteDependency:
     service_name: str
     repo_path: str
+    mode: str = "default"
 
 
 class SparseCheckoutManager:
@@ -160,7 +161,9 @@ def get_installed_remote_dependencies(
             ) from e
         installed_dependencies.add(
             InstalledRemoteDependency(
-                service_name=service_config.service_name, repo_path=dependency_repo_dir
+                service_name=service_config.service_name,
+                repo_path=dependency_repo_dir,
+                mode=remote_config.mode,
             )
         )
         nested_remote_configs = _get_remote_configs(
@@ -252,6 +255,7 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
             InstalledRemoteDependency(
                 service_name=installed_config.service_name,
                 repo_path=dependency_repo_dir,
+                mode=dependency.mode,
             )
         ]
     )

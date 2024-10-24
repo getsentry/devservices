@@ -16,7 +16,14 @@ from devservices.constants import DEVSERVICES_DIR_NAME
 from testing.utils import create_config_file
 
 
-@mock.patch("devservices.utils.docker_compose.subprocess.run")
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    return_value=subprocess.CompletedProcess(
+        args=["docker", "compose", "config", "--services"],
+        returncode=0,
+        stdout="clickhouse\nredis\n",
+    ),
+)
 def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
     with mock.patch(
         "devservices.utils.docker_compose.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
@@ -55,7 +62,7 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
             == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
         )
 
-        mock_run.assert_called_once_with(
+        mock_run.assert_called_with(
             [
                 "docker",
                 "compose",
@@ -64,9 +71,9 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
                 "-f",
                 f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                 "up",
-                "-d",
-                "redis",
                 "clickhouse",
+                "redis",
+                "-d",
             ],
             check=True,
             capture_output=True,

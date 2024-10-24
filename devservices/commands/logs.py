@@ -33,12 +33,13 @@ def logs(args: Namespace) -> None:
     modes = service.config.modes
     # TODO: allow custom modes to be used
     mode_to_use = "default"
-    mode_dependencies = " ".join(modes[mode_to_use])
+    mode_dependencies = modes[mode_to_use]
 
     try:
-        logs = run_docker_compose_command(service, f"logs {mode_dependencies}")
+        logs = run_docker_compose_command(service, "logs", mode_dependencies)
     except DockerComposeError as dce:
         print(f"Failed to get logs for {service.name}: {dce.stderr}")
         exit(1)
-    sys.stdout.write(logs.stdout)
-    sys.stdout.flush()
+    for log in logs:
+        sys.stdout.write(log.stdout)
+        sys.stdout.flush()

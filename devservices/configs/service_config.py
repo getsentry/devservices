@@ -20,6 +20,7 @@ class RemoteConfig:
     repo_name: str
     branch: str
     repo_link: str
+    mode: str = "default"
 
 
 @dataclass
