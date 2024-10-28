@@ -38,13 +38,12 @@ services:
       - '9092:9092'
       - '9093:9093'
     volumes:
-      - "kafka:/var/lib/kafka/data"
+      - "sentry-kafka:/var/lib/kafka/data"
     networks:
       - sentry
 volumes:
-  kafka:
+  sentry-kafka:
 
 networks:
   sentry:
     name: sentry
-    # external: true
