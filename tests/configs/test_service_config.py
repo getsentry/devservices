@@ -29,6 +29,7 @@ from testing.utils import create_config_file
                         "repo_name": "example-dependency-1",
                         "branch": "main",
                         "repo_link": "https://example.com",
+                        "mode": "default",
                     },
                 },
                 "example-dependency-2": {
@@ -46,6 +47,7 @@ from testing.utils import create_config_file
                         "repo_name": "example-dependency-1",
                         "branch": "main",
                         "repo_link": "https://example.com",
+                        "mode": "default",
                     },
                 },
                 "example-dependency-2": {
