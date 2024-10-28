@@ -47,4 +47,4 @@ volumes:
 networks:
   sentry:
     name: sentry
-    external: true
+    # external: true
