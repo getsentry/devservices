@@ -32,9 +32,7 @@ from devservices.utils.services import Service
 def get_active_docker_compose_projects() -> list[str]:
     cmd = ["docker", "compose", "ls", "-q"]
     try:
-        running_projects = subprocess.run(
-            cmd, check=True, capture_output=True, text=True
-        ).stdout
+        running_projects = subprocess.check_output(cmd, text=True)
     except subprocess.CalledProcessError as e:
         raise DockerComposeError(
             command=" ".join(cmd),
@@ -203,12 +201,15 @@ def _get_docker_compose_commands_to_run(
     )
     # Sort the remote dependencies by service name to ensure a deterministic order
     for dependency in sorted(remote_dependencies, key=lambda x: x.service_name):
+        # TODO: Consider passing in service config in InstalledRemoteDependency instead of loading it here
         dependency_service_config = load_service_config_from_file(dependency.repo_path)
         dependency_config_path = os.path.join(
             dependency.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
         )
-        services_defined = _get_non_remote_services(dependency_config_path, current_env)
-        services_to_use = services_defined.intersection(
+        non_remote_services = _get_non_remote_services(
+            dependency_config_path, current_env
+        )
+        services_to_use = non_remote_services.intersection(
             set(dependency_service_config.modes[dependency.mode])
         )
         docker_compose_commands.append(
@@ -220,8 +221,10 @@ def _get_docker_compose_commands_to_run(
         )
 
     # Add docker compose command for the top level service
-    services_defined = _get_non_remote_services(service_config_file_path, current_env)
-    services_to_use = services_defined.intersection(set(mode_dependencies))
+    non_remote_services = _get_non_remote_services(
+        service_config_file_path, current_env
+    )
+    services_to_use = non_remote_services.intersection(set(mode_dependencies))
     docker_compose_commands.append(
         create_docker_compose_command(
             service.name, service_config_file_path, services_to_use
