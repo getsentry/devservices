@@ -1,6 +1,6 @@
 x-sentry-service-config:
   version: 0.1
-  service_name: kafka
+  service_name: shared-kafka
   dependencies:
     kafka:
       description: "A distributed data store optimized for ingesting and processing streaming data in real-time"
@@ -38,11 +38,14 @@ services:
       - '9092:9092'
       - '9093:9093'
     volumes:
-      - "sentry-kafka:/var/lib/kafka/data"
+      - "kafka-data:/var/lib/kafka/data"
     networks:
       - sentry
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Allow host.docker.internal to resolve to the host machine
+
 volumes:
-  sentry-kafka:
+  kafka-data:
 
 networks:
   sentry:
