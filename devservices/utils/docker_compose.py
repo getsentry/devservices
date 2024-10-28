@@ -162,9 +162,9 @@ def _get_non_remote_services(
         "--services",
     ]
     try:
-        config_services = subprocess.run(
-            config_command, capture_output=True, text=True, env=current_env
-        ).stdout
+        config_services = subprocess.check_output(
+            config_command, text=True, env=current_env
+        )
     except subprocess.CalledProcessError as e:
         raise DockerComposeError(
             command=" ".join(config_command),
@@ -172,8 +172,7 @@ def _get_non_remote_services(
             stdout=e.stdout,
             stderr=e.stderr,
         ) from e
-    services_defined_in_config = set(config_services.splitlines())
-    return services_defined_in_config
+    return set(config_services.splitlines())
 
 
 def _get_docker_compose_commands_to_run(
