@@ -1,3 +1,34 @@
+## 0.0.4
+
+### Various fixes & improvements
+
+- feat(devservices): Run commands for nested dependencies by project (#86) by @hubertdeng123
+- ref(dependencies): Providing information about installed remote dependencies after installing (#82) by @IanWoodard
+- fix missing directory for docker user plugin (#81) by @hubertdeng123
+- ref(dependencies): Adding ability to install nested dependencies (#77) by @IanWoodard
+- feat(commands): Add update command (#75) by @hubertdeng123
+- only run codecov on pull requests (93cfd424) by @hubertdeng123
+- ref(services): Add message when service is found with invalid config (#73) by @IanWoodard
+- ref: Pin docker compose version for users (#68) by @hubertdeng123
+- chore(utils): Updating usage to use a constant (#74) by @IanWoodard
+- ref(dependencies): Adding git proper git config management for deps (#69) by @IanWoodard
+- feat(docker-compose): Simplify docker compose environment injection (#64) by @IanWoodard
+- feat(list-services): Add status of services (#55) by @hubertdeng123
+- feat(docker-compose): Check version (#53) by @hubertdeng123
+- chore(sentry): Add option to disable sentry (#59) by @IanWoodard
+- feat(dependency): Adding dependency management to commands (#56) by @IanWoodard
+- Ignoring testing and tests for coverage (#57) by @IanWoodard
+- add venv (#54) by @hubertdeng123
+- feat(codecov): Adding codecov (#50) by @IanWoodard
+- chore(pre-commit): Add a few pre commit plugins (#51) by @hubertdeng123
+- chore(sentry): Add sentry environment support (#49) by @IanWoodard
+- ref(dep): Addressing dependency edge cases (#44) by @IanWoodard
+- ref(docker-compose): refactoring docker compose util (#48) by @IanWoodard
+- chore(start): Specify project name when starting services (#47) by @hubertdeng123
+- add installation details (#42) by @hubertdeng123
+
+_Plus 3 more_
+
 ## 0.0.3
 
 ### Various fixes & improvements
