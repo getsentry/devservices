@@ -224,11 +224,12 @@ def _get_docker_compose_commands_to_run(
         service_config_file_path, current_env
     )
     services_to_use = non_remote_services.intersection(set(mode_dependencies))
-    docker_compose_commands.append(
-        create_docker_compose_command(
-            service.name, service_config_file_path, services_to_use
+    if len(services_to_use) > 0:
+        docker_compose_commands.append(
+            create_docker_compose_command(
+                service.name, service_config_file_path, services_to_use
+            )
         )
-    )
     return docker_compose_commands
 
 
