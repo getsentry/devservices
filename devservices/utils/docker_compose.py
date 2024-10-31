@@ -21,6 +21,7 @@ from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
+from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -104,11 +105,23 @@ def install_docker_compose() -> None:
 
 
 def check_docker_compose_version() -> None:
-    cmd = ["docker", "compose", "version", "--short"]
+    # Make sure the Docker daemon is running
+    try:
+        subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerDaemonNotRunningError(
+            "Unable to connect to the docker daemon. Is the docker daemon running?"
+        ) from e
+
     try:
         # Run the docker compose version command
         result = subprocess.run(
-            cmd,
+            ["docker", "compose", "version", "--short"],
             capture_output=True,
             text=True,
             check=True,

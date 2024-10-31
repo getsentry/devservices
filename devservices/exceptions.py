@@ -43,6 +43,12 @@ class DevservicesUpdateError(BinaryInstallError):
     pass
 
 
+class DockerDaemonNotRunningError(Exception):
+    """Raised when the Docker daemon is not running."""
+
+    pass
+
+
 class DockerComposeInstallationError(BinaryInstallError):
     """Raised when the Docker Compose installation fails."""
 
