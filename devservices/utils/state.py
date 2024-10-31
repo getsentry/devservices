@@ -36,6 +36,9 @@ class State:
 
     def add_started_service(self, service_name: str) -> None:
         cursor = self.conn.cursor()
+        started_services = self.get_started_services()
+        if service_name in started_services:
+            return
         cursor.execute(
             """
             INSERT INTO started_services (service_name) VALUES (?)
