@@ -8,6 +8,7 @@ from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Status
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
+from devservices.utils.state import State
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -38,3 +39,7 @@ def stop(args: Namespace) -> None:
         except DockerComposeError as dce:
             status.print(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
+
+    # TODO: We should factor in healthchecks here before marking service as stopped
+    state = State()
+    state.remove_started_service(service.name)
