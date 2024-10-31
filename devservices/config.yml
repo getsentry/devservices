@@ -40,7 +40,7 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
-      - sentry
+      - devservices
     extra_hosts:
       - host.docker.internal:host-gateway # Allow host.docker.internal to resolve to the host machine
 
@@ -48,5 +48,5 @@ volumes:
   kafka-data:
 
 networks:
-  sentry:
-    name: sentry
+  devservices:
+    name: devservices
