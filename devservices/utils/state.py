@@ -34,9 +34,6 @@ class State:
         )
         self.conn.commit()
 
-    def get_connection(self) -> sqlite3.Connection:
-        return self.conn
-
     def add_started_service(self, service_name: str) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
