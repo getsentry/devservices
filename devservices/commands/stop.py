@@ -4,6 +4,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Status
 from devservices.utils.docker_compose import run_docker_compose_command
@@ -35,6 +36,9 @@ def stop(args: Namespace) -> None:
     with Status(f"Stopping {service.name}", f"{service.name} stopped") as status:
         try:
             run_docker_compose_command(service, "down", mode_dependencies)
+        except DependencyError as de:
+            status.print(str(de))
+            exit(1)
         except DockerComposeError as dce:
             status.print(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)

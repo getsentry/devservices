@@ -67,17 +67,29 @@ class DependencyError(Exception):
         self.repo_link = repo_link
         self.branch = branch
 
+    def __str__(self) -> str:
+        return f"DependencyError: {self.repo_name} ({self.repo_link}) on {self.branch}"
+
+
+class UnableToCloneDependencyError(DependencyError):
+    """Raised when a dependency is unable to be cloned."""
+
+    def __str__(self) -> str:
+        return f"Unable to clone dependency: {self.repo_name} ({self.repo_link}) on {self.branch}"
+
 
 class InvalidDependencyConfigError(DependencyError):
     """Raised when a dependency's config is invalid."""
 
-    pass
+    def __str__(self) -> str:
+        return f"Invalid config for dependency: {self.repo_name} ({self.repo_link}) on {self.branch}"
 
 
 class DependencyNotInstalledError(DependencyError):
     """Raised when a dependency is not installed correctly."""
 
-    pass
+    def __str__(self) -> str:
+        return f"Dependency not installed correctly: {self.repo_name} ({self.repo_link}) on {self.branch}"
 
 
 class GitConfigError(Exception):

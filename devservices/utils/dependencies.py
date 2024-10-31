@@ -25,6 +25,7 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
+from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
 
 
@@ -344,7 +345,7 @@ def _checkout_dependency(
                 cwd=temp_dir,
             )
         except subprocess.CalledProcessError as e:
-            raise DependencyError(
+            raise UnableToCloneDependencyError(
                 repo_name=dependency.repo_name,
                 repo_link=dependency.repo_link,
                 branch=dependency.branch,
