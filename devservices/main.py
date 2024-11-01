@@ -11,6 +11,7 @@ from sentry_sdk.integrations.argv import ArgvIntegration
 from devservices.commands import list_dependencies
 from devservices.commands import list_services
 from devservices.commands import logs
+from devservices.commands import purge
 from devservices.commands import start
 from devservices.commands import status
 from devservices.commands import stop
@@ -61,6 +62,7 @@ def main() -> None:
     status.add_parser(subparsers)
     logs.add_parser(subparsers)
     update.add_parser(subparsers)
+    purge.add_parser(subparsers)
 
     args = parser.parse_args()
 
