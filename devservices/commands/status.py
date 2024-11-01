@@ -74,7 +74,7 @@ def status(args: Namespace) -> None:
     mode_dependencies = modes[mode_to_view]
 
     try:
-        status_jsons = run_docker_compose_command(
+        status_json_results = run_docker_compose_command(
             service, "ps", mode_dependencies, options=["--format", "json"]
         )
     except DependencyError as de:
@@ -83,12 +83,16 @@ def status(args: Namespace) -> None:
     except DockerComposeError as dce:
         print(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)
-    # If the service is not running, the status_json will be empty
-    if len(status_jsons) == 0:
+
+    # Filter out empty stdout to help us determine if the service is running
+    status_json_results = [
+        status_json for status_json in status_json_results if status_json.stdout
+    ]
+    if len(status_json_results) == 0:
         print(f"{service.name} is not running")
         return
     output = f"Service: {service.name}\n\n"
-    for status_json in status_jsons:
+    for status_json in status_json_results:
         output += format_status_output(status_json.stdout)
     output += "=" * LINE_LENGTH
     sys.stdout.write(output + "\n")
