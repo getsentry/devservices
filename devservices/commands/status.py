@@ -34,11 +34,13 @@ def format_status_output(status_json: str) -> str:
         service = json.loads(service_status)
         name = service["Service"]
         state = service["State"]
+        container_name = service["Name"]
         health = service.get("Health", "N/A")
         ports = service.get("Publishers", [])
         running_for = service.get("RunningFor", "N/A")
 
         output.append(f"{name}")
+        output.append(f"Container: {container_name}")
         output.append(f"Status: {state}")
         output.append(f"Health: {health}")
         output.append(f"Uptime: {running_for}")
