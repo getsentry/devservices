@@ -84,7 +84,7 @@ def test_start_simple(
             env=mock.ANY,
         )
 
-        mock_add_started_service.assert_called_with("example-service")
+        mock_add_started_service.assert_called_with("example-service", "default")
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
