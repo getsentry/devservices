@@ -17,6 +17,8 @@ from devservices.commands import status
 from devservices.commands import stop
 from devservices.commands import update
 from devservices.commands.check_for_update import check_for_update
+from devservices.exceptions import DockerComposeInstallationError
+from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.docker_compose import check_docker_compose_version
 
 sentry_environment = (
@@ -42,7 +44,14 @@ def cleanup() -> None:
 
 
 def main() -> None:
-    check_docker_compose_version()
+    try:
+        check_docker_compose_version()
+    except DockerDaemonNotRunningError as e:
+        print(e)
+        exit(1)
+    except DockerComposeInstallationError:
+        print("Failed to ensure docker compose is installed and up-to-date")
+        exit(1)
     parser = argparse.ArgumentParser(
         prog="devservices",
         description="CLI tool for managing service dependencies.",

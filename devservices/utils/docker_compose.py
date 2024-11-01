@@ -26,6 +26,7 @@ from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
+from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
 
@@ -105,11 +106,12 @@ def install_docker_compose() -> None:
 
 
 def check_docker_compose_version() -> None:
-    cmd = ["docker", "compose", "version", "--short"]
+    # Throw an error if docker daemon isn't running
+    check_docker_daemon_running()
     try:
         # Run the docker compose version command
         result = subprocess.run(
-            cmd,
+            ["docker", "compose", "version", "--short"],
             capture_output=True,
             text=True,
             check=True,
