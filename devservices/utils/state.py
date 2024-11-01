@@ -3,13 +3,13 @@ from __future__ import annotations
 import os
 import sqlite3
 
-from devservices.constants import DB_FILE
 from devservices.constants import DEVSERVICES_LOCAL_DIR
+from devservices.constants import STATE_DB_FILE
 
 
 class State:
     _instance: State | None = None
-    db_file: str
+    state_db_file: str
     conn: sqlite3.Connection
 
     def __new__(cls) -> State:
@@ -17,8 +17,8 @@ class State:
             cls._instance = super(State, cls).__new__(cls)
             if not os.path.exists(DEVSERVICES_LOCAL_DIR):
                 os.makedirs(DEVSERVICES_LOCAL_DIR)
-            cls._instance.db_file = DB_FILE
-            cls._instance.conn = sqlite3.connect(cls._instance.db_file)
+            cls._instance.state_db_file = STATE_DB_FILE
+            cls._instance.conn = sqlite3.connect(cls._instance.state_db_file)
             cls._instance.initialize_database()
         return cls._instance
 
