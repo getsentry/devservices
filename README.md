@@ -13,14 +13,14 @@ A system-wide installation can be done by downloading the binary of the latest r
 ```
 PLATFORM=darwin # Options: darwin/linux
 INSTALL_DIR="$HOME/.local/bin"
-curl -L "https://github.com/getsentry/devservices/releases/download/0.0.4/devservices-$PLATFORM" -o "$INSTALL_DIR/devservices"
+curl -L "https://github.com/getsentry/devservices/releases/download/0.0.5/devservices-$PLATFORM" -o "$INSTALL_DIR/devservices"
 chmod +x "$INSTALL_DIR/devservices"
 ```
 
 Alternatively, if the repository you're working in has a python virtualenv, you can simply add this to the requirements-dev.txt:
 
 ```
-devservices==0.0.4
+devservices==0.0.5
 ```
 ## Usage
 
