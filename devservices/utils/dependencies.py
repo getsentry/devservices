@@ -27,6 +27,9 @@ from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
+from devservices.utils.services import find_matching_service
+from devservices.utils.services import Service
+from devservices.utils.state import State
 
 
 @dataclass(frozen=True)
@@ -131,6 +134,25 @@ def verify_local_dependencies(dependencies: list[Dependency]) -> bool:
     return all(
         verify_local_dependency(remote_config) for remote_config in remote_configs
     )
+
+
+def get_non_shared_remote_dependencies(
+    service_to_stop: Service, remote_dependencies: set[InstalledRemoteDependency]
+) -> set[InstalledRemoteDependency]:
+    state = State()
+    started_services = state.get_started_services()
+    # We don't care about the remote dependencies of the service we are stopping
+    started_services.remove(service_to_stop.name)
+    other_running_remote_dependencies: set[InstalledRemoteDependency] = set()
+    for service_name in started_services:
+        service = find_matching_service(service_name)
+        # TODO: There is an edge case here where there is a shared remote dependency with different modes
+        other_running_remote_dependencies = other_running_remote_dependencies.union(
+            get_installed_remote_dependencies(
+                list(service.config.dependencies.values())
+            )
+        )
+    return remote_dependencies.difference(other_running_remote_dependencies)
 
 
 def get_installed_remote_dependencies(

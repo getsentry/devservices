@@ -13,6 +13,7 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.utils.state import State
 from testing.utils import create_config_file
 
 
@@ -56,7 +57,12 @@ def test_stop_simple(
 
         args = Namespace(service_name=None)
 
-        stop(args)
+        with mock.patch(
+            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+        ):
+            state = State()
+            state.add_started_service("example-service", "default")
+            stop(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
         env_vars = mock_run.call_args[1]["env"]
@@ -120,8 +126,11 @@ def test_stop_error(
 
     args = Namespace(service_name=None)
 
-    with pytest.raises(SystemExit):
-        stop(args)
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_started_service("example-service", "default")
+        with pytest.raises(SystemExit):
+            stop(args)
 
     # Capture the printed output
     captured = capsys.readouterr()

@@ -22,6 +22,7 @@ from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.dependencies import get_installed_remote_dependencies
+from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
@@ -251,6 +252,11 @@ def run_docker_compose_command(
             remote_dependencies = install_dependencies(dependencies)
         else:
             remote_dependencies = get_installed_remote_dependencies(dependencies)
+    # TODO: Refactor this to be more generic instead of having a one-off case for stopping
+    if command == "down":
+        remote_dependencies = get_non_shared_remote_dependencies(
+            service, remote_dependencies
+        )
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
         service.repo_path,
