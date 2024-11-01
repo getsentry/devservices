@@ -32,6 +32,11 @@ def stop(args: Namespace) -> None:
     # TODO: allow custom modes to be used
     mode_to_stop = "default"
     mode_dependencies = modes[mode_to_stop]
+    state = State()
+    started_services = state.get_started_services()
+    if service.name not in started_services:
+        print(f"{service.name} is not running")
+        exit(0)
 
     with Status(f"Stopping {service.name}", f"{service.name} stopped") as status:
         try:
