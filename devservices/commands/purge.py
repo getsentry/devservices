@@ -19,7 +19,7 @@ def purge(args: Namespace) -> None:
     if os.path.exists(DEVSERVICES_CACHE_DIR):
         try:
             shutil.rmtree(DEVSERVICES_CACHE_DIR)
-        except (FileNotFoundError, PermissionError) as e:
+        except PermissionError as e:
             print(f"Failed to purge cache: {e}")
             exit(1)
     print("The local devservices cache has been purged")
