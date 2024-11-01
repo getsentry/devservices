@@ -28,22 +28,23 @@ class State:
             """
             CREATE TABLE IF NOT EXISTS started_services (
                 service_name TEXT PRIMARY KEY,
+                mode TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """
         )
         self.conn.commit()
 
-    def add_started_service(self, service_name: str) -> None:
+    def add_started_service(self, service_name: str, mode: str) -> None:
         cursor = self.conn.cursor()
         started_services = self.get_started_services()
         if service_name in started_services:
             return
         cursor.execute(
             """
-            INSERT INTO started_services (service_name) VALUES (?)
+            INSERT INTO started_services (service_name, mode) VALUES (?, ?)
         """,
-            (service_name,),
+            (service_name, mode),
         )
         self.conn.commit()
 
@@ -65,3 +66,16 @@ class State:
         """
         )
         return [row[0] for row in cursor.fetchall()]
+
+    def get_mode_for_service(self, service_name: str) -> str | None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            SELECT mode FROM started_services WHERE service_name = ?
+        """,
+            (service_name,),
+        )
+        result = cursor.fetchone()
+        if result is None:
+            return None
+        return str(result[0])

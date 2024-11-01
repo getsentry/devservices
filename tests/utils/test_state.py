@@ -15,15 +15,17 @@ def test_state_simple(tmp_path: Path) -> None:
 def test_state_add_started_service(tmp_path: Path) -> None:
     with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("example-service")
+        state.add_started_service("example-service", "default")
         assert state.get_started_services() == ["example-service"]
+        assert state.get_mode_for_service("example-service") == "default"
 
 
 def test_state_remove_started_service(tmp_path: Path) -> None:
     with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("example-service")
+        state.add_started_service("example-service", "default")
         assert state.get_started_services() == ["example-service"]
+        assert state.get_mode_for_service("example-service") == "default"
         state.remove_started_service("example-service")
         assert state.get_started_services() == []
 
@@ -38,7 +40,15 @@ def test_state_remove_unknown_service(tmp_path: Path) -> None:
 def test_start_service_twice(tmp_path: Path) -> None:
     with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("example-service")
+        state.add_started_service("example-service", "default")
         assert state.get_started_services() == ["example-service"]
-        state.add_started_service("example-service")
+        assert state.get_mode_for_service("example-service") == "default"
+        state.add_started_service("example-service", "default")
         assert state.get_started_services() == ["example-service"]
+        assert state.get_mode_for_service("example-service") == "default"
+
+
+def test_get_mode_for_nonexistent_service(tmp_path: Path) -> None:
+    with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
+        state = State()
+        assert state.get_mode_for_service("unknown-service") is None
