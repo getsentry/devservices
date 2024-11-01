@@ -41,7 +41,7 @@ def logs(args: Namespace) -> None:
     running_services = state.get_started_services()
     if service_name not in running_services:
         print(f"Service {service_name} is not running")
-        exit(0)
+        return
 
     try:
         logs_output = run_docker_compose_command(
