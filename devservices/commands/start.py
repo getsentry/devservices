@@ -9,6 +9,7 @@ from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Status
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
+from devservices.utils.state import State
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -36,7 +37,11 @@ def start(args: Namespace) -> None:
     with Status(f"Starting {service.name}", f"{service.name} started") as status:
         try:
             run_docker_compose_command(
-                service, "up", mode_dependencies, ["-d"], force_update_dependencies=True
+                service,
+                "up",
+                mode_dependencies,
+                ["-d"],
+                force_update_dependencies=True,
             )
         except DependencyError as de:
             status.print(str(de))
@@ -44,3 +49,6 @@ def start(args: Namespace) -> None:
         except DockerComposeError as dce:
             status.print(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
+    # TODO: We should factor in healthchecks here before marking service as running
+    state = State()
+    state.add_started_service(service.name, mode_to_start)

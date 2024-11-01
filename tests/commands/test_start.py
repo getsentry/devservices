@@ -24,7 +24,10 @@ from testing.utils import create_config_file
         stdout="clickhouse\nredis\n",
     ),
 )
-def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
+@mock.patch("devservices.utils.state.State.add_started_service")
+def test_start_simple(
+    mock_add_started_service: mock.Mock, mock_run: mock.Mock, tmp_path: Path
+) -> None:
     with mock.patch(
         "devservices.utils.docker_compose.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
@@ -81,10 +84,16 @@ def test_start_simple(mock_run: mock.Mock, tmp_path: Path) -> None:
             env=mock.ANY,
         )
 
+        mock_add_started_service.assert_called_with("example-service", "default")
+
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
+@mock.patch("devservices.utils.state.State.add_started_service")
 def test_start_error(
-    mock_run: mock.Mock, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    mock_add_started_service: mock.Mock,
+    mock_run: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
 ) -> None:
     mock_run.side_effect = subprocess.CalledProcessError(
         returncode=1, stderr="Docker Compose error", cmd=""
@@ -121,3 +130,5 @@ def test_start_error(
     assert (
         "Failed to start example-service: Docker Compose error" in captured.out.strip()
     )
+
+    mock_add_started_service.assert_not_called()
