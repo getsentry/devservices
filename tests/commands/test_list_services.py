@@ -7,20 +7,19 @@ from unittest import mock
 import pytest
 
 from devservices.commands.list_services import list_services
+from devservices.utils.state import State
 from testing.utils import create_config_file
 
 
-@mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=Namespace(stdout="\nexample-service\n"),
-)
 def test_list_running_services(
-    mock_run: mock.Mock, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with mock.patch(
         "devservices.commands.list_services.get_coderoot",
         return_value=str(tmp_path / "code"),
-    ):
+    ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_started_service("example-service", "default")
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -52,17 +51,13 @@ def test_list_running_services(
         )
 
 
-@mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=Namespace(stdout="\nexample-service\n"),
-)
-def test_list_all_services(
-    mock_run: mock.Mock, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_list_all_services(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with mock.patch(
         "devservices.commands.list_services.get_coderoot",
         return_value=str(tmp_path / "code"),
-    ):
+    ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_started_service("example-service", "default")
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
