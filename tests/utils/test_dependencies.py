@@ -1265,7 +1265,7 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
     mock_get_installed_remote_dependencies: mock.Mock,
     tmp_path: Path,
 ) -> None:
-    with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.add_started_service("service-1", "default")
         state.add_started_service("service-2", "default")
@@ -1340,7 +1340,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
     mock_get_installed_remote_dependencies: mock.Mock,
     tmp_path: Path,
 ) -> None:
-    with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.add_started_service("service-1", "default")
         state.add_started_service("service-2", "default")

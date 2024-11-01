@@ -57,7 +57,9 @@ def test_stop_simple(
 
         args = Namespace(service_name=None)
 
-        with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
+        with mock.patch(
+            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+        ):
             state = State()
             state.add_started_service("example-service", "default")
             stop(args)
@@ -124,7 +126,7 @@ def test_stop_error(
 
     args = Namespace(service_name=None)
 
-    with mock.patch("devservices.utils.state.DB_FILE", str(tmp_path / "state")):
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.add_started_service("example-service", "default")
         with pytest.raises(SystemExit):
