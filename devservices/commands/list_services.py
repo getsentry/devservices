@@ -28,7 +28,8 @@ def list_services(args: Namespace) -> None:
     # Get all of the services installed locally
     coderoot = get_coderoot()
     services = get_local_services(coderoot)
-    running_services = State().get_started_services()
+    state = State()
+    running_services = state.get_started_services()
 
     if not services:
         print("No services found")
