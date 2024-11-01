@@ -4,6 +4,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Status
 from devservices.utils.docker_compose import run_docker_compose_command
@@ -37,6 +38,9 @@ def start(args: Namespace) -> None:
             run_docker_compose_command(
                 service, "up", mode_dependencies, ["-d"], force_update_dependencies=True
             )
+        except DependencyError as de:
+            status.print(str(de))
+            exit(1)
         except DockerComposeError as dce:
             status.print(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)

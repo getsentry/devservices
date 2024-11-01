@@ -6,6 +6,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
@@ -74,6 +75,9 @@ def status(args: Namespace) -> None:
         status_jsons = run_docker_compose_command(
             service, "ps", mode_dependencies, options=["--format", "json"]
         )
+    except DependencyError as de:
+        print(str(de))
+        exit(1)
     except DockerComposeError as dce:
         print(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)
