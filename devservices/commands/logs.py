@@ -37,7 +37,8 @@ def logs(args: Namespace) -> None:
     mode_to_use = "default"
     mode_dependencies = modes[mode_to_use]
 
-    running_services = State().get_started_services()
+    state = State()
+    running_services = state.get_started_services()
     if service_name not in running_services:
         print(f"Service {service_name} is not running")
         exit(0)
