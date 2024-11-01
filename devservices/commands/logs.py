@@ -37,13 +37,13 @@ def logs(args: Namespace) -> None:
     mode_dependencies = modes[mode_to_use]
 
     try:
-        logs = run_docker_compose_command(service, "logs", mode_dependencies)
+        logs_output = run_docker_compose_command(service, "logs", mode_dependencies)
     except DependencyError as de:
         print(str(de))
         exit(1)
     except DockerComposeError as dce:
         print(f"Failed to get logs for {service.name}: {dce.stderr}")
         exit(1)
-    for log in logs:
+    for log in logs_output:
         sys.stdout.write(log.stdout)
         sys.stdout.flush()
