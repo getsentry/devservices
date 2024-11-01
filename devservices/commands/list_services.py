@@ -5,8 +5,8 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from devservices.utils.devenv import get_coderoot
-from devservices.utils.docker_compose import get_active_docker_compose_projects
 from devservices.utils.services import get_local_services
+from devservices.utils.state import State
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -28,14 +28,15 @@ def list_services(args: Namespace) -> None:
     # Get all of the services installed locally
     coderoot = get_coderoot()
     services = get_local_services(coderoot)
-    running_projects = get_active_docker_compose_projects()
+    state = State()
+    running_services = state.get_started_services()
 
     if not services:
         print("No services found")
         return
 
     services_to_show = (
-        services if args.all else [s for s in services if s.name in running_projects]
+        services if args.all else [s for s in services if s.name in running_services]
     )
 
     if args.all:
@@ -44,7 +45,7 @@ def list_services(args: Namespace) -> None:
         print("Running services:")
 
     for service in services_to_show:
-        status = "running" if service.name in running_projects else "stopped"
+        status = "running" if service.name in running_services else "stopped"
         print(f"- {service.name}")
         print(f"  status: {status}")
         print(f"  location: {service.repo_path}")

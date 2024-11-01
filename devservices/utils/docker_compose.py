@@ -31,21 +31,6 @@ from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
 
 
-def get_active_docker_compose_projects() -> list[str]:
-    cmd = ["docker", "compose", "ls", "-q"]
-    try:
-        running_projects = subprocess.check_output(cmd, text=True)
-    except subprocess.CalledProcessError as e:
-        raise DockerComposeError(
-            command=" ".join(cmd),
-            returncode=e.returncode,
-            stdout=e.stdout,
-            stderr=e.stderr,
-        )
-    # docker compose ls always returns newline delimited string with an extra newline at the end
-    return running_projects.split("\n")[:-1]
-
-
 def install_docker_compose() -> None:
     # Determine the platform
     system = platform.system()
