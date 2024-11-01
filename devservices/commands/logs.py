@@ -9,6 +9,7 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
+from devservices.utils.state import State
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -36,8 +37,15 @@ def logs(args: Namespace) -> None:
     mode_to_use = "default"
     mode_dependencies = modes[mode_to_use]
 
+    running_services = State().get_started_services()
+    if service_name not in running_services:
+        print(f"Service {service_name} is not running")
+        exit(0)
+
     try:
-        logs_output = run_docker_compose_command(service, "logs", mode_dependencies)
+        logs_output = run_docker_compose_command(
+            service, "logs", mode_dependencies, options=["-n", "100"]
+        )
     except DependencyError as de:
         print(str(de))
         exit(1)
