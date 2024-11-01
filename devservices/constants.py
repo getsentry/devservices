@@ -23,3 +23,4 @@ DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS = {
 DOCKER_COMPOSE_DOWNLOAD_URL = "https://github.com/docker/compose/releases/download"
 DEVSERVICES_DOWNLOAD_URL = "https://github.com/getsentry/devservices/releases/download"
 BINARY_PERMISSIONS = 0o755
+MAX_LOG_LINES = "100"

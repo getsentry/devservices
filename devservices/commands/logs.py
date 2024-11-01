@@ -5,6 +5,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.constants import MAX_LOG_LINES
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.docker_compose import run_docker_compose_command
@@ -45,7 +46,7 @@ def logs(args: Namespace) -> None:
 
     try:
         logs_output = run_docker_compose_command(
-            service, "logs", mode_dependencies, options=["-n", "100"]
+            service, "logs", mode_dependencies, options=["-n", MAX_LOG_LINES]
         )
     except DependencyError as de:
         print(str(de))
