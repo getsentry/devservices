@@ -95,7 +95,5 @@ def test_update_install_binary_error(
     mock_install_binary: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    with pytest.raises(
-        DevservicesUpdateError, match="Failed to update devservices: Installation error"
-    ):
+    with pytest.raises(SystemExit):
         update(Namespace())

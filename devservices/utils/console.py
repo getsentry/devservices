@@ -30,7 +30,8 @@ class Console:
 
     def print(self, message: str, color: str = "", bold: bool = False) -> None:
         color = color + (Color.BOLD if bold else "")
-        sys.stdout.write("\r" + color + message + Color.RESET + "\n")
+        end = Color.RESET if color != "" or bold else ""
+        sys.stdout.write(color + message + end + "\n")
         sys.stdout.flush()
 
     def success(self, message: str, bold: bool = False) -> None:
@@ -59,10 +60,22 @@ class Status:
         self._stop_loading = threading.Event()
         self._loading_thread = threading.Thread(target=self._loading_animation)
         self._exception_occurred = False
+        self.console = Console()
 
-    def print(self, message: str) -> None:
-        sys.stdout.write("\r" + message + "\n")
-        sys.stdout.flush()
+    def print(self, message: str, color: str = "", bold: bool = False) -> None:
+        self.console.print("\r" + message, color=color, bold=bold)
+
+    def success(self, message: str, bold: bool = False) -> None:
+        self.print(message=message, color=Color.GREEN, bold=bold)
+
+    def failure(self, message: str, bold: bool = False) -> None:
+        self.print(message=message, color=Color.RED, bold=bold)
+
+    def warning(self, message: str, bold: bool = False) -> None:
+        self.print(message=message, color=Color.YELLOW, bold=bold)
+
+    def info(self, message: str, bold: bool = False) -> None:
+        self.print(message=message, color="", bold=bold)
 
     def start(self) -> None:
         if self.on_start:

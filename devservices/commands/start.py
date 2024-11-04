@@ -39,7 +39,7 @@ def start(args: Namespace) -> None:
     with Status(
         lambda: console.warning(f"Starting {service.name}"),
         lambda: console.success(f"{service.name} started"),
-    ):
+    ) as status:
         try:
             run_docker_compose_command(
                 service,
@@ -49,10 +49,10 @@ def start(args: Namespace) -> None:
                 force_update_dependencies=True,
             )
         except DependencyError as de:
-            console.failure(str(de))
+            status.failure(str(de))
             exit(1)
         except DockerComposeError as dce:
-            console.failure(f"Failed to start {service.name}: {dce.stderr}")
+            status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
     # TODO: We should factor in healthchecks here before marking service as running
     state = State()

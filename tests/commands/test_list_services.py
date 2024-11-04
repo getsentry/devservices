@@ -47,6 +47,7 @@ def test_list_running_services(
 
         assert (
             captured.out
+            # == f"Running services:\n- example-service\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
             == f"Running services:\n- example-service\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )
 

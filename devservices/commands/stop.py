@@ -44,14 +44,14 @@ def stop(args: Namespace) -> None:
     with Status(
         lambda: console.warning(f"Stopping {service.name}"),
         lambda: console.success(f"{service.name} stopped"),
-    ):
+    ) as status:
         try:
             run_docker_compose_command(service, "down", mode_dependencies)
         except DependencyError as de:
-            console.failure(str(de))
+            status.failure(str(de))
             exit(1)
         except DockerComposeError as dce:
-            console.failure(f"Failed to stop {service.name}: {dce.stderr}")
+            status.failure(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
 
     # TODO: We should factor in healthchecks here before marking service as stopped
