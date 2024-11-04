@@ -17,11 +17,6 @@ curl -L "https://github.com/getsentry/devservices/releases/download/0.0.4/devser
 chmod +x "$INSTALL_DIR/devservices"
 ```
 
-Alternatively, if the repository you're working in has a python virtualenv, you can simply add this to the requirements-dev.txt:
-
-```
-devservices==0.0.4
-```
 ## Usage
 
 devservices provides several commands to manage your services:
