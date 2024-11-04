@@ -1,3 +1,19 @@
+## 0.0.5
+
+### Various fixes & improvements
+
+- fix(logs): Limit log length and check to ensure service is running before printing logs (#114) by @hubertdeng123
+- fix(list-services): Use state for finding status of list services (#108) by @hubertdeng123
+- ref(status): Improving status command when service isn't running (#113) by @IanWoodard
+- include container name in status (#112) by @hubertdeng123
+- chore(errors): Adding graceful handling when docker daemon isn't running (#99) by @IanWoodard
+- feat(purge): adding purge command (#84) by @IanWoodard
+- feat(devservices): Proper stop logic to account for shared remote services (#104) by @hubertdeng123
+- feat(state): Add state with sqlite db (#103) by @hubertdeng123
+- chore(errors): Improving the error msgs for dependency errors (#101) by @IanWoodard
+- fix(logs): Fixing naming issue with logs (#102) by @IanWoodard
+- fix for when services to use is empty (#93) by @hubertdeng123
+
 ## 0.0.4
 
 ### Various fixes & improvements
