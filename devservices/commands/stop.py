@@ -6,6 +6,7 @@ from argparse import Namespace
 
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
+from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
@@ -22,11 +23,12 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 def stop(args: Namespace) -> None:
     """Stop a service and its dependencies."""
+    console = Console()
     service_name = args.service_name
     try:
         service = find_matching_service(service_name)
     except Exception as e:
-        print(e)
+        console.failure(str(e))
         exit(1)
 
     modes = service.config.modes
@@ -36,17 +38,20 @@ def stop(args: Namespace) -> None:
     state = State()
     started_services = state.get_started_services()
     if service.name not in started_services:
-        print(f"{service.name} is not running")
+        console.warning(f"{service.name} is not running")
         exit(0)
 
-    with Status(f"Stopping {service.name}", f"{service.name} stopped") as status:
+    with Status(
+        lambda: console.warning(f"Stopping {service.name}"),
+        lambda: console.success(f"{service.name} stopped"),
+    ):
         try:
             run_docker_compose_command(service, "down", mode_dependencies)
         except DependencyError as de:
-            status.print(str(de))
+            console.failure(str(de))
             exit(1)
         except DockerComposeError as dce:
-            status.print(f"Failed to stop {service.name}: {dce.stderr}")
+            console.failure(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
 
     # TODO: We should factor in healthchecks here before marking service as stopped

@@ -4,6 +4,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.utils.console import Console
 from devservices.utils.services import find_matching_service
 
 
@@ -22,20 +23,21 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 def list_dependencies(args: Namespace) -> None:
     """List the dependencies of a service."""
+    console = Console()
     service_name = args.service_name
 
     try:
         service = find_matching_service(service_name)
     except Exception as e:
-        print(e)
+        console.failure(str(e))
         exit(1)
 
     dependencies = service.config.dependencies
 
     if not dependencies:
-        print(f"No dependencies found for {service.name}")
+        console.info(f"No dependencies found for {service.name}")
         return
 
-    print(f"Dependencies of {service.name}:")
+    console.info(f"Dependencies of {service.name}:")
     for dependency_key, dependency_info in dependencies.items():
-        print("-", dependency_key, ":", dependency_info.description)
+        console.info("-" + dependency_key + ":" + dependency_info.description)

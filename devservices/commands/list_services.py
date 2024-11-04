@@ -4,6 +4,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.utils.console import Console
 from devservices.utils.devenv import get_coderoot
 from devservices.utils.services import get_local_services
 from devservices.utils.state import State
@@ -24,7 +25,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 def list_services(args: Namespace) -> None:
     """List the services installed locally."""
-
+    console = Console()
     # Get all of the services installed locally
     coderoot = get_coderoot()
     services = get_local_services(coderoot)
@@ -32,7 +33,7 @@ def list_services(args: Namespace) -> None:
     running_services = state.get_started_services()
 
     if not services:
-        print("No services found")
+        console.warning("No services found")
         return
 
     services_to_show = (
@@ -40,19 +41,19 @@ def list_services(args: Namespace) -> None:
     )
 
     if args.all:
-        print("Services installed locally:")
+        console.info("Services installed locally:")
     else:
-        print("Running services:")
+        console.info("Running services:")
 
     for service in services_to_show:
         status = "running" if service.name in running_services else "stopped"
-        print(f"- {service.name}")
-        print(f"  status: {status}")
-        print(f"  location: {service.repo_path}")
+        console.info(f"- {service.name}")
+        console.info(f"  status: {status}")
+        console.info(f"  location: {service.repo_path}")
 
     if not args.all:
         stopped_count = len(services) - len(services_to_show)
         if stopped_count > 0:
-            print(
+            console.info(
                 f"\n{stopped_count} stopped service(s) not shown. Use --all/-a to see them."
             )

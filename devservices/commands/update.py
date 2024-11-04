@@ -11,6 +11,7 @@ from devservices.commands.check_for_update import check_for_update
 from devservices.constants import DEVSERVICES_DOWNLOAD_URL
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DevservicesUpdateError
+from devservices.utils.console import Console
 from devservices.utils.install_binary import install_binary
 
 
@@ -21,14 +22,16 @@ def is_in_virtualenv() -> bool:
 
 
 def update_version(exec_path: str, latest_version: str) -> None:
+    console = Console()
     system = platform.system().lower()
     url = f"{DEVSERVICES_DOWNLOAD_URL}/{latest_version}/devservices-{system}"
     try:
         install_binary("devservices", exec_path, latest_version, url)
     except BinaryInstallError as e:
-        raise DevservicesUpdateError(f"Failed to update devservices: {e}")
+        console.failure(f"Failed to update devservices: {e}")
+        exit(1)
 
-    print(f"Devservices {latest_version} updated successfully")
+    console.success(f"Devservices {latest_version} updated successfully")
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -39,6 +42,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 
 def update(args: Namespace) -> None:
+    console = Console()
     current_version = metadata.version("devservices")
     latest_version = check_for_update(current_version)
 
@@ -46,21 +50,21 @@ def update(args: Namespace) -> None:
         raise DevservicesUpdateError("Failed to check for updates.")
 
     if latest_version == current_version:
-        print("You're already on the latest version.")
+        console.warning("You're already on the latest version.")
         return
 
-    print(f"A new version of devservices is available: {latest_version}")
+    console.warning(f"A new version of devservices is available: {latest_version}")
 
     if is_in_virtualenv():
-        print("You are running in a virtual environment.")
-        print(
+        console.warning("You are running in a virtual environment.")
+        console.warning(
             "To update, please update your requirements.txt or requirements-dev.txt file with the new version."
         )
-        print(
+        console.warning(
             f"For example, update the line in requirements.txt to: devservices=={latest_version}"
         )
-        print("Then, run: pip install --update -r requirements.txt")
+        console.warning("Then, run: pip install --update -r requirements.txt")
         return
 
-    print("Upgrading to the latest version...")
+    console.info("Upgrading to the latest version...")
     update_version(sys.executable, latest_version)
