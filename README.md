@@ -17,11 +17,6 @@ curl -L "https://github.com/getsentry/devservices/releases/download/0.0.5/devser
 chmod +x "$INSTALL_DIR/devservices"
 ```
 
-Alternatively, if the repository you're working in has a python virtualenv, you can simply add this to the requirements-dev.txt:
-
-```
-devservices==0.0.5
-```
 ## Usage
 
 devservices provides several commands to manage your services:
@@ -36,3 +31,5 @@ NOTE: service-name is an optional parameter. If not provided, devservices will a
 - `devservices logs <service-name>`: View logs for a specific service.
 - `devservices list-services`: List all available Sentry services.
 - `devservices list-dependencies <service-name>`: List all dependencies for a service and whether they are enabled/disabled.
+- `devservices update` Update devservices to the latest version.
+- `devservices purge`: Purge the local devservices cache.
