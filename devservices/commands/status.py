@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-import sys
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
+from devservices.utils.console import Console
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
 
@@ -61,11 +61,12 @@ def format_status_output(status_json: str) -> str:
 
 def status(args: Namespace) -> None:
     """Start a service and its dependencies."""
+    console = Console()
     service_name = args.service_name
     try:
         service = find_matching_service(service_name)
     except Exception as e:
-        print(e)
+        console.failure(str(e))
         exit(1)
 
     modes = service.config.modes
@@ -78,10 +79,10 @@ def status(args: Namespace) -> None:
             service, "ps", mode_dependencies, options=["--format", "json"]
         )
     except DependencyError as de:
-        print(str(de))
+        console.failure(str(de))
         exit(1)
     except DockerComposeError as dce:
-        print(f"Failed to get status for {service.name}: {dce.stderr}")
+        console.failure(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)
 
     # Filter out empty stdout to help us determine if the service is running
@@ -89,11 +90,10 @@ def status(args: Namespace) -> None:
         status_json for status_json in status_json_results if status_json.stdout
     ]
     if len(status_json_results) == 0:
-        print(f"{service.name} is not running")
+        console.warning(f"{service.name} is not running")
         return
     output = f"Service: {service.name}\n\n"
     for status_json in status_json_results:
         output += format_status_output(status_json.stdout)
     output += "=" * LINE_LENGTH
-    sys.stdout.write(output + "\n")
-    sys.stdout.flush()
+    console.info(output + "\n")

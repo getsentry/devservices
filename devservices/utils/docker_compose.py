@@ -21,6 +21,7 @@ from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
+from devservices.utils.console import Console
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_dependencies
@@ -32,6 +33,7 @@ from devservices.utils.services import Service
 
 
 def install_docker_compose() -> None:
+    console = Console()
     # Determine the platform
     system = platform.system()
     machine = platform.machine()
@@ -73,7 +75,7 @@ def install_docker_compose() -> None:
     except BinaryInstallError as e:
         raise DockerComposeInstallationError(f"Failed to install Docker Compose: {e}")
 
-    print(
+    console.success(
         f"Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} installed successfully to {destination}"
     )
 
@@ -87,10 +89,11 @@ def install_docker_compose() -> None:
             f"Failed to verify Docker Compose installation: {e}"
         )
 
-    print(f"Verified Docker Compose installation: v{version}")
+    console.success(f"Verified Docker Compose installation: v{version}")
 
 
 def check_docker_compose_version() -> None:
+    console = Console()
     # Throw an error if docker daemon isn't running
     check_docker_daemon_running()
     try:
@@ -103,7 +106,7 @@ def check_docker_compose_version() -> None:
         )
     except subprocess.CalledProcessError:
         result = None
-        print(
+        console.warning(
             f"Docker Compose is not installed, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
         )
 
@@ -121,13 +124,13 @@ def check_docker_compose_version() -> None:
         docker_compose_version = None
 
     if docker_compose_version is None:
-        print(
+        console.warning(
             f"Unable to detect Docker Compose version, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
         )
     elif version.parse(docker_compose_version) != version.parse(
         MINIMUM_DOCKER_COMPOSE_VERSION
     ):
-        print(
+        console.warning(
             f"Docker Compose version v{docker_compose_version} unsupported, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
         )
     elif version.parse(docker_compose_version) == version.parse(

@@ -8,6 +8,7 @@ from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.utils.console import Console
 from devservices.utils.devenv import get_coderoot
 
 
@@ -22,13 +23,15 @@ def get_local_services(coderoot: str) -> list[Service]:
     """Get a list of services in the coderoot."""
     from devservices.configs.service_config import load_service_config_from_file
 
+    console = Console()
+
     services = []
     for repo in os.listdir(coderoot):
         repo_path = os.path.join(coderoot, repo)
         try:
             service_config = load_service_config_from_file(repo_path)
         except (ConfigParseError, ConfigValidationError) as e:
-            print(f"{repo} was found with an invalid config: {e}")
+            console.warning(f"{repo} was found with an invalid config: {e}")
             continue
         except ConfigNotFoundError:
             # Ignore repos that don't have devservices configs
