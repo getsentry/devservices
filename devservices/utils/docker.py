@@ -6,6 +6,7 @@ from devservices.exceptions import DockerDaemonNotRunningError
 
 
 def check_docker_daemon_running() -> None:
+    """Checks if the Docker daemon is running. Raises DockerDaemonNotRunningError if not."""
     try:
         subprocess.run(
             ["docker", "info"],
@@ -14,12 +15,11 @@ def check_docker_daemon_running() -> None:
             check=True,
         )
     except subprocess.CalledProcessError as e:
-        raise DockerDaemonNotRunningError(
-            "Unable to connect to the docker daemon. Is the docker daemon running?"
-        ) from e
+        raise DockerDaemonNotRunningError from e
 
 
 def stop_all_running_containers() -> None:
+    check_docker_daemon_running()
     running_containers = (
         subprocess.check_output(["docker", "ps", "-q"], stderr=subprocess.DEVNULL)
         .decode()

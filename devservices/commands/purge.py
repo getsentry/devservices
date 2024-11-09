@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from devservices.constants import DEVSERVICES_CACHE_DIR
+from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.docker import stop_all_running_containers
@@ -39,8 +40,11 @@ def purge(_args: Namespace) -> None:
     state.clear_state()
     with Status(
         lambda: console.warning("Stopping all running containers"),
-        lambda: console.success("All running containers stopped"),
+        lambda: console.success("All running containers have been stopped"),
     ):
-        stop_all_running_containers()
+        try:
+            stop_all_running_containers()
+        except DockerDaemonNotRunningError:
+            console.warning("The docker daemon not running, no containers to stop")
 
     console.success("The local devservices cache and state has been purged")

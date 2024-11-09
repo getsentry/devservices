@@ -46,7 +46,9 @@ class DevservicesUpdateError(BinaryInstallError):
 class DockerDaemonNotRunningError(Exception):
     """Raised when the Docker daemon is not running."""
 
-    pass
+    def __str__(self) -> str:
+        # TODO: Provide explicit instructions on what to do
+        return "Unable to connect to the docker daemon. Is the docker daemon running?"
 
 
 class DockerComposeInstallationError(BinaryInstallError):
