@@ -19,6 +19,12 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.add_argument(
         "service_name", help="Name of the service to start", nargs="?", default=None
     )
+    parser.add_argument(
+        "--debug",
+        help="Enable debug mode",
+        action="store_true",
+        default=False,
+    )
     parser.set_defaults(func=start)
 
 

@@ -20,6 +20,12 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.add_argument(
         "service_name", help="Name of the service to stop", nargs="?", default=None
     )
+    parser.add_argument(
+        "--debug",
+        help="Enable debug mode",
+        action="store_true",
+        default=False,
+    )
     parser.set_defaults(func=stop)
 
 
@@ -37,6 +43,7 @@ def stop(args: Namespace) -> None:
     # TODO: allow custom modes to be used
     mode_to_stop = "default"
     mode_dependencies = modes[mode_to_stop]
+
     state = State()
     started_services = state.get_started_services()
     if service.name not in started_services:

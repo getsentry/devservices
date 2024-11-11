@@ -24,3 +24,4 @@ DOCKER_COMPOSE_DOWNLOAD_URL = "https://github.com/docker/compose/releases/downlo
 DEVSERVICES_DOWNLOAD_URL = "https://github.com/getsentry/devservices/releases/download"
 BINARY_PERMISSIONS = 0o755
 MAX_LOG_LINES = "100"
+LOGGER_NAME = "devservices"

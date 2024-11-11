@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import logging
 import os
 from importlib import metadata
 
@@ -17,6 +18,7 @@ from devservices.commands import status
 from devservices.commands import stop
 from devservices.commands import update
 from devservices.commands.check_for_update import check_for_update
+from devservices.constants import LOGGER_NAME
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.console import Console
@@ -27,6 +29,7 @@ sentry_environment = (
 )
 
 disable_sentry = os.environ.get("DISABLE_SENTRY", default=False)
+logging.basicConfig(level=logging.INFO)
 
 if not disable_sentry:
     sentry_sdk.init(
@@ -76,6 +79,11 @@ def main() -> None:
     purge.add_parser(subparsers)
 
     args = parser.parse_args()
+
+    # If the command has a debug flag, set the logger to debug
+    if args.debug:
+        logger = logging.getLogger(LOGGER_NAME)
+        logger.setLevel(logging.DEBUG)
 
     if args.command:
         # Call the appropriate function based on the command

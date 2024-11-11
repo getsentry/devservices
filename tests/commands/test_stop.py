@@ -55,7 +55,7 @@ def test_stop_simple(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None)
+        args = Namespace(service_name=None, debug=False)
 
         with mock.patch(
             "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
@@ -124,7 +124,7 @@ def test_stop_error(
     create_config_file(tmp_path, config)
     os.chdir(tmp_path)
 
-    args = Namespace(service_name=None)
+    args = Namespace(service_name=None, debug=False)
 
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()

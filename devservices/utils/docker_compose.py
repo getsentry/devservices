@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import re
@@ -17,6 +18,7 @@ from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
+from devservices.constants import LOGGER_NAME
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
@@ -252,6 +254,8 @@ def run_docker_compose_command(
     cmd_outputs = []
     for cmd in docker_compose_commands:
         try:
+            logger = logging.getLogger(LOGGER_NAME)
+            logger.debug(f"Running command: {' '.join(cmd)}")
             cmd_outputs.append(
                 subprocess.run(
                     cmd, check=True, capture_output=True, text=True, env=current_env
