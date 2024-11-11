@@ -62,16 +62,6 @@ class SparseCheckoutManager:
         self.init_sparse_checkout()
         _run_command(["git", "sparse-checkout", "set", pattern], cwd=self.repo_dir)
 
-    def clear_sparse_checkout(self) -> None:
-        """
-        Clear sparse checkout for the repo
-        """
-        try:
-            _run_command(["git", "sparse-checkout", "clear"], cwd=self.repo_dir)
-        except subprocess.CalledProcessError:
-            # Ignore if it fails as it might not be set
-            pass
-
 
 class GitConfigManager:
     """
@@ -98,8 +88,6 @@ class GitConfigManager:
             self._set_config(key, value)
 
         if self.sparse_pattern:
-            # Clear the sparse checkout if it's already set (to avoid conflicts)
-            self.sparse_checkout_manager.clear_sparse_checkout()
             self.sparse_checkout_manager.set_sparse_checkout(self.sparse_pattern)
 
     def _set_config(self, key: str, value: str) -> None:
