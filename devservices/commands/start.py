@@ -8,6 +8,7 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
+from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
 from devservices.utils.state import State
@@ -41,16 +42,20 @@ def start(args: Namespace) -> None:
         lambda: console.success(f"{service.name} started"),
     ) as status:
         try:
+            remote_dependencies = install_and_verify_dependencies(
+                service, force_update_dependencies=True
+            )
+        except DependencyError as de:
+            status.failure(str(de))
+            exit(1)
+        try:
             run_docker_compose_command(
                 service,
                 "up",
                 mode_dependencies,
                 ["-d"],
-                force_update_dependencies=True,
+                remote_dependencies=remote_dependencies,
             )
-        except DependencyError as de:
-            status.failure(str(de))
-            exit(1)
         except DockerComposeError as dce:
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
