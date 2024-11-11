@@ -54,7 +54,7 @@ def test_start_simple(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None)
+        args = Namespace(service_name=None, debug=False)
 
         start(args)
 
@@ -119,7 +119,7 @@ def test_start_error(
     create_config_file(tmp_path, config)
     os.chdir(tmp_path)
 
-    args = Namespace(service_name=None)
+    args = Namespace(service_name=None, debug=False)
 
     with pytest.raises(SystemExit):
         start(args)
