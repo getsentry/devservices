@@ -79,3 +79,12 @@ class State:
         if result is None:
             return None
         return str(result[0])
+
+    def clear_state(self) -> None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            """
+            DELETE FROM started_services
+        """
+        )
+        self.conn.commit()

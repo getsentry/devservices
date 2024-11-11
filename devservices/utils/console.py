@@ -14,6 +14,7 @@ class Color:
     RED = "\033[0;31m"
     GREEN = "\033[0;32m"
     YELLOW = "\033[0;33m"
+    BLUE = "\033[0;34m"
     BOLD = "\033[1m"
     UNDERLINE = "\033[4m"
     NEGATIVE = "\033[7m"
@@ -45,6 +46,11 @@ class Console:
 
     def info(self, message: str, bold: bool = False) -> None:
         self.print(message=message, color="", bold=bold)
+
+    def confirm(self, message: str) -> bool:
+        self.warning(message=message, bold=True)
+        response = input("(Y/n): ").strip().lower()
+        return response in ("y", "yes", "")
 
 
 class Status:

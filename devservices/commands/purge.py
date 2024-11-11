@@ -7,7 +7,11 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from devservices.constants import DEVSERVICES_CACHE_DIR
+from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.console import Console
+from devservices.utils.console import Status
+from devservices.utils.docker import stop_all_running_containers
+from devservices.utils.state import State
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -18,10 +22,29 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 def purge(args: Namespace) -> None:
     """Purge the local devservices cache."""
     console = Console()
+    # Prompt the user to stop all running containers
+    should_stop_containers = console.confirm(
+        "Warning: Purging stops all running containers and clears devservices state. Would you like to continue?"
+    )
+    if not should_stop_containers:
+        console.warning("Purge canceled")
+        return
+
     if os.path.exists(DEVSERVICES_CACHE_DIR):
         try:
             shutil.rmtree(DEVSERVICES_CACHE_DIR)
         except PermissionError as e:
             console.failure(f"Failed to purge cache: {e}")
             exit(1)
-    console.success("The local devservices cache has been purged")
+    state = State()
+    state.clear_state()
+    with Status(
+        lambda: console.warning("Stopping all running containers"),
+        lambda: console.success("All running containers have been stopped"),
+    ):
+        try:
+            stop_all_running_containers()
+        except DockerDaemonNotRunningError:
+            console.warning("The docker daemon not running, no containers to stop")
+
+    console.success("The local devservices cache and state has been purged")
