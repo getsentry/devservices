@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import logging
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
-from devservices.constants import LOGGER_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -44,10 +42,6 @@ def start(args: Namespace) -> None:
     # TODO: allow custom modes to be used
     mode_to_start = "default"
     mode_dependencies = modes[mode_to_start]
-
-    if args.debug:
-        logger = logging.getLogger(LOGGER_NAME)
-        logger.setLevel(logging.DEBUG)
 
     with Status(
         lambda: console.warning(f"Starting {service.name}"),
