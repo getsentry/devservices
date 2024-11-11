@@ -8,6 +8,7 @@ from argparse import Namespace
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
+from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
 
@@ -75,12 +76,18 @@ def status(args: Namespace) -> None:
     mode_dependencies = modes[mode_to_view]
 
     try:
-        status_json_results = run_docker_compose_command(
-            service, "ps", mode_dependencies, options=["--format", "json"]
-        )
+        remote_dependencies = install_and_verify_dependencies(service)
     except DependencyError as de:
         console.failure(str(de))
         exit(1)
+    try:
+        status_json_results = run_docker_compose_command(
+            service,
+            "ps",
+            mode_dependencies,
+            remote_dependencies,
+            options=["--format", "json"],
+        )
     except DockerComposeError as dce:
         console.failure(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)

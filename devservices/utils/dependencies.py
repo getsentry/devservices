@@ -110,6 +110,23 @@ class GitConfigManager:
             raise FailedToSetGitConfigError from e
 
 
+def install_and_verify_dependencies(
+    service: Service, force_update_dependencies: bool = False
+) -> set[InstalledRemoteDependency]:
+    dependencies = list(service.config.dependencies.values())
+    if force_update_dependencies:
+        remote_dependencies = install_dependencies(dependencies)
+    else:
+        are_dependencies_valid = verify_local_dependencies(dependencies)
+        if not are_dependencies_valid:
+            # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
+            #       since the dependencies may have changed since the service was started.
+            remote_dependencies = install_dependencies(dependencies)
+        else:
+            remote_dependencies = get_installed_remote_dependencies(dependencies)
+    return remote_dependencies
+
+
 def verify_local_dependency(remote_config: RemoteConfig) -> bool:
     local_dependency_path = os.path.join(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR,
