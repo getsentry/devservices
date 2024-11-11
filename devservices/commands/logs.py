@@ -8,6 +8,7 @@ from devservices.constants import MAX_LOG_LINES
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
+from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
 from devservices.utils.state import State
@@ -46,14 +47,22 @@ def logs(args: Namespace) -> None:
         return
 
     try:
-        logs_output = run_docker_compose_command(
-            service, "logs", mode_dependencies, options=["-n", MAX_LOG_LINES]
-        )
+        remote_dependencies = install_and_verify_dependencies(service)
     except DependencyError as de:
         console.failure(str(de))
         exit(1)
+    try:
+        logs_output = run_docker_compose_command(
+            service,
+            "logs",
+            mode_dependencies,
+            remote_dependencies,
+            options=["-n", MAX_LOG_LINES],
+        )
     except DockerComposeError as dce:
         console.failure(f"Failed to get logs for {service.name}: {dce.stderr}")
         exit(1)
     for log in logs_output:
-        console.info(log.stdout)
+        log_stdout: str | None = log.stdout
+        if log_stdout is not None:
+            console.info(log_stdout)

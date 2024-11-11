@@ -10,6 +10,8 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
+from devservices.utils.dependencies import get_non_shared_remote_dependencies
+from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import run_docker_compose_command
 from devservices.utils.services import find_matching_service
 from devservices.utils.state import State
@@ -59,10 +61,20 @@ def stop(args: Namespace) -> None:
         lambda: console.success(f"{service.name} stopped"),
     ) as status:
         try:
-            run_docker_compose_command(service, "down", mode_dependencies)
+            remote_dependencies = install_and_verify_dependencies(service)
         except DependencyError as de:
             status.failure(str(de))
             exit(1)
+        remote_dependencies = get_non_shared_remote_dependencies(
+            service, remote_dependencies
+        )
+        try:
+            run_docker_compose_command(
+                service,
+                "down",
+                mode_dependencies,
+                remote_dependencies,
+            )
         except DockerComposeError as dce:
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
