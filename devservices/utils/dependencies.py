@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -18,6 +19,7 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import LOGGER_NAME
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
@@ -436,4 +438,6 @@ def _has_remote_config(remote_config: RemoteConfig | None) -> TypeGuard[RemoteCo
 def _run_command(
     cmd: list[str], cwd: str, stdout: int | TextIO | None = subprocess.DEVNULL
 ) -> None:
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.debug(f"Running command: {' '.join(cmd)}")
     subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.DEVNULL)

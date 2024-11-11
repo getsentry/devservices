@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.constants import LOGGER_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -17,6 +19,12 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser = subparsers.add_parser("stop", help="Stop a service and its dependencies")
     parser.add_argument(
         "service_name", help="Name of the service to stop", nargs="?", default=None
+    )
+    parser.add_argument(
+        "--debug",
+        help="Enable debug mode",
+        action="store_true",
+        default=False,
     )
     parser.set_defaults(func=stop)
 
@@ -35,6 +43,11 @@ def stop(args: Namespace) -> None:
     # TODO: allow custom modes to be used
     mode_to_stop = "default"
     mode_dependencies = modes[mode_to_stop]
+
+    if args.debug:
+        logger = logging.getLogger(LOGGER_NAME)
+        logger.setLevel(logging.DEBUG)
+
     state = State()
     started_services = state.get_started_services()
     if service.name not in started_services:

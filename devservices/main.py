@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import logging
 import os
 from importlib import metadata
 
@@ -27,6 +28,7 @@ sentry_environment = (
 )
 
 disable_sentry = os.environ.get("DISABLE_SENTRY", default=False)
+logging.basicConfig(level=logging.INFO)
 
 if not disable_sentry:
     sentry_sdk.init(
