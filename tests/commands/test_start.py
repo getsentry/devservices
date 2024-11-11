@@ -123,7 +123,7 @@ def test_start_dependency_error(
         create_config_file(tmp_path, config)
         os.chdir(tmp_path)
 
-        args = Namespace(service_name=None)
+        args = Namespace(service_name=None, debug=False)
 
         with pytest.raises(SystemExit):
             start(args)
