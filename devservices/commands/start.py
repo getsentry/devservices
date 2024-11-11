@@ -53,8 +53,8 @@ def start(args: Namespace) -> None:
                 service,
                 "up",
                 mode_dependencies,
-                ["-d"],
-                remote_dependencies=remote_dependencies,
+                remote_dependencies,
+                options=["-d"],
             )
         except DockerComposeError as dce:
             status.failure(f"Failed to start {service.name}: {dce.stderr}")

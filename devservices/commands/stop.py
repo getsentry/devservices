@@ -60,7 +60,7 @@ def stop(args: Namespace) -> None:
                 service,
                 "down",
                 mode_dependencies,
-                remote_dependencies=remote_dependencies,
+                remote_dependencies,
             )
         except DockerComposeError as dce:
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")

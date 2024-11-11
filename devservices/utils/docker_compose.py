@@ -224,8 +224,8 @@ def run_docker_compose_command(
     service: Service,
     command: str,
     mode_dependencies: list[str],
+    remote_dependencies: set[InstalledRemoteDependency],
     options: list[str] = [],
-    remote_dependencies: set[InstalledRemoteDependency] = set(),
 ) -> list[subprocess.CompletedProcess[str]]:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),

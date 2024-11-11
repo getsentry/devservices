@@ -85,8 +85,8 @@ def status(args: Namespace) -> None:
             service,
             "ps",
             mode_dependencies,
+            remote_dependencies,
             options=["--format", "json"],
-            remote_dependencies=remote_dependencies,
         )
     except DockerComposeError as dce:
         console.failure(f"Failed to get status for {service.name}: {dce.stderr}")

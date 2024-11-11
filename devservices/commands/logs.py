@@ -56,8 +56,8 @@ def logs(args: Namespace) -> None:
             service,
             "logs",
             mode_dependencies,
+            remote_dependencies,
             options=["-n", MAX_LOG_LINES],
-            remote_dependencies=remote_dependencies,
         )
     except DockerComposeError as dce:
         console.failure(f"Failed to get logs for {service.name}: {dce.stderr}")
