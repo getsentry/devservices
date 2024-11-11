@@ -9,14 +9,6 @@ from devservices.commands.purge import purge
 from devservices.utils.state import State
 
 
-def fake_yes_input(_: str) -> str:
-    return "yes"
-
-
-def fake_no_input(_: str) -> str:
-    return "no"
-
-
 @mock.patch("devservices.commands.purge.stop_all_running_containers")
 def test_purge_not_confirmed(
     mock_stop_all_running_containers: mock.Mock, tmp_path: Path
@@ -27,7 +19,7 @@ def test_purge_not_confirmed(
             str(tmp_path / ".devservices-cache"),
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
-        mock.patch.object(builtins, "input", fake_no_input),
+        mock.patch.object(builtins, "input", lambda _: "no"),
     ):
         args = Namespace()
         purge(args)
@@ -45,7 +37,7 @@ def test_purge_with_cache_and_state_and_no_running_containers_confirmed(
             str(tmp_path / ".devservices-cache"),
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
-        mock.patch.object(builtins, "input", fake_yes_input),
+        mock.patch.object(builtins, "input", lambda _: "yes"),
         mock.patch(
             "devservices.utils.docker.check_docker_daemon_running", return_value=None
         ),
@@ -81,7 +73,7 @@ def test_purge_with_cache_and_state_and_running_containers_confirmed(
             str(tmp_path / ".devservices-cache"),
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
-        mock.patch.object(builtins, "input", fake_yes_input),
+        mock.patch.object(builtins, "input", lambda _: "yes"),
         mock.patch(
             "devservices.utils.docker.check_docker_daemon_running", return_value=None
         ),
@@ -117,7 +109,7 @@ def test_purge_with_cache_and_state_and_running_containers_not_confirmed(
             str(tmp_path / ".devservices-cache"),
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
-        mock.patch.object(builtins, "input", fake_no_input),
+        mock.patch.object(builtins, "input", lambda _: "no"),
         mock.patch(
             "devservices.utils.docker.check_docker_daemon_running", return_value=None
         ),
