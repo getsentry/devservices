@@ -19,7 +19,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.set_defaults(func=purge)
 
 
-def purge(_args: Namespace) -> None:
+def purge(args: Namespace) -> None:
     """Purge the local devservices cache."""
     console = Console()
     # Prompt the user to stop all running containers
