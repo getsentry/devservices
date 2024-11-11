@@ -56,4 +56,6 @@ def logs(args: Namespace) -> None:
         console.failure(f"Failed to get logs for {service.name}: {dce.stderr}")
         exit(1)
     for log in logs_output:
-        console.info(log.stdout)
+        log_stdout: str | None = log.stdout
+        if log_stdout is not None:
+            console.info(log_stdout)
