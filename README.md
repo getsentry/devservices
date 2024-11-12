@@ -8,20 +8,12 @@ A standalone cli tool used to manage dependencies for services. It simplifies th
 
 ## Installation
 
-Devservices should be installed through a virtualenv in the requirements.txt.
+The recommended way to install devservices is through a virtualenv in the requirements.txt.
 
 ```
 devservices==0.0.5
 ```
 
-Alternatively, you can install the binary of the latest release:
-
-```
-PLATFORM=darwin # Options: darwin/linux
-INSTALL_DIR="$HOME/.local/bin"
-curl -L "https://github.com/getsentry/devservices/releases/download/0.0.5/devservices-$PLATFORM" -o "$INSTALL_DIR/devservices"
-chmod +x "$INSTALL_DIR/devservices"
-```
 
 ## Usage
 
