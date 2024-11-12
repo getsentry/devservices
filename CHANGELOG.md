@@ -1,3 +1,9 @@
+## 1.0.2
+
+### Various fixes & improvements
+
+- fix(logs): Fixing bug in logs command, adding tests (#137) by @IanWoodard
+
 ## 1.0.1
 
 ### Various fixes & improvements
