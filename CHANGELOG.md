@@ -1,3 +1,16 @@
+## 1.0.0
+
+### Various fixes & improvements
+
+- feat(readme): Update installation instructions (#134) by @hubertdeng123
+- fix(dependencies): Removing sparse-checkout clear command (#133) by @IanWoodard
+- feat(purge): Adding state clear functionality to purge (#125) by @IanWoodard
+- feat(debug): Add debug mode for start and stop (#131) by @hubertdeng123
+- ref(docker-compose): Moving dependency logic out of docker compose (#129) by @IanWoodard
+- fix(logs): Fixing None case (#130) by @IanWoodard
+- ref(logs): Updating logs to use console util (#117) by @IanWoodard
+- chore(readme): Add update and purge to README (#115) by @hubertdeng123
+
 ## 0.0.5
 
 ### Various fixes & improvements
