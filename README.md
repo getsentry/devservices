@@ -8,14 +8,12 @@ A standalone cli tool used to manage dependencies for services. It simplifies th
 
 ## Installation
 
-A system-wide installation can be done by downloading the binary of the latest release
+The recommended way to install devservices is through a virtualenv in the requirements.txt.
 
 ```
-PLATFORM=darwin # Options: darwin/linux
-INSTALL_DIR="$HOME/.local/bin"
-curl -L "https://github.com/getsentry/devservices/releases/download/0.0.5/devservices-$PLATFORM" -o "$INSTALL_DIR/devservices"
-chmod +x "$INSTALL_DIR/devservices"
+devservices==0.0.5
 ```
+
 
 ## Usage
 
