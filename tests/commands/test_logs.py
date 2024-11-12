@@ -17,6 +17,46 @@ from devservices.utils.services import Service
 @mock.patch("devservices.commands.logs.find_matching_service")
 @mock.patch("devservices.utils.state.State.get_started_services")
 @mock.patch("devservices.commands.logs.install_and_verify_dependencies")
+def test_logs_no_specified_service_not_running(
+    mock_install_and_verify_dependencies: mock.Mock,
+    mock_get_started_services: mock.Mock,
+    mock_find_matching_service: mock.Mock,
+    mock_run_docker_compose_command: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    args = Namespace(service_name=None)
+    mock_service = Service(
+        name="example-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="example-service",
+            dependencies={
+                "redis": Dependency(description="Redis"),
+                "clickhouse": Dependency(description="Clickhouse"),
+            },
+            modes={"default": ["redis", "clickhouse"]},
+        ),
+        repo_path=str(tmp_path / "example-service"),
+    )
+    mock_get_started_services.return_value = []
+    mock_find_matching_service.return_value = mock_service
+
+    logs(args)
+
+    mock_find_matching_service.assert_called_once_with(None)
+    mock_get_started_services.assert_called_once()
+    mock_install_and_verify_dependencies.assert_not_called()
+    mock_run_docker_compose_command.assert_not_called()
+
+    captured = capsys.readouterr()
+    assert "Service example-service is not running" in captured.out
+
+
+@mock.patch("devservices.commands.logs.run_docker_compose_command")
+@mock.patch("devservices.commands.logs.find_matching_service")
+@mock.patch("devservices.utils.state.State.get_started_services")
+@mock.patch("devservices.commands.logs.install_and_verify_dependencies")
 def test_logs_no_specified_service_success(
     mock_install_and_verify_dependencies: mock.Mock,
     mock_get_started_services: mock.Mock,
@@ -52,9 +92,9 @@ def test_logs_no_specified_service_success(
 
     logs(args)
 
-    mock_install_and_verify_dependencies.assert_called_once()
-    mock_get_started_services.assert_called_once()
     mock_find_matching_service.assert_called_once_with(None)
+    mock_get_started_services.assert_called_once()
+    mock_install_and_verify_dependencies.assert_called_once()
     mock_run_docker_compose_command.assert_called_once_with(
         mock_service,
         "logs",
