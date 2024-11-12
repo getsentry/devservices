@@ -8,7 +8,13 @@ A standalone cli tool used to manage dependencies for services. It simplifies th
 
 ## Installation
 
-A system-wide installation can be done by downloading the binary of the latest release
+Devservices should be installed through a virtualenv in the requirements.txt.
+
+```
+devservices==0.0.5
+```
+
+Alternatively, you can install the binary of the latest release:
 
 ```
 PLATFORM=darwin # Options: darwin/linux
