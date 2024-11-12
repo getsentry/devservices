@@ -42,8 +42,8 @@ def logs(args: Namespace) -> None:
 
     state = State()
     running_services = state.get_started_services()
-    if service_name not in running_services:
-        console.warning(f"Service {service_name} is not running")
+    if service.name not in running_services:
+        console.warning(f"Service {service.name} is not running")
         return
 
     try:
