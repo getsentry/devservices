@@ -81,7 +81,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # If the command has a debug flag, set the logger to debug
-    if args.debug:
+    if "debug" in args and args.debug:
         logger = logging.getLogger(LOGGER_NAME)
         logger.setLevel(logging.DEBUG)
 
