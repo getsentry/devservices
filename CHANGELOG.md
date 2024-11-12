@@ -1,3 +1,9 @@
+## 1.0.1
+
+### Various fixes & improvements
+
+- fix(debug): Fixing debug flag (#135) by @IanWoodard
+
 ## 1.0.0
 
 ### Various fixes & improvements
