@@ -35,8 +35,8 @@ services:
         soft: 4096
         hard: 4096
     ports:
-      - 9092:9092
-      - 9093:9093
+      - 127.0.0.1:9092:9092
+      - 127.0.0.1:9093:9093
     volumes:
       - kafka-data:/var/lib/kafka/data
     networks:
