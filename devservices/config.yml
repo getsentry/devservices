@@ -13,7 +13,7 @@ services:
     healthcheck:
       test: kafka-topics --bootstrap-server 127.0.0.1:9092 --list
       interval: 1m30s
-      timeout: 30s
+      timeout: 5s
       retries: 5
     environment:
       # https://docs.confluent.io/platform/current/installation/docker/config-reference.html#cp-kakfa-example
