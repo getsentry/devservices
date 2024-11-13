@@ -60,7 +60,7 @@ def start(args: Namespace) -> None:
                 "up",
                 mode_dependencies,
                 remote_dependencies,
-                options=["-d"],
+                options=["-d", "--wait"],
             )
         except DockerComposeError as dce:
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
