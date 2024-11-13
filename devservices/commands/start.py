@@ -4,6 +4,8 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from sentry_sdk import capture_exception
+
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -35,6 +37,7 @@ def start(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except Exception as e:
+        capture_exception(e)
         console.failure(str(e))
         exit(1)
 
@@ -52,6 +55,7 @@ def start(args: Namespace) -> None:
                 service, force_update_dependencies=True
             )
         except DependencyError as de:
+            capture_exception(de)
             status.failure(str(de))
             exit(1)
         try:
@@ -63,6 +67,7 @@ def start(args: Namespace) -> None:
                 options=["-d"],
             )
         except DockerComposeError as dce:
+            capture_exception(dce)
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
     # TODO: We should factor in healthchecks here before marking service as running

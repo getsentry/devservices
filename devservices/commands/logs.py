@@ -4,6 +4,8 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from sentry_sdk import capture_exception
+
 from devservices.constants import MAX_LOG_LINES
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
@@ -32,6 +34,7 @@ def logs(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except Exception as e:
+        capture_exception(e)
         console.failure(str(e))
         exit(1)
 
@@ -49,6 +52,7 @@ def logs(args: Namespace) -> None:
     try:
         remote_dependencies = install_and_verify_dependencies(service)
     except DependencyError as de:
+        capture_exception(de)
         console.failure(str(de))
         exit(1)
     try:
@@ -60,6 +64,7 @@ def logs(args: Namespace) -> None:
             options=["-n", MAX_LOG_LINES],
         )
     except DockerComposeError as dce:
+        capture_exception(dce)
         console.failure(f"Failed to get logs for {service.name}: {dce.stderr}")
         exit(1)
     for log in logs_output:
