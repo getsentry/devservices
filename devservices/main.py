@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import getpass
 import logging
 import os
 from importlib import metadata
@@ -41,6 +42,8 @@ if not disable_sentry:
         integrations=[ArgvIntegration()],
         environment=sentry_environment,
     )
+    username = getpass.getuser()
+    sentry_sdk.set_user({"username": username})
 
 
 @atexit.register
