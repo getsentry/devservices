@@ -5,6 +5,8 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from sentry_sdk import capture_exception
+
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -67,6 +69,7 @@ def status(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except Exception as e:
+        capture_exception(e)
         console.failure(str(e))
         exit(1)
 
@@ -78,6 +81,7 @@ def status(args: Namespace) -> None:
     try:
         remote_dependencies = install_and_verify_dependencies(service)
     except DependencyError as de:
+        capture_exception(de)
         console.failure(str(de))
         exit(1)
     try:
@@ -89,6 +93,7 @@ def status(args: Namespace) -> None:
             options=["--format", "json"],
         )
     except DockerComposeError as dce:
+        capture_exception(dce)
         console.failure(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)
 

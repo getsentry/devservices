@@ -4,6 +4,8 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from sentry_sdk import capture_exception
+
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -36,6 +38,7 @@ def stop(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except Exception as e:
+        capture_exception(e)
         console.failure(str(e))
         exit(1)
 
@@ -57,6 +60,7 @@ def stop(args: Namespace) -> None:
         try:
             remote_dependencies = install_and_verify_dependencies(service)
         except DependencyError as de:
+            capture_exception(de)
             status.failure(str(de))
             exit(1)
         remote_dependencies = get_non_shared_remote_dependencies(
@@ -70,6 +74,7 @@ def stop(args: Namespace) -> None:
                 remote_dependencies,
             )
         except DockerComposeError as dce:
+            capture_exception(dce)
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
 

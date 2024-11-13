@@ -7,6 +7,7 @@ import os
 from importlib import metadata
 
 import sentry_sdk
+from sentry_sdk import capture_exception
 from sentry_sdk.integrations.argv import ArgvIntegration
 
 from devservices.commands import list_dependencies
@@ -52,9 +53,11 @@ def main() -> None:
     try:
         check_docker_compose_version()
     except DockerDaemonNotRunningError as e:
+        capture_exception(e)
         console.failure(str(e))
         exit(1)
-    except DockerComposeInstallationError:
+    except DockerComposeInstallationError as e:
+        capture_exception(e)
         console.failure("Failed to ensure docker compose is installed and up-to-date")
         exit(1)
     parser = argparse.ArgumentParser(
