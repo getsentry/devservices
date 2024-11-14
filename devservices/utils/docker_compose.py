@@ -223,16 +223,14 @@ def _get_docker_compose_commands_to_run(
     return docker_compose_commands
 
 
-def _run_cmd(
-    cmd: list[str], env: dict[str, str], command: str
-) -> subprocess.CompletedProcess[str]:
+def _run_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     logger = logging.getLogger(LOGGER_NAME)
     try:
         logger.debug(f"Running command: {' '.join(cmd)}")
         return subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
     except subprocess.CalledProcessError as e:
         raise DockerComposeError(
-            command=command,
+            command=" ".join(cmd),
             returncode=e.returncode,
             stdout=e.stdout,
             stderr=e.stderr,
@@ -272,7 +270,7 @@ def run_docker_compose_command(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(_run_cmd, cmd, current_env, command)
+            executor.submit(_run_cmd, cmd, current_env)
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
