@@ -7,8 +7,12 @@ import logging
 import os
 from importlib import metadata
 
-import sentry_sdk
 from sentry_sdk import capture_exception
+from sentry_sdk import flush
+from sentry_sdk import init
+from sentry_sdk import set_tag
+from sentry_sdk import set_user
+from sentry_sdk import start_transaction
 from sentry_sdk.integrations.argv import ArgvIntegration
 
 from devservices.commands import list_dependencies
@@ -34,7 +38,7 @@ disable_sentry = os.environ.get("DISABLE_SENTRY", default=False)
 logging.basicConfig(level=logging.INFO)
 
 if not disable_sentry:
-    sentry_sdk.init(
+    init(
         dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
@@ -43,16 +47,18 @@ if not disable_sentry:
         environment=sentry_environment,
     )
     username = getpass.getuser()
-    sentry_sdk.set_user({"username": username})
+    set_user({"username": username})
 
 
 @atexit.register
 def cleanup() -> None:
-    sentry_sdk.flush()
+    flush()
 
 
 def main() -> None:
     console = Console()
+    current_version = metadata.version("devservices")
+    set_tag("devservices_version", current_version)
     try:
         check_docker_compose_version()
     except DockerDaemonNotRunningError as e:
@@ -68,9 +74,7 @@ def main() -> None:
         description="CLI tool for managing service dependencies.",
         usage="devservices [-h] [--version] COMMAND ...",
     )
-    parser.add_argument(
-        "--version", action="version", version=metadata.version("devservices")
-    )
+    parser.add_argument("--version", action="version", version=current_version)
 
     subparsers = parser.add_subparsers(dest="command", title="commands", metavar="")
 
@@ -93,14 +97,14 @@ def main() -> None:
 
     if args.command:
         # Call the appropriate function based on the command
-        with sentry_sdk.start_transaction(op="command", name=args.command):
+        with start_transaction(op="command", name=args.command):
             args.func(args)
     else:
         parser.print_help()
 
     if args.command != "update":
-        newest_version = check_for_update(metadata.version("devservices"))
-        if newest_version != metadata.version("devservices"):
+        newest_version = check_for_update()
+        if newest_version != current_version:
             console.warning(
                 f"WARNING: A new version of devservices is available: {newest_version}"
             )

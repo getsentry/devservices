@@ -44,7 +44,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 def update(args: Namespace) -> None:
     console = Console()
     current_version = metadata.version("devservices")
-    latest_version = check_for_update(current_version)
+    latest_version = check_for_update()
 
     if latest_version is None:
         raise DevservicesUpdateError("Failed to check for updates.")
