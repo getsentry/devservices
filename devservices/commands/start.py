@@ -64,7 +64,7 @@ def start(args: Namespace) -> None:
                 "up",
                 mode_dependencies,
                 remote_dependencies,
-                options=["-d"],
+                options=["-d", "--wait"],
             )
         except DockerComposeError as dce:
             capture_exception(dce)

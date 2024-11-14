@@ -78,6 +78,7 @@ def test_start_simple(
                 "clickhouse",
                 "redis",
                 "-d",
+                "--wait",
             ],
             check=True,
             capture_output=True,
