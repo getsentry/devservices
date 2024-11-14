@@ -4,7 +4,7 @@ import json
 from urllib.request import urlopen
 
 
-def check_for_update(current_version: str) -> str | None:
+def check_for_update() -> str | None:
     url = "https://api.github.com/repos/getsentry/devservices/releases/latest"
     with urlopen(url) as response:
         if response.status == 200:
