@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import concurrent
 import logging
 import os
 import platform
@@ -13,9 +12,6 @@ from packaging import version
 
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DEPENDENCY_CONFIG_VERSION
-from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
-from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
@@ -165,7 +161,7 @@ def _get_non_remote_services(
     return set(config_services.splitlines())
 
 
-def _get_docker_compose_commands_to_run(
+def get_docker_compose_commands_to_run(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     current_env: dict[str, str],
@@ -223,7 +219,7 @@ def _get_docker_compose_commands_to_run(
     return docker_compose_commands
 
 
-def _run_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def run_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     logger = logging.getLogger(LOGGER_NAME)
     try:
         logger.debug(f"Running command: {' '.join(cmd)}")
@@ -235,45 +231,3 @@ def _run_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess
             stdout=e.stdout,
             stderr=e.stderr,
         ) from e
-
-
-def run_docker_compose_command(
-    service: Service,
-    command: str,
-    mode_dependencies: list[str],
-    remote_dependencies: set[InstalledRemoteDependency],
-    options: list[str] = [],
-) -> list[subprocess.CompletedProcess[str]]:
-    relative_local_dependency_directory = os.path.relpath(
-        os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
-        service.repo_path,
-    )
-    service_config_file_path = os.path.join(
-        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-    )
-    # Set the environment variable for the local dependencies directory to be used by docker compose
-    current_env = os.environ.copy()
-    current_env[
-        DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
-    ] = relative_local_dependency_directory
-    docker_compose_commands = _get_docker_compose_commands_to_run(
-        service=service,
-        remote_dependencies=remote_dependencies,
-        current_env=current_env,
-        command=command,
-        options=options,
-        service_config_file_path=service_config_file_path,
-        mode_dependencies=mode_dependencies,
-    )
-
-    cmd_outputs = []
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(_run_cmd, cmd, current_env)
-            for cmd in docker_compose_commands
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            cmd_outputs.append(future.result())
-
-    return cmd_outputs

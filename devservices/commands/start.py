@@ -1,18 +1,28 @@
 from __future__ import annotations
 
+import concurrent.futures
+import os
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
 
+from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DEPENDENCY_CONFIG_VERSION
+from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
+from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
+from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import install_and_verify_dependencies
-from devservices.utils.docker_compose import run_docker_compose_command
+from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.docker_compose import get_docker_compose_commands_to_run
+from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import Service
 from devservices.utils.state import State
 
 
@@ -59,13 +69,7 @@ def start(args: Namespace) -> None:
             status.failure(str(de))
             exit(1)
         try:
-            run_docker_compose_command(
-                service,
-                "up",
-                mode_dependencies,
-                remote_dependencies,
-                options=["-d", "--wait"],
-            )
+            _start(service, remote_dependencies, mode_dependencies)
         except DockerComposeError as dce:
             capture_exception(dce)
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
@@ -73,3 +77,41 @@ def start(args: Namespace) -> None:
     # TODO: We should factor in healthchecks here before marking service as running
     state = State()
     state.add_started_service(service.name, mode_to_start)
+
+
+def _start(
+    service: Service,
+    remote_dependencies: set[InstalledRemoteDependency],
+    mode_dependencies: list[str],
+) -> None:
+    relative_local_dependency_directory = os.path.relpath(
+        os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
+        service.repo_path,
+    )
+    service_config_file_path = os.path.join(
+        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+    )
+    # Set the environment variable for the local dependencies directory to be used by docker compose
+    current_env = os.environ.copy()
+    current_env[
+        DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
+    ] = relative_local_dependency_directory
+    docker_compose_commands = get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=remote_dependencies,
+        current_env=current_env,
+        command="up",
+        options=["-d", "--wait"],
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+
+    cmd_outputs = []
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(run_cmd, cmd, current_env)
+            for cmd in docker_compose_commands
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            cmd_outputs.append(future.result())
