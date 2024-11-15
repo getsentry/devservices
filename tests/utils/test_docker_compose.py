@@ -15,9 +15,9 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
-from devservices.utils.docker_compose import _get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import _get_non_remote_services
 from devservices.utils.docker_compose import check_docker_compose_version
+from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import install_docker_compose
 from devservices.utils.services import Service
 from testing.utils import create_mock_git_repo
@@ -288,7 +288,7 @@ def test_get_all_commands_to_run_simple_local(
         repo_path=child_service_repo_path_str,
         config=service_config,
     )
-    commands = _get_docker_compose_commands_to_run(
+    commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,
@@ -341,7 +341,7 @@ def test_get_all_commands_to_run_no_services_to_use(
         repo_path=child_service_repo_path_str,
         config=service_config,
     )
-    commands = _get_docker_compose_commands_to_run(
+    commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,
@@ -398,7 +398,7 @@ def test_get_all_commands_to_run_simple_remote(
             stdout="parent-service\n",
         ),
     ]
-    commands = _get_docker_compose_commands_to_run(
+    commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,
@@ -495,7 +495,7 @@ def test_get_all_commands_to_run_complex_remote(
             stdout="grandparent-service\n",
         ),
     ]
-    commands = _get_docker_compose_commands_to_run(
+    commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,

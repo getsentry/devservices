@@ -30,7 +30,7 @@ def test_start_simple(
     mock_add_started_service: mock.Mock, mock_run: mock.Mock, tmp_path: Path
 ) -> None:
     with mock.patch(
-        "devservices.utils.docker_compose.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        "devservices.commands.start.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         config = {
