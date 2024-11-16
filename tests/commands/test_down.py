@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from devservices.commands.stop import stop
+from devservices.commands.down import down
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
@@ -26,11 +26,11 @@ from testing.utils import create_config_file
     ),
 )
 @mock.patch("devservices.utils.state.State.remove_started_service")
-def test_stop_simple(
+def test_down_simple(
     mock_remove_started_service: mock.Mock, mock_run: mock.Mock, tmp_path: Path
 ) -> None:
     with mock.patch(
-        "devservices.commands.stop.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         config = {
@@ -62,7 +62,7 @@ def test_stop_simple(
         ):
             state = State()
             state.add_started_service("example-service", "default")
-            stop(args)
+            down(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
         env_vars = mock_run.call_args[1]["env"]
@@ -94,7 +94,7 @@ def test_stop_simple(
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.remove_started_service")
-def test_stop_error(
+def test_down_error(
     mock_remove_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -130,7 +130,7 @@ def test_stop_error(
         state = State()
         state.add_started_service("example-service", "default")
         with pytest.raises(SystemExit):
-            stop(args)
+            down(args)
 
     # Capture the printed output
     captured = capsys.readouterr()
