@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from devservices.commands.start import start
+from devservices.commands.up import up
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
@@ -26,14 +26,14 @@ from testing.utils import create_config_file
     ),
 )
 @mock.patch("devservices.utils.state.State.add_started_service")
-def test_start_simple(
+def test_up_simple(
     mock_add_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with mock.patch(
-        "devservices.commands.start.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        "devservices.commands.up.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         config = {
@@ -60,7 +60,7 @@ def test_start_simple(
 
         args = Namespace(service_name=None, debug=False)
 
-        start(args)
+        up(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
         env_vars = mock_run.call_args[1]["env"]
@@ -98,14 +98,14 @@ def test_start_simple(
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.add_started_service")
-def test_start_dependency_error(
+def test_up_dependency_error(
     mock_add_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     with mock.patch(
-        "devservices.commands.start.install_and_verify_dependencies",
+        "devservices.commands.up.install_and_verify_dependencies",
     ) as mock_install_and_verify_dependencies:
         mock_install_and_verify_dependencies.side_effect = DependencyError(
             "example-repo", "link", "branch"
@@ -134,7 +134,7 @@ def test_start_dependency_error(
         args = Namespace(service_name=None, debug=False)
 
         with pytest.raises(SystemExit):
-            start(args)
+            up(args)
 
         # Capture the printed output
         captured = capsys.readouterr()
@@ -151,7 +151,7 @@ def test_start_dependency_error(
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.add_started_service")
-def test_start_error(
+def test_up_error(
     mock_add_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -184,7 +184,7 @@ def test_start_error(
     args = Namespace(service_name=None, debug=False)
 
     with pytest.raises(SystemExit):
-        start(args)
+        up(args)
 
     # Capture the printed output
     captured = capsys.readouterr()

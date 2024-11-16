@@ -15,13 +15,13 @@ from sentry_sdk import set_user
 from sentry_sdk import start_transaction
 from sentry_sdk.integrations.argv import ArgvIntegration
 
+from devservices.commands import down
 from devservices.commands import list_dependencies
 from devservices.commands import list_services
 from devservices.commands import logs
 from devservices.commands import purge
-from devservices.commands import start
 from devservices.commands import status
-from devservices.commands import stop
+from devservices.commands import up
 from devservices.commands import update
 from devservices.commands.check_for_update import check_for_update
 from devservices.constants import LOGGER_NAME
@@ -79,8 +79,8 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", title="commands", metavar="")
 
     # Add subparsers for each command
-    start.add_parser(subparsers)
-    stop.add_parser(subparsers)
+    up.add_parser(subparsers)
+    down.add_parser(subparsers)
     list_dependencies.add_parser(subparsers)
     list_services.add_parser(subparsers)
     status.add_parser(subparsers)

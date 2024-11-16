@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import concurrent.futures
 import os
-import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -18,6 +17,7 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
+from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
@@ -28,9 +28,14 @@ from devservices.utils.state import State
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
-    parser = subparsers.add_parser("start", help="Start a service and its dependencies")
+    parser = subparsers.add_parser(
+        "down", help="Bring down a service and its dependencies"
+    )
     parser.add_argument(
-        "service_name", help="Name of the service to start", nargs="?", default=None
+        "service_name",
+        help="Name of the service to bring down",
+        nargs="?",
+        default=None,
     )
     parser.add_argument(
         "--debug",
@@ -38,11 +43,11 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         action="store_true",
         default=False,
     )
-    parser.set_defaults(func=start)
+    parser.set_defaults(func=down)
 
 
-def start(args: Namespace) -> None:
-    """Start a service and its dependencies."""
+def down(args: Namespace) -> None:
+    """Bring down a service and its dependencies."""
     console = Console()
     service_name = args.service_name
     try:
@@ -54,47 +59,44 @@ def start(args: Namespace) -> None:
 
     modes = service.config.modes
     # TODO: allow custom modes to be used
-    mode_to_start = "default"
-    mode_dependencies = modes[mode_to_start]
+    mode = "default"
+    mode_dependencies = modes[mode]
+
+    state = State()
+    started_services = state.get_started_services()
+    if service.name not in started_services:
+        console.warning(f"{service.name} is not running")
+        exit(0)
 
     with Status(
-        lambda: console.warning(f"Starting {service.name}"),
-        lambda: console.success(f"{service.name} started"),
+        lambda: console.warning(f"Stopping {service.name}"),
+        lambda: console.success(f"{service.name} stopped"),
     ) as status:
         try:
-            status.info("Retrieving dependencies")
-            remote_dependencies = install_and_verify_dependencies(
-                service, force_update_dependencies=True
-            )
+            remote_dependencies = install_and_verify_dependencies(service)
         except DependencyError as de:
             capture_exception(de)
             status.failure(str(de))
             exit(1)
+        remote_dependencies = get_non_shared_remote_dependencies(
+            service, remote_dependencies
+        )
         try:
-            _start(service, remote_dependencies, mode_dependencies, status)
+            _down(service, remote_dependencies, mode_dependencies)
         except DockerComposeError as dce:
             capture_exception(dce)
-            status.failure(f"Failed to start {service.name}: {dce.stderr}")
+            status.failure(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
-    # TODO: We should factor in healthchecks here before marking service as running
+
+    # TODO: We should factor in healthchecks here before marking service as not running
     state = State()
-    state.add_started_service(service.name, mode_to_start)
+    state.remove_started_service(service.name)
 
 
-def _start_dependency(
-    cmd: list[str], current_env: dict[str, str], status: Status
-) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought up))
-    for dependency in cmd[7:-2]:
-        status.info(f"Starting {dependency}")
-    return run_cmd(cmd, current_env)
-
-
-def _start(
+def _down(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
-    status: Status,
 ) -> None:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
@@ -112,8 +114,8 @@ def _start(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,
-        command="up",
-        options=["-d", "--wait"],
+        command="down",
+        options=[],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
@@ -122,7 +124,7 @@ def _start(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(_start_dependency, cmd, current_env, status)
+            executor.submit(run_cmd, cmd, current_env)
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
