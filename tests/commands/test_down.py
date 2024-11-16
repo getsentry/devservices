@@ -8,12 +8,12 @@ from unittest import mock
 
 import pytest
 
-from devservices.commands.start import start
+from devservices.commands.down import down
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.exceptions import DependencyError
+from devservices.utils.state import State
 from testing.utils import create_config_file
 
 
@@ -25,12 +25,15 @@ from testing.utils import create_config_file
         stdout="clickhouse\nredis\n",
     ),
 )
-@mock.patch("devservices.utils.state.State.add_started_service")
-def test_start_simple(
-    mock_add_started_service: mock.Mock, mock_run: mock.Mock, tmp_path: Path
+@mock.patch("devservices.utils.state.State.remove_started_service")
+def test_up_simple(
+    mock_remove_started_service: mock.Mock,
+    mock_run: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     with mock.patch(
-        "devservices.commands.start.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
         str(tmp_path / "dependency-dir"),
     ):
         config = {
@@ -57,7 +60,12 @@ def test_start_simple(
 
         args = Namespace(service_name=None, debug=False)
 
-        start(args)
+        with mock.patch(
+            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+        ):
+            state = State()
+            state.add_started_service("example-service", "default")
+            down(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
         env_vars = mock_run.call_args[1]["env"]
@@ -74,11 +82,9 @@ def test_start_simple(
                 "example-service",
                 "-f",
                 f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                "up",
+                "down",
                 "clickhouse",
                 "redis",
-                "-d",
-                "--wait",
             ],
             check=True,
             capture_output=True,
@@ -86,61 +92,17 @@ def test_start_simple(
             env=mock.ANY,
         )
 
-        mock_add_started_service.assert_called_with("example-service", "default")
+        mock_remove_started_service.assert_called_with("example-service")
 
-
-@mock.patch("devservices.utils.docker_compose.subprocess.run")
-@mock.patch("devservices.utils.state.State.add_started_service")
-def test_start_dependency_error(
-    mock_add_started_service: mock.Mock,
-    mock_run: mock.Mock,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-) -> None:
-    with mock.patch(
-        "devservices.commands.start.install_and_verify_dependencies",
-    ) as mock_install_and_verify_dependencies:
-        mock_install_and_verify_dependencies.side_effect = DependencyError(
-            "example-repo", "link", "branch"
-        )
-        config = {
-            "x-sentry-service-config": {
-                "version": 0.1,
-                "service_name": "example-service",
-                "dependencies": {
-                    "redis": {"description": "Redis"},
-                    "clickhouse": {"description": "Clickhouse"},
-                },
-                "modes": {"default": ["redis", "clickhouse"]},
-            },
-            "services": {
-                "redis": {"image": "redis:6.2.14-alpine"},
-                "clickhouse": {
-                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
-                },
-            },
-        }
-
-        create_config_file(tmp_path, config)
-        os.chdir(tmp_path)
-
-        args = Namespace(service_name=None, debug=False)
-
-        with pytest.raises(SystemExit):
-            start(args)
-
-        # Capture the printed output
         captured = capsys.readouterr()
-
-        assert "DependencyError: example-repo (link) on branch" in captured.out.strip()
-
-        mock_add_started_service.assert_not_called()
+        assert "Stopping clickhouse" in captured.out.strip()
+        assert "Stopping redis" in captured.out.strip()
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
-@mock.patch("devservices.utils.state.State.add_started_service")
-def test_start_error(
-    mock_add_started_service: mock.Mock,
+@mock.patch("devservices.utils.state.State.remove_started_service")
+def test_down_error(
+    mock_remove_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -171,14 +133,21 @@ def test_start_error(
 
     args = Namespace(service_name=None, debug=False)
 
-    with pytest.raises(SystemExit):
-        start(args)
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_started_service("example-service", "default")
+        with pytest.raises(SystemExit):
+            down(args)
 
     # Capture the printed output
     captured = capsys.readouterr()
 
     assert (
-        "Failed to start example-service: Docker Compose error" in captured.out.strip()
+        "Failed to stop example-service: Docker Compose error" in captured.out.strip()
     )
 
-    mock_add_started_service.assert_not_called()
+    mock_remove_started_service.assert_not_called()
+
+    captured = capsys.readouterr()
+    assert "Stopping clickhouse" not in captured.out.strip()
+    assert "Stopping redis" not in captured.out.strip()
