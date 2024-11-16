@@ -1,6 +1,6 @@
 # devservices
 
-A standalone cli tool used to manage dependencies for services. It simplifies the process of bringing up, bringing down, and managing services for development purposes.
+A standalone cli tool used to manage dependencies for services. It simplifies the process of managing services for development purposes and bringing services up/down.
 
 ## Overview
 
