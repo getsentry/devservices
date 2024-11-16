@@ -14,6 +14,7 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_COMMAND_LENGTH
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -97,8 +98,8 @@ def down(args: Namespace) -> None:
 def _bring_down_dependency(
     cmd: list[str], current_env: dict[str, str], status: Status
 ) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought down
-    for dependency in cmd[7:]:
+    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought down
+    for dependency in cmd[DOCKER_COMPOSE_COMMAND_LENGTH:]:
         status.info(f"Stopping {dependency}")
     return run_cmd(cmd, current_env)
 
