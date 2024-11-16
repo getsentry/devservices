@@ -84,7 +84,7 @@ def up(args: Namespace) -> None:
 def _bring_up_dependency(
     cmd: list[str], current_env: dict[str, str], status: Status
 ) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought up))
+    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought up
     for dependency in cmd[7:-2]:
         status.info(f"Starting {dependency}")
     return run_cmd(cmd, current_env)
