@@ -64,8 +64,9 @@ def test_purge_with_cache_and_state_and_no_running_containers_confirmed(
 
 
 @mock.patch("devservices.commands.purge.stop_all_running_containers")
-def test_purge_with_cache_and_state_and_running_containers_confirmed(
-    mock_stop_all_running_containers: mock.Mock, tmp_path: Path
+@mock.patch("devservices.commands.purge.subprocess.run")
+def test_purge_with_cache_and_state_and_running_containers_with_networks_confirmed(
+    mock_run: mock.Mock, mock_stop_all_running_containers: mock.Mock, tmp_path: Path
 ) -> None:
     with (
         mock.patch(
@@ -76,6 +77,10 @@ def test_purge_with_cache_and_state_and_running_containers_confirmed(
         mock.patch.object(builtins, "input", lambda _: "yes"),
         mock.patch(
             "devservices.utils.docker.check_docker_daemon_running", return_value=None
+        ),
+        mock.patch(
+            "devservices.commands.purge.subprocess.check_output",
+            return_value=b"abc\ndef\nghe\n",
         ),
     ):
         # Create a cache file to test purging
@@ -96,12 +101,35 @@ def test_purge_with_cache_and_state_and_running_containers_confirmed(
         assert not cache_file.exists()
         assert state.get_started_services() == []
 
+        mock_run.assert_has_calls(
+            [
+                mock.call(
+                    ["docker", "network", "rm", "abc"],
+                    check=True,
+                    stdout=mock.ANY,
+                    stderr=mock.ANY,
+                ),
+                mock.call(
+                    ["docker", "network", "rm", "def"],
+                    check=True,
+                    stdout=mock.ANY,
+                    stderr=mock.ANY,
+                ),
+                mock.call(
+                    ["docker", "network", "rm", "ghe"],
+                    check=True,
+                    stdout=mock.ANY,
+                    stderr=mock.ANY,
+                ),
+            ]
+        )
         mock_stop_all_running_containers.assert_called_once()
 
 
 @mock.patch("devservices.commands.purge.stop_all_running_containers")
+@mock.patch("devservices.commands.purge.subprocess.run")
 def test_purge_with_cache_and_state_and_running_containers_not_confirmed(
-    mock_stop_all_running_containers: mock.Mock, tmp_path: Path
+    mock_run: mock.Mock, mock_stop_all_running_containers: mock.Mock, tmp_path: Path
 ) -> None:
     with (
         mock.patch(
@@ -129,4 +157,5 @@ def test_purge_with_cache_and_state_and_running_containers_not_confirmed(
         assert cache_file.exists()
         assert state.get_started_services() == ["test-service"]
 
+        mock_run.assert_not_called()
         mock_stop_all_running_containers.assert_not_called()

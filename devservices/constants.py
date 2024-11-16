@@ -25,3 +25,4 @@ DEVSERVICES_DOWNLOAD_URL = "https://github.com/getsentry/devservices/releases/do
 BINARY_PERMISSIONS = 0o755
 MAX_LOG_LINES = "100"
 LOGGER_NAME = "devservices"
+DOCKER_NETWORK_NAME = "devservices"
