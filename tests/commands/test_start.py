@@ -27,7 +27,10 @@ from testing.utils import create_config_file
 )
 @mock.patch("devservices.utils.state.State.add_started_service")
 def test_start_simple(
-    mock_add_started_service: mock.Mock, mock_run: mock.Mock, tmp_path: Path
+    mock_add_started_service: mock.Mock,
+    mock_run: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     with mock.patch(
         "devservices.commands.start.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
@@ -87,6 +90,10 @@ def test_start_simple(
         )
 
         mock_add_started_service.assert_called_with("example-service", "default")
+        captured = capsys.readouterr()
+        assert "Retrieving dependencies" in captured.out.strip()
+        assert "Starting clickhouse" in captured.out.strip()
+        assert "Starting redis" in captured.out.strip()
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
@@ -136,6 +143,11 @@ def test_start_dependency_error(
 
         mock_add_started_service.assert_not_called()
 
+        captured = capsys.readouterr()
+        assert "Retrieving dependencies" not in captured.out.strip()
+        assert "Starting clickhouse" not in captured.out.strip()
+        assert "Starting redis" not in captured.out.strip()
+
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.add_started_service")
@@ -182,3 +194,8 @@ def test_start_error(
     )
 
     mock_add_started_service.assert_not_called()
+
+    captured = capsys.readouterr()
+    assert "Retrieving dependencies" not in captured.out.strip()
+    assert "Starting clickhouse" not in captured.out.strip()
+    assert "Starting redis" not in captured.out.strip()

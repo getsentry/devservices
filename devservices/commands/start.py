@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import os
+import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -61,6 +62,7 @@ def start(args: Namespace) -> None:
         lambda: console.success(f"{service.name} started"),
     ) as status:
         try:
+            status.info("Retrieving dependencies")
             remote_dependencies = install_and_verify_dependencies(
                 service, force_update_dependencies=True
             )
@@ -69,7 +71,7 @@ def start(args: Namespace) -> None:
             status.failure(str(de))
             exit(1)
         try:
-            _start(service, remote_dependencies, mode_dependencies)
+            _start(service, remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce)
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
@@ -79,10 +81,20 @@ def start(args: Namespace) -> None:
     state.add_started_service(service.name, mode_to_start)
 
 
+def _start_dependency(
+    cmd: list[str], current_env: dict[str, str], status: Status
+) -> subprocess.CompletedProcess[str]:
+    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought up))
+    for dependency in cmd[7:-2]:
+        status.info(f"Starting {dependency}")
+    return run_cmd(cmd, current_env)
+
+
 def _start(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
+    status: Status,
 ) -> None:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
@@ -110,7 +122,7 @@ def _start(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(run_cmd, cmd, current_env)
+            executor.submit(_start_dependency, cmd, current_env, status)
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
