@@ -17,7 +17,6 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
-from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
@@ -28,9 +27,9 @@ from devservices.utils.state import State
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
-    parser = subparsers.add_parser("stop", help="Stop a service and its dependencies")
+    parser = subparsers.add_parser("up", help="Bring up a service and its dependencies")
     parser.add_argument(
-        "service_name", help="Name of the service to stop", nargs="?", default=None
+        "service_name", help="Name of the service to bring up", nargs="?", default=None
     )
     parser.add_argument(
         "--debug",
@@ -38,11 +37,11 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         action="store_true",
         default=False,
     )
-    parser.set_defaults(func=stop)
+    parser.set_defaults(func=up)
 
 
-def stop(args: Namespace) -> None:
-    """Stop a service and its dependencies."""
+def up(args: Namespace) -> None:
+    """Bring up a service and its dependencies."""
     console = Console()
     service_name = args.service_name
     try:
@@ -54,41 +53,33 @@ def stop(args: Namespace) -> None:
 
     modes = service.config.modes
     # TODO: allow custom modes to be used
-    mode_to_stop = "default"
-    mode_dependencies = modes[mode_to_stop]
-
-    state = State()
-    started_services = state.get_started_services()
-    if service.name not in started_services:
-        console.warning(f"{service.name} is not running")
-        exit(0)
+    mode = "default"
+    mode_dependencies = modes[mode]
 
     with Status(
-        lambda: console.warning(f"Stopping {service.name}"),
-        lambda: console.success(f"{service.name} stopped"),
+        lambda: console.warning(f"Starting {service.name}"),
+        lambda: console.success(f"{service.name} started"),
     ) as status:
         try:
-            remote_dependencies = install_and_verify_dependencies(service)
+            remote_dependencies = install_and_verify_dependencies(
+                service, force_update_dependencies=True
+            )
         except DependencyError as de:
             capture_exception(de)
             status.failure(str(de))
             exit(1)
-        remote_dependencies = get_non_shared_remote_dependencies(
-            service, remote_dependencies
-        )
         try:
-            _stop(service, remote_dependencies, mode_dependencies)
+            _up(service, remote_dependencies, mode_dependencies)
         except DockerComposeError as dce:
             capture_exception(dce)
-            status.failure(f"Failed to stop {service.name}: {dce.stderr}")
+            status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
-
-    # TODO: We should factor in healthchecks here before marking service as stopped
+    # TODO: We should factor in healthchecks here before marking service as running
     state = State()
-    state.remove_started_service(service.name)
+    state.add_started_service(service.name, mode)
 
 
-def _stop(
+def _up(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
@@ -109,8 +100,8 @@ def _stop(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,
-        command="down",
-        options=[],
+        command="up",
+        options=["-d", "--wait"],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )

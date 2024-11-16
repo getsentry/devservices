@@ -1,6 +1,6 @@
 # devservices
 
-A standalone cli tool used to manage dependencies for services. It simplifies the process of starting, stopping, and managing services for development purposes.
+A standalone cli tool used to manage dependencies for services. It simplifies the process of bringing up, bringing down, and managing services for development purposes.
 
 ## Overview
 
@@ -23,8 +23,8 @@ devservices provides several commands to manage your services:
 
 NOTE: service-name is an optional parameter. If not provided, devservices will attempt to automatically find a devservices configuration in the current directory in order to proceed.
 
-- `devservices start <service-name>`: Start a service and its dependencies.
-- `devservices stop <service-name>`: Stop a service including its dependencies.
+- `devservices up <service-name>`: Bring up a service and its dependencies.
+- `devservices down <service-name>`: Bring down service including its dependencies.
 - `devservices status <service-name>`: Display the current status of all services, including their dependencies and ports.
 - `devservices logs <service-name>`: View logs for a specific service.
 - `devservices list-services`: List all available Sentry services.
