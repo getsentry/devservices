@@ -97,7 +97,7 @@ def down(args: Namespace) -> None:
 def _bring_down_dependency(
     cmd: list[str], current_env: dict[str, str], status: Status
 ) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought up))
+    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought down
     for dependency in cmd[7:]:
         status.info(f"Stopping {dependency}")
     return run_cmd(cmd, current_env)
