@@ -27,7 +27,10 @@ from testing.utils import create_config_file
 )
 @mock.patch("devservices.utils.state.State.remove_started_service")
 def test_stop_simple(
-    mock_remove_started_service: mock.Mock, mock_run: mock.Mock, tmp_path: Path
+    mock_remove_started_service: mock.Mock,
+    mock_run: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     with mock.patch(
         "devservices.commands.stop.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
@@ -91,6 +94,10 @@ def test_stop_simple(
 
         mock_remove_started_service.assert_called_with("example-service")
 
+        captured = capsys.readouterr()
+        assert "Stopping clickhouse" in captured.out.strip()
+        assert "Stopping redis" in captured.out.strip()
+
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.remove_started_service")
@@ -140,3 +147,7 @@ def test_stop_error(
     )
 
     mock_remove_started_service.assert_not_called()
+
+    captured = capsys.readouterr()
+    assert "Stopping clickhouse" not in captured.out.strip()
+    assert "Stopping redis" not in captured.out.strip()

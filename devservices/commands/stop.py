@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import os
+import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -77,7 +78,7 @@ def stop(args: Namespace) -> None:
             service, remote_dependencies
         )
         try:
-            _stop(service, remote_dependencies, mode_dependencies)
+            _stop(service, remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce)
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")
@@ -88,10 +89,20 @@ def stop(args: Namespace) -> None:
     state.remove_started_service(service.name)
 
 
+def _stop_dependency(
+    cmd: list[str], current_env: dict[str, str], status: Status
+) -> subprocess.CompletedProcess[str]:
+    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought up))
+    for dependency in cmd[7:]:
+        status.info(f"Stopping {dependency}")
+    return run_cmd(cmd, current_env)
+
+
 def _stop(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
+    status: Status,
 ) -> None:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
@@ -119,7 +130,7 @@ def _stop(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(run_cmd, cmd, current_env)
+            executor.submit(_stop_dependency, cmd, current_env, status)
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
