@@ -14,6 +14,7 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_COMMAND_LENGTH
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -82,10 +83,10 @@ def up(args: Namespace) -> None:
 
 
 def _bring_up_dependency(
-    cmd: list[str], current_env: dict[str, str], status: Status
+    cmd: list[str], current_env: dict[str, str], status: Status, len_options: int
 ) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these magic numbers, we need a smarter way to determine the containers being brought up
-    for dependency in cmd[7:-2]:
+    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought up
+    for dependency in cmd[DOCKER_COMPOSE_COMMAND_LENGTH:-len_options]:
         status.info(f"Starting {dependency}")
     return run_cmd(cmd, current_env)
 
@@ -108,12 +109,13 @@ def _up(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
+    options = ["-d", "--wait"]
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,
         command="up",
-        options=["-d", "--wait"],
+        options=options,
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
@@ -122,7 +124,9 @@ def _up(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(_bring_up_dependency, cmd, current_env, status)
+            executor.submit(
+                _bring_up_dependency, cmd, current_env, status, len(options)
+            )
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
