@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import os
+import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -13,6 +14,7 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_COMMAND_LENGTH
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -82,7 +84,7 @@ def down(args: Namespace) -> None:
             service, remote_dependencies
         )
         try:
-            _down(service, remote_dependencies, mode_dependencies)
+            _down(service, remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce)
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")
@@ -93,10 +95,20 @@ def down(args: Namespace) -> None:
     state.remove_started_service(service.name)
 
 
+def _bring_down_dependency(
+    cmd: list[str], current_env: dict[str, str], status: Status
+) -> subprocess.CompletedProcess[str]:
+    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought down
+    for dependency in cmd[DOCKER_COMPOSE_COMMAND_LENGTH:]:
+        status.info(f"Stopping {dependency}")
+    return run_cmd(cmd, current_env)
+
+
 def _down(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
+    status: Status,
 ) -> None:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
@@ -124,7 +136,7 @@ def _down(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(run_cmd, cmd, current_env)
+            executor.submit(_bring_down_dependency, cmd, current_env, status)
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
