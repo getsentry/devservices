@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import os
+import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -13,6 +14,7 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOCKER_COMPOSE_COMMAND_LENGTH
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.utils.console import Console
@@ -61,6 +63,7 @@ def up(args: Namespace) -> None:
         lambda: console.success(f"{service.name} started"),
     ) as status:
         try:
+            status.info("Retrieving dependencies")
             remote_dependencies = install_and_verify_dependencies(
                 service, force_update_dependencies=True
             )
@@ -69,7 +72,7 @@ def up(args: Namespace) -> None:
             status.failure(str(de))
             exit(1)
         try:
-            _up(service, remote_dependencies, mode_dependencies)
+            _up(service, remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce)
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
@@ -79,10 +82,20 @@ def up(args: Namespace) -> None:
     state.add_started_service(service.name, mode)
 
 
+def _bring_up_dependency(
+    cmd: list[str], current_env: dict[str, str], status: Status, len_options: int
+) -> subprocess.CompletedProcess[str]:
+    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought up
+    for dependency in cmd[DOCKER_COMPOSE_COMMAND_LENGTH:-len_options]:
+        status.info(f"Starting {dependency}")
+    return run_cmd(cmd, current_env)
+
+
 def _up(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
+    status: Status,
 ) -> None:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
@@ -96,12 +109,13 @@ def _up(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
+    options = ["-d", "--wait"]
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
         current_env=current_env,
         command="up",
-        options=["-d", "--wait"],
+        options=options,
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
@@ -110,7 +124,9 @@ def _up(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(run_cmd, cmd, current_env)
+            executor.submit(
+                _bring_up_dependency, cmd, current_env, status, len(options)
+            )
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
