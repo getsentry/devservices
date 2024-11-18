@@ -27,6 +27,7 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
+from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
 from devservices.utils.services import find_matching_service
@@ -101,19 +102,29 @@ class GitConfigManager:
 
 
 def install_and_verify_dependencies(
-    service: Service, force_update_dependencies: bool = False
+    service: Service, force_update_dependencies: bool = False, mode: str = "default"
 ) -> set[InstalledRemoteDependency]:
-    dependencies = list(service.config.dependencies.values())
+    if mode not in service.config.modes:
+        raise ModeDoesNotExistError(service_name=service.name, mode=mode)
+    mode_dependencies = set(service.config.modes[mode])
+    matching_dependencies = [
+        dependency
+        for dependency_key, dependency in list(service.config.dependencies.items())
+        if dependency_key in mode_dependencies
+    ]
+
     if force_update_dependencies:
-        remote_dependencies = install_dependencies(dependencies)
+        remote_dependencies = install_dependencies(matching_dependencies)
     else:
-        are_dependencies_valid = verify_local_dependencies(dependencies)
+        are_dependencies_valid = verify_local_dependencies(matching_dependencies)
         if not are_dependencies_valid:
             # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
             #       since the dependencies may have changed since the service was started.
-            remote_dependencies = install_dependencies(dependencies)
+            remote_dependencies = install_dependencies(matching_dependencies)
         else:
-            remote_dependencies = get_installed_remote_dependencies(dependencies)
+            remote_dependencies = get_installed_remote_dependencies(
+                matching_dependencies
+            )
     return remote_dependencies
 
 
