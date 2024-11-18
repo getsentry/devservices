@@ -67,6 +67,16 @@ class DockerComposeError(Exception):
         self.stderr = stderr
 
 
+class ModeDoesNotExistError(Exception):
+    """Raised when a mode does not exist."""
+
+    def __init__(self, mode: str):
+        self.mode = mode
+
+    def __str__(self) -> str:
+        return f"ModeDoesNotExistError: Mode '{self.mode}' does not exist"
+
+
 class DependencyError(Exception):
     """Base class for dependency-related errors."""
 
