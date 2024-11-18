@@ -105,7 +105,7 @@ def install_and_verify_dependencies(
     service: Service, force_update_dependencies: bool = False, mode: str = "default"
 ) -> set[InstalledRemoteDependency]:
     if mode not in service.config.modes:
-        raise ModeDoesNotExistError(mode=mode)
+        raise ModeDoesNotExistError(service_name=service.name, mode=mode)
     mode_dependencies = set(service.config.modes[mode])
     matching_dependencies = [
         dependency

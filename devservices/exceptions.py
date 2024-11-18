@@ -70,11 +70,12 @@ class DockerComposeError(Exception):
 class ModeDoesNotExistError(Exception):
     """Raised when a mode does not exist."""
 
-    def __init__(self, mode: str):
+    def __init__(self, service_name: str, mode: str):
+        self.service_name = service_name
         self.mode = mode
 
     def __str__(self) -> str:
-        return f"ModeDoesNotExistError: Mode '{self.mode}' does not exist"
+        return f"ModeDoesNotExistError: Mode '{self.mode}' does not exist for service '{self.service_name}'"
 
 
 class DependencyError(Exception):
