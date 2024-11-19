@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import concurrent.futures
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -119,7 +118,7 @@ def _up(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
-    options = ["-d", "--wait"]
+    options = ["-d"]
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
@@ -130,14 +129,5 @@ def _up(
         mode_dependencies=mode_dependencies,
     )
 
-    cmd_outputs = []
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                _bring_up_dependency, cmd, current_env, status, len(options)
-            )
-            for cmd in docker_compose_commands
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            cmd_outputs.append(future.result())
+    for cmd in docker_compose_commands:
+        _bring_up_dependency(cmd, current_env, status, len(options))
