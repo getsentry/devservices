@@ -1,3 +1,26 @@
+## 1.0.3
+
+### Various fixes & improvements
+
+- feat(devservices): Remove healthcheck and multithreading for beta (#158) by @hubertdeng123
+- fix(commands): Cleaning up unused args (#157) by @IanWoodard
+- ref(commands): Cleaning up exception handling (#156) by @IanWoodard
+- feat(devservices): Support modes for up/down (#152) by @hubertdeng123
+- fix(purge): Fixing purge test (#155) by @IanWoodard
+- feat(testing): Add tests for `install_and_verify_dependencies` for modes (#153) by @hubertdeng123
+- fix(status): Fixing doc-string (#154) by @IanWoodard
+- ref(dependencies): Updating dependency management to handle modes (#151) by @IanWoodard
+- feat(stop): Add more context for what is going on underneath the hood for stop (#149) by @hubertdeng123
+- feat(start): Add more context to what is going on underneath the hood for start (#148) by @hubertdeng123
+- ref(purge): removing docker networks with purge (#150) by @IanWoodard
+- ref(start/stop): Renaming start and stop to up and down (#147) by @IanWoodard
+- ref(docker-compose): De-abstracting run_docker_compose_command (#146) by @IanWoodard
+- feat(start): Add threading and condition to wait for containers to be healthy (#144) by @hubertdeng123
+- add cwd for debug logs for dependencies (#141) by @hubertdeng123
+- feat(sentry): Adding version tag, cleaning up version logic (#145) by @IanWoodard
+- feat(sentry): Adding user to sentry (#139) by @IanWoodard
+- feat(sentry): Adding explicit capture for exceptions (#138) by @IanWoodard
+
 ## 1.0.2
 
 ### Various fixes & improvements
