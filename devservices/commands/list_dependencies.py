@@ -6,6 +6,8 @@ from argparse import Namespace
 
 from sentry_sdk import capture_exception
 
+from devservices.exceptions import ConfigError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.services import find_matching_service
 
@@ -30,7 +32,7 @@ def list_dependencies(args: Namespace) -> None:
 
     try:
         service = find_matching_service(service_name)
-    except Exception as e:
+    except (ConfigError, ServiceNotFoundError) as e:
         capture_exception(e)
         console.failure(str(e))
         exit(1)
