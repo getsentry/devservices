@@ -18,9 +18,11 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
+from devservices.exceptions import ModeDoesNotExistError
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import GitConfigManager
+from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -1464,3 +1466,117 @@ def test_get_non_shared_remote_dependencies_complex(
             mode="default",
         )
     }
+
+
+@mock.patch("devservices.utils.dependencies.install_dependencies", return_value=[])
+def test_install_and_verify_dependencies_simple(
+    mock_install_dependencies: mock.Mock, tmp_path: Path
+) -> None:
+    service = Service(
+        name="test-service",
+        repo_path="/path/to/test-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="test-service",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                ),
+                "dependency-2": Dependency(
+                    description="dependency-2",
+                    remote=RemoteConfig(
+                        repo_name="dependency-2",
+                        repo_link="file://path/to/dependency-2",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={"default": ["dependency-1", "dependency-2"]},
+        ),
+    )
+    install_and_verify_dependencies(service)
+
+    mock_install_dependencies.assert_called_once_with(
+        [
+            service.config.dependencies["dependency-1"],
+            service.config.dependencies["dependency-2"],
+        ]
+    )
+
+
+@mock.patch("devservices.utils.dependencies.install_dependencies", return_value=[])
+def test_install_and_verify_dependencies_mode_simple(
+    mock_install_dependencies: mock.Mock, tmp_path: Path
+) -> None:
+    service = Service(
+        name="test-service",
+        repo_path="/path/to/test-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="test-service",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                ),
+                "dependency-2": Dependency(
+                    description="dependency-2",
+                    remote=RemoteConfig(
+                        repo_name="dependency-2",
+                        repo_link="file://path/to/dependency-2",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={
+                "default": ["dependency-1", "dependency-2"],
+                "test": ["dependency-1"],
+            },
+        ),
+    )
+    install_and_verify_dependencies(service, mode="test")
+
+    mock_install_dependencies.assert_called_once_with(
+        [service.config.dependencies["dependency-1"]]
+    )
+
+
+def test_install_and_verify_dependencies_mode_does_not_exist(tmp_path: Path) -> None:
+    with pytest.raises(ModeDoesNotExistError):
+        service = Service(
+            name="test-service",
+            repo_path="/path/to/test-service",
+            config=ServiceConfig(
+                version=0.1,
+                service_name="test-service",
+                dependencies={
+                    "dependency-1": Dependency(
+                        description="dependency-1",
+                        remote=RemoteConfig(
+                            repo_name="dependency-1",
+                            repo_link="file://path/to/dependency-1",
+                            branch="main",
+                        ),
+                    ),
+                    "dependency-2": Dependency(
+                        description="dependency-2",
+                        remote=RemoteConfig(
+                            repo_name="dependency-2",
+                            repo_link="file://path/to/dependency-2",
+                            branch="main",
+                        ),
+                    ),
+                },
+                modes={"default": ["dependency-1", "dependency-2"]},
+            ),
+        )
+        install_and_verify_dependencies(service, mode="unknown-mode")
