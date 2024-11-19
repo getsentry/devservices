@@ -15,9 +15,11 @@ from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DOCKER_COMPOSE_COMMAND_LENGTH
+from devservices.exceptions import ConfigError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ModeDoesNotExistError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import install_and_verify_dependencies
@@ -54,7 +56,7 @@ def up(args: Namespace) -> None:
     service_name = args.service_name
     try:
         service = find_matching_service(service_name)
-    except Exception as e:
+    except (ConfigError, ServiceNotFoundError) as e:
         capture_exception(e)
         console.failure(str(e))
         exit(1)
