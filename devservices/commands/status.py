@@ -15,8 +15,10 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import ConfigError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -74,12 +76,12 @@ def format_status_output(status_json: str) -> str:
 
 
 def status(args: Namespace) -> None:
-    """Start a service and its dependencies."""
+    """Get the status of a specified service."""
     console = Console()
     service_name = args.service_name
     try:
         service = find_matching_service(service_name)
-    except Exception as e:
+    except (ConfigError, ServiceNotFoundError) as e:
         capture_exception(e)
         console.failure(str(e))
         exit(1)
