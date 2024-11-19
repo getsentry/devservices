@@ -21,7 +21,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.set_defaults(func=purge)
 
 
-def purge(args: Namespace) -> None:
+def purge(_args: Namespace) -> None:
     """Purge the local devservices cache."""
     console = Console()
 

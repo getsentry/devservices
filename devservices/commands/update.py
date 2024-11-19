@@ -41,7 +41,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.set_defaults(func=update)
 
 
-def update(args: Namespace) -> None:
+def update(_args: Namespace) -> None:
     console = Console()
     current_version = metadata.version("devservices")
     latest_version = check_for_update()
