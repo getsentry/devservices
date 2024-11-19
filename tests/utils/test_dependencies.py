@@ -1551,32 +1551,32 @@ def test_install_and_verify_dependencies_mode_simple(
 
 
 def test_install_and_verify_dependencies_mode_does_not_exist(tmp_path: Path) -> None:
+    service = Service(
+        name="test-service",
+        repo_path="/path/to/test-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="test-service",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                ),
+                "dependency-2": Dependency(
+                    description="dependency-2",
+                    remote=RemoteConfig(
+                        repo_name="dependency-2",
+                        repo_link="file://path/to/dependency-2",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={"default": ["dependency-1", "dependency-2"]},
+        ),
+    )
     with pytest.raises(ModeDoesNotExistError):
-        service = Service(
-            name="test-service",
-            repo_path="/path/to/test-service",
-            config=ServiceConfig(
-                version=0.1,
-                service_name="test-service",
-                dependencies={
-                    "dependency-1": Dependency(
-                        description="dependency-1",
-                        remote=RemoteConfig(
-                            repo_name="dependency-1",
-                            repo_link="file://path/to/dependency-1",
-                            branch="main",
-                        ),
-                    ),
-                    "dependency-2": Dependency(
-                        description="dependency-2",
-                        remote=RemoteConfig(
-                            repo_name="dependency-2",
-                            repo_link="file://path/to/dependency-2",
-                            branch="main",
-                        ),
-                    ),
-                },
-                modes={"default": ["dependency-1", "dependency-2"]},
-            ),
-        )
         install_and_verify_dependencies(service, mode="unknown-mode")
