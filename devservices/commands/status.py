@@ -74,7 +74,7 @@ def format_status_output(status_json: str) -> str:
 
 
 def status(args: Namespace) -> None:
-    """Start a service and its dependencies."""
+    """Get the status of a specified service."""
     console = Console()
     service_name = args.service_name
     try:
