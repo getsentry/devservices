@@ -130,12 +130,4 @@ def _up(
     )
 
     for cmd in docker_compose_commands:
-        try:
-            _bring_up_dependency(cmd, current_env, status, len(options))
-        except subprocess.CalledProcessError as e:
-            raise DockerComposeError(
-                command=" ".join(cmd),
-                returncode=e.returncode,
-                stdout=e.stdout,
-                stderr=e.stderr,
-            ) from e
+        _bring_up_dependency(cmd, current_env, status, len(options))
