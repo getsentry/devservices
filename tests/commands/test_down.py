@@ -26,7 +26,7 @@ from testing.utils import create_config_file
     ),
 )
 @mock.patch("devservices.utils.state.State.remove_started_service")
-def test_up_simple(
+def test_down_simple(
     mock_remove_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
@@ -151,3 +151,83 @@ def test_down_error(
     captured = capsys.readouterr()
     assert "Stopping clickhouse" not in captured.out.strip()
     assert "Stopping redis" not in captured.out.strip()
+
+
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    return_value=subprocess.CompletedProcess(
+        args=["docker", "compose", "config", "--services"],
+        returncode=0,
+        stdout="clickhouse\nredis\n",
+    ),
+)
+@mock.patch("devservices.utils.state.State.remove_started_service")
+def test_down_mode_simple(
+    mock_remove_started_service: mock.Mock,
+    mock_run: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with mock.patch(
+        "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"], "test": ["redis"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        args = Namespace(service_name=None, debug=False)
+
+        with mock.patch(
+            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+        ):
+            state = State()
+            state.add_started_service("example-service", "test")
+            down(args)
+
+        # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
+        env_vars = mock_run.call_args[1]["env"]
+        assert (
+            env_vars[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY]
+            == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
+        )
+
+        mock_run.assert_called_with(
+            [
+                "docker",
+                "compose",
+                "-p",
+                "example-service",
+                "-f",
+                f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                "down",
+                "redis",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=mock.ANY,
+        )
+
+        mock_remove_started_service.assert_called_with("example-service")
+
+        captured = capsys.readouterr()
+        assert "Stopping redis" in captured.out.strip()
