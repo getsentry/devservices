@@ -62,9 +62,6 @@ def down(args: Namespace) -> None:
         exit(1)
 
     modes = service.config.modes
-    # TODO: allow custom modes to be used
-    mode = "default"
-    mode_dependencies = modes[mode]
 
     state = State()
     started_services = state.get_started_services()
@@ -72,12 +69,15 @@ def down(args: Namespace) -> None:
         console.warning(f"{service.name} is not running")
         exit(0)
 
+    mode = state.get_mode_for_service(service.name) or "default"
+    mode_dependencies = modes[mode]
+
     with Status(
         lambda: console.warning(f"Stopping {service.name}"),
         lambda: console.success(f"{service.name} stopped"),
     ) as status:
         try:
-            remote_dependencies = install_and_verify_dependencies(service)
+            remote_dependencies = install_and_verify_dependencies(service, mode=mode)
         except DependencyError as de:
             capture_exception(de)
             status.failure(str(de))

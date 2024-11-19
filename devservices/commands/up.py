@@ -18,6 +18,7 @@ from devservices.constants import DOCKER_COMPOSE_COMMAND_LENGTH
 from devservices.exceptions import ConfigError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
+from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
@@ -41,6 +42,11 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "--mode",
+        help="Mode to use for the service",
+        default="default",
+    )
     parser.set_defaults(func=up)
 
 
@@ -56,9 +62,7 @@ def up(args: Namespace) -> None:
         exit(1)
 
     modes = service.config.modes
-    # TODO: allow custom modes to be used
-    mode = "default"
-    mode_dependencies = modes[mode]
+    mode = args.mode
 
     with Status(
         lambda: console.warning(f"Starting {service.name}"),
@@ -67,13 +71,17 @@ def up(args: Namespace) -> None:
         try:
             status.info("Retrieving dependencies")
             remote_dependencies = install_and_verify_dependencies(
-                service, force_update_dependencies=True
+                service, force_update_dependencies=True, mode=mode
             )
         except DependencyError as de:
             capture_exception(de)
             status.failure(str(de))
             exit(1)
+        except ModeDoesNotExistError as mde:
+            status.failure(str(mde))
+            exit(1)
         try:
+            mode_dependencies = modes[mode]
             _up(service, remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce)
