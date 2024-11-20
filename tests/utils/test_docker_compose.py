@@ -543,3 +543,113 @@ def test_get_all_commands_to_run_complex_remote(
             "-d",
         ],
     ]
+
+
+@mock.patch("devservices.utils.docker_compose.subprocess.run")
+def test_get_all_commands_to_run_complex_shared_dependency(
+    mock_run: mock.Mock, tmp_path: Path
+) -> None:
+    child_service_repo_path = tmp_path / "child-service-repo"
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    grandparent_service_repo_path = tmp_path / "grandparent-service-repo"
+    create_mock_git_repo("child-service-repo", tmp_path / "child-service-repo")
+    create_mock_git_repo("parent-service-repo", tmp_path / "parent-service-repo")
+    create_mock_git_repo(
+        "grandparent-service-repo", tmp_path / "grandparent-service-repo"
+    )
+    child_service_repo_path_str = str(child_service_repo_path)
+    parent_service_repo_path_str = str(parent_service_repo_path)
+    grandparent_service_repo_path_str = str(grandparent_service_repo_path)
+
+    service_config = load_service_config_from_file(grandparent_service_repo_path_str)
+    service = Service(
+        name="grandparent-service",
+        repo_path=grandparent_service_repo_path_str,
+        config=service_config,
+    )
+    remote_dependencies = set(
+        [
+            InstalledRemoteDependency(
+                service_name="child-service",
+                repo_path=child_service_repo_path_str,
+                mode="default",
+            ),
+            InstalledRemoteDependency(
+                service_name="shared-parent-service",
+                repo_path=parent_service_repo_path_str,
+                mode="default",
+            ),
+        ]
+    )
+    current_env = os.environ.copy()
+    command = "up"
+    options = ["-d"]
+    service_config_file_path = os.path.join(
+        grandparent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+    )
+    mode_dependencies = service_config.modes["default"]
+    mock_run.side_effect = [
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="parent-service\n",
+        ),
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="child-service\n",
+        ),
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="grandparent-service\n",
+        ),
+    ]
+    commands = get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=remote_dependencies,
+        current_env=current_env,
+        command=command,
+        options=options,
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+    assert commands == [
+        [
+            "docker",
+            "compose",
+            "-p",
+            "parent-service",
+            "-f",
+            os.path.join(
+                parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            ),
+            "up",
+            "parent-service",
+            "-d",
+        ],
+        [
+            "docker",
+            "compose",
+            "-p",
+            "child-service",
+            "-f",
+            os.path.join(
+                child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            ),
+            "up",
+            "child-service",
+            "-d",
+        ],
+        [
+            "docker",
+            "compose",
+            "-p",
+            "grandparent-service",
+            "-f",
+            service_config_file_path,
+            "up",
+            "grandparent-service",
+            "-d",
+        ],
+    ]

@@ -185,7 +185,17 @@ def get_docker_compose_commands_to_run(
         + options
     )
     # Sort the remote dependencies by service name to ensure a deterministic order
-    for dependency in sorted(remote_dependencies, key=lambda x: x.service_name):
+    SHARED_DEPENDENCY_NAME_PREFIX = "shared-"
+    # TODO: Remove this sorting key fn, we need to create a dependency graph to accurately start dependencies in order.
+    sorting_key_fn = (
+        lambda dependency: (
+            "0"
+            if dependency.service_name.startswith(SHARED_DEPENDENCY_NAME_PREFIX)
+            else "1"
+        )
+        + dependency.service_name
+    )
+    for dependency in sorted(remote_dependencies, key=sorting_key_fn):
         # TODO: Consider passing in service config in InstalledRemoteDependency instead of loading it here
         dependency_service_config = load_service_config_from_file(dependency.repo_path)
         dependency_config_path = os.path.join(
