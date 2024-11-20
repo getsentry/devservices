@@ -394,8 +394,6 @@ def test_up_switching_modes(
         args = Namespace(service_name=None, debug=False, mode="test")
         up(args)
 
-        # assert mock_run.call_args_list == []
-
         mock_run.assert_has_calls(
             [
                 mock.call(
