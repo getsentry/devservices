@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -63,8 +64,56 @@ def up(args: Namespace) -> None:
     modes = service.config.modes
     mode = args.mode
 
+    state = State()
+    started_services = state.get_started_services()
+    running_mode = state.get_mode_for_service(service.name) or "default"
+
+    # TODO: Remove this once we properly handle mode switching
+    if service.name in started_services and running_mode != mode:
+        console.warning(
+            f"Service '{service.name}' is already running in mode: '{running_mode}', restarting in mode: '{mode}'"
+        )
+        with Status() as status:
+            try:
+                remote_dependencies_to_bring_down = install_and_verify_dependencies(
+                    service, mode=running_mode
+                )
+            except DependencyError as de:
+                capture_exception(de)
+                status.failure(str(de))
+                exit(1)
+            except ModeDoesNotExistError as mde:
+                status.failure(str(mde))
+                exit(1)
+            service_config_file_path = os.path.join(
+                service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            )
+            current_env = os.environ.copy()
+            running_mode_dependencies = modes[running_mode]
+            down_docker_compose_commands = get_docker_compose_commands_to_run(
+                service=service,
+                remote_dependencies=remote_dependencies_to_bring_down,
+                current_env=current_env,
+                command="down",
+                options=[],
+                service_config_file_path=service_config_file_path,
+                mode_dependencies=running_mode_dependencies,
+            )
+
+            cmd_outputs = []
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(run_cmd, cmd, current_env)
+                    for cmd in down_docker_compose_commands
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    cmd_outputs.append(future.result())
+
+            state.remove_started_service(service.name)
+
     with Status(
-        lambda: console.warning(f"Starting {service.name}"),
+        lambda: console.warning(f"Starting '{service.name}' in mode: '{mode}'"),
         lambda: console.success(f"{service.name} started"),
     ) as status:
         try:
