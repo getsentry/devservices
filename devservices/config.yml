@@ -1,6 +1,6 @@
 x-sentry-service-config:
   version: 0.1
-  service_name: shared-kafka
+  service_name: kafka
   dependencies:
     kafka:
       description: "A distributed data store optimized for ingesting and processing streaming data in real-time"
