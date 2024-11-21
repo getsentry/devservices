@@ -22,6 +22,7 @@ from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
+from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -97,7 +98,7 @@ def up(args: Namespace) -> None:
             )
             down_docker_compose_commands = get_docker_compose_commands_to_run(
                 service=service,
-                remote_dependencies=remote_dependencies_to_bring_down,
+                remote_dependencies=list(remote_dependencies_to_bring_down),
                 current_env=current_env,
                 command="down",
                 options=[],
@@ -176,9 +177,14 @@ def _up(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
     options = ["-d"]
+    dependency_graph = construct_dependency_graph(service)
+    starting_order = dependency_graph.get_starting_order()
+    sorted_remote_dependencies = sorted(
+        remote_dependencies, key=lambda dep: starting_order.index(dep.service_name)
+    )
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=sorted_remote_dependencies,
         current_env=current_env,
         command="up",
         options=options,

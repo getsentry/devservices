@@ -14,6 +14,7 @@ from typing import TypeGuard
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.configs.service_config import RemoteConfig
+from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
@@ -33,6 +34,58 @@ from devservices.utils.file_lock import lock
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
 from devservices.utils.state import State
+
+
+class DependencyGraph:
+    def __init__(self) -> None:
+        self.graph: dict[str, set[str]] = dict()
+
+    def add_dependency(self, service_name: str) -> None:
+        if service_name not in self.graph:
+            self.graph[service_name] = set()
+
+    def add_edge(self, service_name: str, dependency_name: str) -> None:
+        # TODO: We should rename services that depend on themselves
+        if service_name == dependency_name:
+            return
+        if service_name not in self.graph:
+            self.add_dependency(service_name)
+        if dependency_name not in self.graph:
+            self.add_dependency(dependency_name)
+
+        # TODO: Should we check for cycles here?
+
+        self.graph[service_name].add(dependency_name)
+
+    def topological_sort(self) -> list[str]:
+        in_degree = {service_name: 0 for service_name in self.graph}
+
+        for service_name in self.graph.keys():
+            for dependency in self.graph[service_name]:
+                in_degree[dependency] += 1
+
+        queue = [
+            service_name for service_name in self.graph if in_degree[service_name] == 0
+        ]
+        topological_order = list()
+
+        while queue:
+            service_name = queue.pop(0)
+            topological_order.append(service_name)
+
+            for dependency in self.graph[service_name]:
+                in_degree[dependency] -= 1
+                if in_degree[dependency] == 0:
+                    queue.append(dependency)
+
+        if len(topological_order) != len(self.graph):
+            # TODO: Add a better exception
+            raise ValueError("Cycle detected in the dependency graph")
+
+        return topological_order
+
+    def get_starting_order(self) -> list[str]:
+        return list(reversed(self.topological_sort()))
 
 
 @dataclass(frozen=True)
@@ -457,3 +510,26 @@ def _run_command(
     logger = logging.getLogger(LOGGER_NAME)
     logger.debug(f"Running command: {' '.join(cmd)} in {cwd}")
     subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.DEVNULL)
+
+
+def get_remote_dependency_config(remote_config: RemoteConfig) -> ServiceConfig:
+    dependency_repo_dir = os.path.join(
+        DEVSERVICES_DEPENDENCIES_CACHE_DIR,
+        DEPENDENCY_CONFIG_VERSION,
+        remote_config.repo_name,
+    )
+    return load_service_config_from_file(dependency_repo_dir)
+
+
+def construct_dependency_graph(service: Service) -> DependencyGraph:
+    dependency_graph = DependencyGraph()
+
+    def _construct_dependency_graph(service_config: ServiceConfig) -> None:
+        for dependency_name, dependency in service_config.dependencies.items():
+            dependency_graph.add_edge(service_config.service_name, dependency_name)
+            if _has_remote_config(dependency.remote):
+                dependency_config = get_remote_dependency_config(dependency.remote)
+                _construct_dependency_graph(dependency_config)
+
+    _construct_dependency_graph(service.config)
+    return dependency_graph

@@ -290,7 +290,7 @@ def test_get_all_commands_to_run_simple_local(
     )
     commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command=command,
         options=options,
@@ -343,7 +343,7 @@ def test_get_all_commands_to_run_no_services_to_use(
     )
     commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command=command,
         options=options,
@@ -400,7 +400,7 @@ def test_get_all_commands_to_run_simple_remote(
     ]
     commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command=command,
         options=options,
@@ -497,7 +497,7 @@ def test_get_all_commands_to_run_complex_remote(
     ]
     commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command=command,
         options=options,
@@ -607,7 +607,7 @@ def test_get_all_commands_to_run_complex_shared_dependency(
     ]
     commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command=command,
         options=options,
