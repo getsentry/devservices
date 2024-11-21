@@ -76,7 +76,7 @@ def up(args: Namespace) -> None:
         )
         with Status() as status:
             try:
-                remote_dependencies_to_bring_down = install_and_verify_dependencies(
+                remote_dependencies = install_and_verify_dependencies(
                     service, mode=running_mode
                 )
             except DependencyError as de:
@@ -93,7 +93,7 @@ def up(args: Namespace) -> None:
             current_env = os.environ.copy()
             running_mode_dependencies = modes[running_mode]
             remote_dependencies_to_bring_down = get_non_shared_remote_dependencies(
-                service, remote_dependencies_to_bring_down
+                service, remote_dependencies
             )
             down_docker_compose_commands = get_docker_compose_commands_to_run(
                 service=service,
