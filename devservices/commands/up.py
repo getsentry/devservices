@@ -22,6 +22,7 @@ from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
+from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
@@ -90,6 +91,9 @@ def up(args: Namespace) -> None:
             )
             current_env = os.environ.copy()
             running_mode_dependencies = modes[running_mode]
+            remote_dependencies_to_bring_down = get_non_shared_remote_dependencies(
+                service, remote_dependencies_to_bring_down
+            )
             down_docker_compose_commands = get_docker_compose_commands_to_run(
                 service=service,
                 remote_dependencies=remote_dependencies_to_bring_down,

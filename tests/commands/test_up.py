@@ -16,6 +16,8 @@ from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.utils.state import State
 from testing.utils import create_config_file
+from testing.utils import create_mock_git_repo
+from testing.utils import run_git_command
 
 
 @mock.patch(
@@ -442,3 +444,149 @@ def test_up_switching_modes(
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
+
+
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    return_value=subprocess.CompletedProcess(
+        args=["docker", "compose", "config", "--services"],
+        returncode=0,
+        stdout="clickhouse\n",
+    ),
+)
+def test_up_switching_modes_overlapping_running_service(
+    mock_run: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        mock.patch(
+            "devservices.commands.up.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(tmp_path / "code"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        redis_repo_path = create_mock_git_repo(
+            "blank_repo", tmp_path / "dependency-dir" / "v1" / "redis"
+        )
+        mock_git_repo_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "shared-redis",
+                "dependencies": {},
+                "modes": {"default": []},
+            },
+            "redis": {"image": "redis:6.2.14-alpine"},
+        }
+        create_config_file(redis_repo_path, mock_git_repo_config)
+        run_git_command(["add", "."], cwd=redis_repo_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {
+                        "description": "Redis",
+                        "remote": {
+                            "repo_name": "redis",
+                            "branch": "main",
+                            "repo_link": f"file://{redis_repo_path}",
+                        },
+                    },
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"], "test": ["clickhouse"]},
+            },
+            "services": {
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+        other_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "other-service",
+                "dependencies": {
+                    "redis": {
+                        "description": "Redis",
+                        "remote": {
+                            "repo_name": "redis",
+                            "branch": "main",
+                            "repo_link": f"file://{redis_repo_path}",
+                        },
+                    },
+                },
+                "modes": {"default": ["redis"]},
+            },
+        }
+
+        service_path = tmp_path / "code" / "example-service"
+        other_service_path = tmp_path / "code" / "other-service"
+        create_config_file(service_path, config)
+        create_config_file(other_service_path, other_config)
+        os.chdir(service_path)
+
+        state = State()
+        state.add_started_service("example-service", "default")
+        state.add_started_service("other-service", "default")
+
+        args = Namespace(service_name="example-service", debug=False, mode="test")
+        up(args)
+
+        mock_run.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "down",
+                        "clickhouse",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "clickhouse",
+                        "-d",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=mock.ANY,
+                ),
+            ],
+            any_order=True,
+        )
+
+        captured = capsys.readouterr()
+        assert (
+            "Service 'example-service' is already running in mode: 'default', restarting in mode: 'test'"
+            in captured.out.strip()
+        )
+        assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
+        assert "Retrieving dependencies" in captured.out.strip()
+        assert "Starting clickhouse" in captured.out.strip()
