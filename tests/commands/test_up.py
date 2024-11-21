@@ -451,11 +451,100 @@ def test_up_switching_modes(
     return_value=subprocess.CompletedProcess(
         args=["docker", "compose", "config", "--services"],
         returncode=0,
-        stdout="clickhouse\n",
+        stdout="clickhouse\nredis\n",
     ),
 )
-def test_up_switching_modes_overlapping_running_service(
+def test_up_switching_modes_down_error(
     mock_run: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        mock.patch(
+            "devservices.commands.up.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"], "test": ["redis"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        state = State()
+        state.add_started_service("example-service", "default")
+
+        args = Namespace(service_name=None, debug=False, mode="test")
+        up(args)
+
+        mock_run.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "down",
+                        "clickhouse",
+                        "redis",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "redis",
+                        "-d",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=mock.ANY,
+                ),
+            ],
+            any_order=True,
+        )
+
+        captured = capsys.readouterr()
+        assert (
+            "Service 'example-service' is already running in mode: 'default', restarting in mode: 'test'"
+            in captured.out.strip()
+        )
+        assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
+        assert "Retrieving dependencies" in captured.out.strip()
+        assert "Starting redis" in captured.out.strip()
+
+
+def test_up_switching_modes_overlapping_running_service(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -474,9 +563,8 @@ def test_up_switching_modes_overlapping_running_service(
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        redis_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "dependency-dir" / "v1" / "redis"
-        )
+        redis_repo_path = tmp_path / "redis"
+        create_mock_git_repo("blank_repo", redis_repo_path)
         mock_git_repo_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -484,7 +572,9 @@ def test_up_switching_modes_overlapping_running_service(
                 "dependencies": {},
                 "modes": {"default": []},
             },
-            "redis": {"image": "redis:6.2.14-alpine"},
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+            },
         }
         create_config_file(redis_repo_path, mock_git_repo_config)
         run_git_command(["add", "."], cwd=redis_repo_path)
@@ -541,46 +631,48 @@ def test_up_switching_modes_overlapping_running_service(
         state.add_started_service("other-service", "default")
 
         args = Namespace(service_name="example-service", debug=False, mode="test")
-        up(args)
 
-        mock_run.assert_has_calls(
-            [
-                mock.call(
-                    [
-                        "docker",
-                        "compose",
-                        "-p",
-                        "example-service",
-                        "-f",
-                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "down",
-                        "clickhouse",
-                    ],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                    env=mock.ANY,
-                ),
-                mock.call(
-                    [
-                        "docker",
-                        "compose",
-                        "-p",
-                        "example-service",
-                        "-f",
-                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "up",
-                        "clickhouse",
-                        "-d",
-                    ],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                    env=mock.ANY,
-                ),
-            ],
-            any_order=True,
-        )
+        with mock.patch(
+            "devservices.commands.up.run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=["docker", "compose", "config", "--services"],
+                returncode=0,
+                stdout="clickhouse\n",
+            ),
+        ) as mock_run:
+            up(args)
+
+            mock_run.assert_has_calls(
+                [
+                    mock.call(
+                        [
+                            "docker",
+                            "compose",
+                            "-p",
+                            "example-service",
+                            "-f",
+                            f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            "down",
+                            "clickhouse",
+                        ],
+                        mock.ANY,
+                    ),
+                    mock.call(
+                        [
+                            "docker",
+                            "compose",
+                            "-p",
+                            "example-service",
+                            "-f",
+                            f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            "up",
+                            "clickhouse",
+                            "-d",
+                        ],
+                        mock.ANY,
+                    ),
+                ],
+            )
 
         captured = capsys.readouterr()
         assert (

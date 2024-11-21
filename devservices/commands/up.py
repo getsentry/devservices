@@ -84,6 +84,7 @@ def up(args: Namespace) -> None:
                 status.failure(str(de))
                 exit(1)
             except ModeDoesNotExistError as mde:
+                capture_exception(mde)
                 status.failure(str(mde))
                 exit(1)
             service_config_file_path = os.path.join(
@@ -104,15 +105,13 @@ def up(args: Namespace) -> None:
                 mode_dependencies=running_mode_dependencies,
             )
 
-            cmd_outputs = []
-
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = [
                     executor.submit(run_cmd, cmd, current_env)
                     for cmd in down_docker_compose_commands
                 ]
                 for future in concurrent.futures.as_completed(futures):
-                    cmd_outputs.append(future.result())
+                    future.result()
 
             state.remove_started_service(service.name)
 
