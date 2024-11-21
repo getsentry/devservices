@@ -132,6 +132,11 @@ def up(args: Namespace) -> None:
             status.failure(str(mde))
             exit(1)
         try:
+            _create_devservices_network()
+        except subprocess.CalledProcessError:
+            # Network already exists, ignore the error
+            pass
+        try:
             mode_dependencies = modes[mode]
             _up(service, remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
@@ -183,3 +188,12 @@ def _up(
 
     for cmd in docker_compose_commands:
         _bring_up_dependency(cmd, current_env, status, len(options))
+
+
+def _create_devservices_network() -> None:
+    subprocess.run(
+        ["docker", "network", "create", "devservices"],
+        capture_output=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )

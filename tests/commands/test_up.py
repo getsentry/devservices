@@ -29,7 +29,9 @@ from testing.utils import run_git_command
     ),
 )
 @mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_simple(
+    mock_create_devservices_network: mock.Mock,
     mock_add_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
@@ -72,6 +74,8 @@ def test_up_simple(
             == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
         )
 
+        mock_create_devservices_network.assert_called_once()
+
         mock_run.assert_called_with(
             [
                 "docker",
@@ -101,7 +105,9 @@ def test_up_simple(
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_dependency_error(
+    mock_create_devservices_network: mock.Mock,
     mock_add_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -139,6 +145,7 @@ def test_up_dependency_error(
         with pytest.raises(SystemExit):
             up(args)
 
+        mock_create_devservices_network.assert_not_called()
         # Capture the printed output
         captured = capsys.readouterr()
 
@@ -157,7 +164,9 @@ def test_up_dependency_error(
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_error(
+    mock_create_devservices_network: mock.Mock,
     mock_add_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -192,6 +201,8 @@ def test_up_error(
     with pytest.raises(SystemExit):
         up(args)
 
+    mock_create_devservices_network.assert_called_once()
+
     # Capture the printed output
     captured = capsys.readouterr()
 
@@ -217,7 +228,9 @@ def test_up_error(
     ),
 )
 @mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_mode_simple(
+    mock_create_devservices_network: mock.Mock,
     mock_add_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
@@ -259,6 +272,8 @@ def test_up_mode_simple(
             env_vars[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY]
             == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
         )
+
+        mock_create_devservices_network.assert_called_once()
 
         mock_run.assert_called_with(
             [
