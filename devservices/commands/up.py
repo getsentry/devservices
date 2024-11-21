@@ -141,7 +141,6 @@ def _up(
 def _create_devservices_network() -> None:
     subprocess.run(
         ["docker", "network", "create", "devservices"],
-        capture_output=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
