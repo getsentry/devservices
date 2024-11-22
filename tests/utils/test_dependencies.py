@@ -1599,6 +1599,11 @@ def test_construct_dependency_graph_simple(
             },
             "modes": {"default": ["dependency-1"]},
         },
+        "services": {
+            "dependency-1": {
+                "image": "dependency-1",
+            },
+        },
     }
     create_config_file(dependency_service_repo_path, dependency_service_repo_config)
     run_git_command(["add", "."], cwd=dependency_service_repo_path)
@@ -1667,6 +1672,11 @@ def test_construct_dependency_graph_one_nested_dependency(
             },
             "modes": {"default": ["child-service", "parent-service"]},
         },
+        "services": {
+            "parent-service": {
+                "image": "parent-service",
+            },
+        },
     }
     child_service_repo_config = {
         "x-sentry-service-config": {
@@ -1678,6 +1688,11 @@ def test_construct_dependency_graph_one_nested_dependency(
                 },
             },
             "modes": {"default": ["child-service"]},
+        },
+        "services": {
+            "child-service": {
+                "image": "child-service",
+            },
         },
     }
     create_config_file(parent_service_repo_path, parent_service_repo_config)
@@ -1760,6 +1775,11 @@ def test_construct_dependency_graph_shared_dependency(
             },
             "modes": {"default": ["child-service", "parent-service"]},
         },
+        "services": {
+            "parent-service": {
+                "image": "parent-service",
+            },
+        },
     }
     child_service_repo_config = {
         "x-sentry-service-config": {
@@ -1771,6 +1791,11 @@ def test_construct_dependency_graph_shared_dependency(
                 },
             },
             "modes": {"default": ["child-service"]},
+        },
+        "services": {
+            "child-service": {
+                "image": "child-service",
+            },
         },
     }
     create_config_file(parent_service_repo_path, parent_service_repo_config)
@@ -1863,6 +1888,11 @@ def test_construct_dependency_graph_complex(
             },
             "modes": {"default": ["child-service", "parent-service"]},
         },
+        "services": {
+            "parent-service": {
+                "image": "parent-service",
+            },
+        },
     }
     child_service_repo_config = {
         "x-sentry-service-config": {
@@ -1874,6 +1904,11 @@ def test_construct_dependency_graph_complex(
                 },
             },
             "modes": {"default": ["child-service"]},
+        },
+        "services": {
+            "child-service": {
+                "image": "child-service",
+            },
         },
     }
     grandparent_service_repo_config = {
@@ -1894,6 +1929,11 @@ def test_construct_dependency_graph_complex(
                 },
             },
             "modes": {"default": ["parent-service", "grandparent-service"]},
+        },
+        "services": {
+            "grandparent-service": {
+                "image": "grandparent-service",
+            },
         },
     }
     create_config_file(parent_service_repo_path, parent_service_repo_config)
