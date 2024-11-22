@@ -608,7 +608,7 @@ def test_get_all_commands_to_run_complex_shared_dependency(
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
-    print(commands)
+
     assert commands == [
         [
             "docker",
