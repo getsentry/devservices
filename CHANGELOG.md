@@ -1,3 +1,13 @@
+## 1.0.4
+
+### Various fixes & improvements
+
+- feat(dependency): Adding dependency graph to start services (#163) by @IanWoodard
+- fix(up): Restart services when switching modes (#160) by @IanWoodard
+- remove capture output flag (#162) by @hubertdeng123
+- feat(network): Create devservices network if it doesn't exist (#161) by @hubertdeng123
+- feat(devservices): Start shared services first (#159) by @hubertdeng123
+
 ## 1.0.3
 
 ### Various fixes & improvements
