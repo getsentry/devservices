@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections import deque
 from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -64,13 +65,17 @@ class DependencyGraph:
             for dependency in self.graph[service_name]:
                 in_degree[dependency] += 1
 
-        queue = [
-            service_name for service_name in self.graph if in_degree[service_name] == 0
-        ]
+        queue = deque(
+            [
+                service_name
+                for service_name in self.graph
+                if in_degree[service_name] == 0
+            ]
+        )
         topological_order = list()
 
         while queue:
-            service_name = queue.pop(0)
+            service_name = queue.popleft()
             topological_order.append(service_name)
 
             for dependency in self.graph[service_name]:
