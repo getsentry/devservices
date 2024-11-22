@@ -126,7 +126,7 @@ def _down(
     ] = relative_local_dependency_directory
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command="down",
         options=[],

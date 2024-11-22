@@ -275,7 +275,7 @@ def test_get_all_commands_to_run_simple_local(
     child_service_repo_path_str = str(child_service_repo_path)
 
     service_config = load_service_config_from_file(child_service_repo_path_str)
-    remote_dependencies: set[InstalledRemoteDependency] = set()
+    remote_dependencies: list[InstalledRemoteDependency] = []
     current_env = os.environ.copy()
     command = "up"
     options = ["-d"]
@@ -290,7 +290,7 @@ def test_get_all_commands_to_run_simple_local(
     )
     commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command=command,
         options=options,
@@ -328,7 +328,7 @@ def test_get_all_commands_to_run_no_services_to_use(
     child_service_repo_path_str = str(child_service_repo_path)
 
     service_config = load_service_config_from_file(child_service_repo_path_str)
-    remote_dependencies: set[InstalledRemoteDependency] = set()
+    remote_dependencies: list[InstalledRemoteDependency] = []
     current_env = os.environ.copy()
     command = "up"
     options = ["-d"]
@@ -370,15 +370,13 @@ def test_get_all_commands_to_run_simple_remote(
         repo_path=parent_service_repo_path_str,
         config=service_config,
     )
-    remote_dependencies = set(
-        [
-            InstalledRemoteDependency(
-                service_name="child-service",
-                repo_path=child_service_repo_path_str,
-                mode="default",
-            )
-        ]
-    )
+    remote_dependencies = [
+        InstalledRemoteDependency(
+            service_name="child-service",
+            repo_path=child_service_repo_path_str,
+            mode="default",
+        )
+    ]
     current_env = os.environ.copy()
     command = "up"
     options = ["-d"]
@@ -457,20 +455,18 @@ def test_get_all_commands_to_run_complex_remote(
         repo_path=grandparent_service_repo_path_str,
         config=service_config,
     )
-    remote_dependencies = set(
-        [
-            InstalledRemoteDependency(
-                service_name="child-service",
-                repo_path=child_service_repo_path_str,
-                mode="default",
-            ),
-            InstalledRemoteDependency(
-                service_name="parent-service",
-                repo_path=parent_service_repo_path_str,
-                mode="default",
-            ),
-        ]
-    )
+    remote_dependencies = [
+        InstalledRemoteDependency(
+            service_name="child-service",
+            repo_path=child_service_repo_path_str,
+            mode="default",
+        ),
+        InstalledRemoteDependency(
+            service_name="parent-service",
+            repo_path=parent_service_repo_path_str,
+            mode="default",
+        ),
+    ]
     current_env = os.environ.copy()
     command = "up"
     options = ["-d"]
@@ -497,7 +493,7 @@ def test_get_all_commands_to_run_complex_remote(
     ]
     commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=remote_dependencies,
+        remote_dependencies=list(remote_dependencies),
         current_env=current_env,
         command=command,
         options=options,
@@ -567,20 +563,18 @@ def test_get_all_commands_to_run_complex_shared_dependency(
         repo_path=grandparent_service_repo_path_str,
         config=service_config,
     )
-    remote_dependencies = set(
-        [
-            InstalledRemoteDependency(
-                service_name="child-service",
-                repo_path=child_service_repo_path_str,
-                mode="default",
-            ),
-            InstalledRemoteDependency(
-                service_name="shared-parent-service",
-                repo_path=parent_service_repo_path_str,
-                mode="default",
-            ),
-        ]
-    )
+    remote_dependencies = [
+        InstalledRemoteDependency(
+            service_name="child-service",
+            repo_path=child_service_repo_path_str,
+            mode="default",
+        ),
+        InstalledRemoteDependency(
+            service_name="shared-parent-service",
+            repo_path=parent_service_repo_path_str,
+            mode="default",
+        ),
+    ]
     current_env = os.environ.copy()
     command = "up"
     options = ["-d"]
@@ -592,12 +586,12 @@ def test_get_all_commands_to_run_complex_shared_dependency(
         subprocess.CompletedProcess(
             args=["docker", "compose", "config", "--services"],
             returncode=0,
-            stdout="parent-service\n",
+            stdout="child-service\n",
         ),
         subprocess.CompletedProcess(
             args=["docker", "compose", "config", "--services"],
             returncode=0,
-            stdout="child-service\n",
+            stdout="parent-service\n",
         ),
         subprocess.CompletedProcess(
             args=["docker", "compose", "config", "--services"],
@@ -614,20 +608,8 @@ def test_get_all_commands_to_run_complex_shared_dependency(
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
+
     assert commands == [
-        [
-            "docker",
-            "compose",
-            "-p",
-            "parent-service",
-            "-f",
-            os.path.join(
-                parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-            ),
-            "up",
-            "parent-service",
-            "-d",
-        ],
         [
             "docker",
             "compose",
@@ -639,6 +621,19 @@ def test_get_all_commands_to_run_complex_shared_dependency(
             ),
             "up",
             "child-service",
+            "-d",
+        ],
+        [
+            "docker",
+            "compose",
+            "-p",
+            "parent-service",
+            "-f",
+            os.path.join(
+                parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            ),
+            "up",
+            "parent-service",
             "-d",
         ],
         [
