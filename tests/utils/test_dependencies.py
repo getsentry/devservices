@@ -19,6 +19,7 @@ from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
+from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import GitConfigManager
@@ -1580,3 +1581,384 @@ def test_install_and_verify_dependencies_mode_does_not_exist(tmp_path: Path) -> 
     )
     with pytest.raises(ModeDoesNotExistError):
         install_and_verify_dependencies(service, mode="unknown-mode")
+
+
+def test_construct_dependency_graph_simple(
+    tmp_path: Path,
+) -> None:
+    dependency_service_repo_path = tmp_path / "dependency-service-repo"
+    create_mock_git_repo("blank_repo", dependency_service_repo_path)
+    dependency_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "test-service",
+            "dependencies": {
+                "dependency-1": {
+                    "description": "dependency-1",
+                },
+            },
+            "modes": {"default": ["dependency-1"]},
+        },
+    }
+    create_config_file(dependency_service_repo_path, dependency_service_repo_config)
+    run_git_command(["add", "."], cwd=dependency_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=dependency_service_repo_path
+    )
+    service = Service(
+        name="test-service",
+        repo_path="/path/to/test-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="test-service",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link=f"file://{dependency_service_repo_path}",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={
+                "default": ["dependency-1"],
+            },
+        ),
+    )
+
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        install_and_verify_dependencies(service)
+        dependency_graph = construct_dependency_graph(service)
+        assert dependency_graph.graph == {
+            "dependency-1": set(),
+            "test-service": {"dependency-1"},
+        }
+
+        assert dependency_graph.get_starting_order() == ["dependency-1", "test-service"]
+
+
+def test_construct_dependency_graph_one_nested_dependency(
+    tmp_path: Path,
+) -> None:
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    child_service_repo_path = tmp_path / "child-service-repo"
+    create_mock_git_repo("blank_repo", parent_service_repo_path)
+    create_mock_git_repo("blank_repo", child_service_repo_path)
+    parent_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "parent-service",
+            "dependencies": {
+                "child-service": {
+                    "description": "child-service",
+                    "remote": {
+                        "repo_name": "child-service",
+                        "repo_link": f"file://{child_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
+                "parent-service": {
+                    "description": "parent-service",
+                },
+            },
+            "modes": {"default": ["child-service", "parent-service"]},
+        },
+    }
+    child_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "child-service",
+            "dependencies": {
+                "child-service": {
+                    "description": "child-service",
+                },
+            },
+            "modes": {"default": ["child-service"]},
+        },
+    }
+    create_config_file(parent_service_repo_path, parent_service_repo_config)
+    create_config_file(child_service_repo_path, child_service_repo_config)
+    run_git_command(["add", "."], cwd=parent_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=parent_service_repo_path
+    )
+    run_git_command(["add", "."], cwd=child_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=child_service_repo_path
+    )
+    service = Service(
+        name="grandparent-service",
+        repo_path="/path/to/grandparent-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="grandparent-service",
+            dependencies={
+                "parent-service": Dependency(
+                    description="parent-service",
+                    remote=RemoteConfig(
+                        repo_name="parent-service",
+                        repo_link=f"file://{parent_service_repo_path}",
+                        branch="main",
+                    ),
+                ),
+                "grandparent-service": Dependency(
+                    description="grandparent-service",
+                ),
+            },
+            modes={
+                "default": ["parent-service", "grandparent-service"],
+            },
+        ),
+    )
+
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        install_and_verify_dependencies(service)
+        dependency_graph = construct_dependency_graph(service)
+        assert dependency_graph.graph == {
+            "child-service": set(),
+            "parent-service": {"child-service"},
+            "grandparent-service": {"parent-service"},
+        }
+
+        assert dependency_graph.get_starting_order() == [
+            "child-service",
+            "parent-service",
+            "grandparent-service",
+        ]
+
+
+def test_construct_dependency_graph_shared_dependency(
+    tmp_path: Path,
+) -> None:
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    child_service_repo_path = tmp_path / "child-service-repo"
+    create_mock_git_repo("blank_repo", parent_service_repo_path)
+    create_mock_git_repo("blank_repo", child_service_repo_path)
+    parent_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "parent-service",
+            "dependencies": {
+                "child-service": {
+                    "description": "child-service",
+                    "remote": {
+                        "repo_name": "child-service",
+                        "repo_link": f"file://{child_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
+                "parent-service": {
+                    "description": "parent-service",
+                },
+            },
+            "modes": {"default": ["child-service", "parent-service"]},
+        },
+    }
+    child_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "child-service",
+            "dependencies": {
+                "child-service": {
+                    "description": "child-service",
+                },
+            },
+            "modes": {"default": ["child-service"]},
+        },
+    }
+    create_config_file(parent_service_repo_path, parent_service_repo_config)
+    create_config_file(child_service_repo_path, child_service_repo_config)
+    run_git_command(["add", "."], cwd=parent_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=parent_service_repo_path
+    )
+    run_git_command(["add", "."], cwd=child_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=child_service_repo_path
+    )
+    service = Service(
+        name="grandparent-service",
+        repo_path="/path/to/grandparent-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="grandparent-service",
+            dependencies={
+                "parent-service": Dependency(
+                    description="parent-service",
+                    remote=RemoteConfig(
+                        repo_name="parent-service",
+                        repo_link=f"file://{parent_service_repo_path}",
+                        branch="main",
+                    ),
+                ),
+                "grandparent-service": Dependency(
+                    description="grandparent-service",
+                ),
+                "child-service": Dependency(
+                    description="child-service",
+                    remote=RemoteConfig(
+                        repo_name="child-service",
+                        repo_link=f"file://{child_service_repo_path}",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={
+                "default": ["parent-service", "grandparent-service", "child-service"],
+            },
+        ),
+    )
+
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        install_and_verify_dependencies(service)
+        dependency_graph = construct_dependency_graph(service)
+        assert dependency_graph.graph == {
+            "child-service": set(),
+            "parent-service": {"child-service"},
+            "grandparent-service": {"parent-service", "child-service"},
+        }
+
+        assert dependency_graph.get_starting_order() == [
+            "child-service",
+            "parent-service",
+            "grandparent-service",
+        ]
+
+
+def test_construct_dependency_graph_complex(
+    tmp_path: Path,
+) -> None:
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    child_service_repo_path = tmp_path / "child-service-repo"
+    grandparent_service_repo_path = tmp_path / "grandparent-service-repo"
+    create_mock_git_repo("blank_repo", parent_service_repo_path)
+    create_mock_git_repo("blank_repo", child_service_repo_path)
+    create_mock_git_repo("blank_repo", grandparent_service_repo_path)
+    parent_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "parent-service",
+            "dependencies": {
+                "child-service": {
+                    "description": "child-service",
+                    "remote": {
+                        "repo_name": "child-service",
+                        "repo_link": f"file://{child_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
+                "parent-service": {
+                    "description": "parent-service",
+                },
+            },
+            "modes": {"default": ["child-service", "parent-service"]},
+        },
+    }
+    child_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "child-service",
+            "dependencies": {
+                "child-service": {
+                    "description": "child-service",
+                },
+            },
+            "modes": {"default": ["child-service"]},
+        },
+    }
+    grandparent_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "grandparent-service",
+            "dependencies": {
+                "parent-service": {
+                    "description": "parent-service",
+                    "remote": {
+                        "repo_name": "parent-service",
+                        "repo_link": f"file://{parent_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
+                "grandparent-service": {
+                    "description": "grandparent-service",
+                },
+            },
+            "modes": {"default": ["parent-service", "grandparent-service"]},
+        },
+    }
+    create_config_file(parent_service_repo_path, parent_service_repo_config)
+    create_config_file(child_service_repo_path, child_service_repo_config)
+    create_config_file(grandparent_service_repo_path, grandparent_service_repo_config)
+    run_git_command(["add", "."], cwd=parent_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=parent_service_repo_path
+    )
+    run_git_command(["add", "."], cwd=child_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=child_service_repo_path
+    )
+    run_git_command(["add", "."], cwd=grandparent_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=grandparent_service_repo_path
+    )
+    service = Service(
+        name="complex-service",
+        repo_path="/path/to/complex-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="complex-service",
+            dependencies={
+                "child-service": Dependency(
+                    description="child-service",
+                    remote=RemoteConfig(
+                        repo_name="child-service",
+                        repo_link=f"file://{child_service_repo_path}",
+                        branch="main",
+                    ),
+                ),
+                "grandparent-service": Dependency(
+                    description="grandparent-service",
+                    remote=RemoteConfig(
+                        repo_name="grandparent-service",
+                        repo_link=f"file://{grandparent_service_repo_path}",
+                        branch="main",
+                    ),
+                ),
+                "complex-service": Dependency(
+                    description="complex-service",
+                ),
+            },
+            modes={
+                "default": ["grandparent-service", "child-service", "complex-service"],
+            },
+        ),
+    )
+
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        install_and_verify_dependencies(service)
+        dependency_graph = construct_dependency_graph(service)
+        assert dependency_graph.graph == {
+            "child-service": set(),
+            "parent-service": {"child-service"},
+            "grandparent-service": {"parent-service"},
+            "complex-service": {"grandparent-service", "child-service"},
+        }
+        assert dependency_graph.get_starting_order() == [
+            "child-service",
+            "parent-service",
+            "grandparent-service",
+            "complex-service",
+        ]
