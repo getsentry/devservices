@@ -30,6 +30,11 @@ def test_status_service_not_found(
         status(args)
 
     assert exc_info.value.code == 1
+
+    mock_find_matching_service.assert_called_once_with("nonexistent-service")
+    mock_install_and_verify_dependencies.assert_not_called()
+    mock_status.assert_not_called()
+
     captured = capsys.readouterr()
     assert "Service not found" in captured.out
 
@@ -57,15 +62,20 @@ def test_status_dependency_error(
     )
     mock_find_matching_service.return_value = service
     mock_install_and_verify_dependencies.side_effect = DependencyError(
-        "Dependency error", repo_link=str(tmp_path), branch="main"
+        repo_name="test-service", repo_link=str(tmp_path), branch="main"
     )
 
     with pytest.raises(SystemExit) as exc_info:
         status(args)
 
     assert exc_info.value.code == 1
+
+    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_install_and_verify_dependencies.assert_called_once_with(service)
+    mock_status.assert_not_called()
+
     captured = capsys.readouterr()
-    assert "Dependency error" in captured.out
+    assert f"DependencyError: test-service ({str(tmp_path)}) on main" in captured.out
 
 
 @mock.patch("devservices.commands.status._status")
@@ -96,6 +106,10 @@ def test_status_service_not_running(
     ]
 
     status(args)
+
+    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_install_and_verify_dependencies.assert_called_once_with(service)
+    mock_status.assert_called_once_with(service, set(), [])
 
     captured = capsys.readouterr()
     assert "test-service is not running" in captured.out
@@ -133,6 +147,10 @@ def test_status_service_running(
     ]
 
     status(args)
+
+    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_install_and_verify_dependencies.assert_called_once_with(service)
+    mock_status.assert_called_once_with(service, set(), [])
 
     captured = capsys.readouterr()
     assert (
