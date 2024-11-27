@@ -1,1 +1,1 @@
-# This is a repo with a devservices config
+# This is a repo without a devservices config

@@ -72,12 +72,12 @@ def test_get_local_services_skips_non_devservices_repos(tmp_path: Path) -> None:
         ),
     ):
         os.makedirs(mock_code_root)
-        mock_devservices_repo_path = mock_code_root / "basic"
+        mock_basic_repo_path = mock_code_root / "basic"
         mock_non_devservices_repo_path = mock_code_root / "non-devservices"
-        create_mock_git_repo("basic_repo", mock_devservices_repo_path)
+        create_mock_git_repo("basic_repo", mock_basic_repo_path)
         create_mock_git_repo("non-devservices-repo", mock_non_devservices_repo_path)
 
         local_services = get_local_services(str(mock_code_root))
         assert len(local_services) == 1
         assert local_services[0].name == "basic"
-        assert local_services[0].repo_path == str(mock_devservices_repo_path)
+        assert local_services[0].repo_path == str(mock_basic_repo_path)
