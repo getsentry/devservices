@@ -45,4 +45,4 @@ def list_dependencies(args: Namespace) -> None:
 
     console.info(f"Dependencies of {service.name}:")
     for dependency_key, dependency_info in dependencies.items():
-        console.info("-" + dependency_key + ":" + dependency_info.description)
+        console.info("- " + dependency_key + ": " + dependency_info.description)
