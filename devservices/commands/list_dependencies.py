@@ -32,8 +32,11 @@ def list_dependencies(args: Namespace) -> None:
 
     try:
         service = find_matching_service(service_name)
-    except (ConfigError, ServiceNotFoundError) as e:
+    except ConfigError as e:
         capture_exception(e)
+        console.failure(str(e))
+        exit(1)
+    except ServiceNotFoundError as e:
         console.failure(str(e))
         exit(1)
 
