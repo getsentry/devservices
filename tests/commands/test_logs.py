@@ -12,6 +12,8 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import ConfigError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import Service
 
 
@@ -148,3 +150,34 @@ def test_logs_no_specified_service_success(
 
         captured = capsys.readouterr()
         assert captured.out.endswith("redis and clickhouse log output\n")
+
+
+@mock.patch("devservices.commands.logs.find_matching_service")
+def test_logs_config_error(
+    find_matching_service_mock: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    find_matching_service_mock.side_effect = ConfigError("Config error")
+    args = Namespace(service_name="example-service")
+
+    with pytest.raises(SystemExit):
+        logs(args)
+
+    find_matching_service_mock.assert_called_once_with("example-service")
+    captured = capsys.readouterr()
+    assert "Config error" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.logs.find_matching_service")
+def test_logs_service_not_found_error(
+    find_matching_service_mock: mock.Mock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    find_matching_service_mock.side_effect = ServiceNotFoundError("Service not found")
+    args = Namespace(service_name="example-service")
+
+    with pytest.raises(SystemExit):
+        logs(args)
+
+    find_matching_service_mock.assert_called_once_with("example-service")
+    captured = capsys.readouterr()
+    assert "Service not found" in captured.out.strip()
