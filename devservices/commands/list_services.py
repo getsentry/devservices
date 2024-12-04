@@ -47,7 +47,9 @@ def list_services(args: Namespace) -> None:
 
     for service in services_to_show:
         status = "running" if service.name in running_services else "stopped"
+        mode = state.get_mode_for_service(service.name)
         console.info(f"- {service.name}")
+        console.info(f"  mode: {mode}")
         console.info(f"  status: {status}")
         console.info(f"  location: {service.repo_path}")
 
