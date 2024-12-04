@@ -47,7 +47,7 @@ def test_list_running_services(
 
         assert (
             captured.out
-            == f"Running services:\n- example-service\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
+            == f"Running services:\n- example-service\n  mode: default\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )
 
 
@@ -85,5 +85,5 @@ def test_list_all_services(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
 
         assert (
             captured.out
-            == f"Services installed locally:\n- example-service\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
+            == f"Services installed locally:\n- example-service\n  mode: default\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )
