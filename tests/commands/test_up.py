@@ -13,7 +13,9 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import ConfigError
 from devservices.exceptions import DependencyError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.state import State
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
@@ -599,3 +601,34 @@ def test_up_switching_modes_overlapping_running_service(
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting clickhouse" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.up.find_matching_service")
+def test_up_config_error(
+    find_matching_service_mock: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    find_matching_service_mock.side_effect = ConfigError("Config error")
+    args = Namespace(service_name="example-service", debug=False, mode="test")
+
+    with pytest.raises(SystemExit):
+        up(args)
+
+    find_matching_service_mock.assert_called_once_with("example-service")
+    captured = capsys.readouterr()
+    assert "Config error" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.up.find_matching_service")
+def test_up_service_not_found_error(
+    find_matching_service_mock: mock.Mock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    find_matching_service_mock.side_effect = ServiceNotFoundError("Service not found")
+    args = Namespace(service_name="example-service", debug=False, mode="test")
+
+    with pytest.raises(SystemExit):
+        up(args)
+
+    find_matching_service_mock.assert_called_once_with("example-service")
+    captured = capsys.readouterr()
+    assert "Service not found" in captured.out.strip()

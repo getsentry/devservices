@@ -13,6 +13,8 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import ConfigError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.state import State
 from testing.utils import create_config_file
 
@@ -231,3 +233,33 @@ def test_down_mode_simple(
 
         captured = capsys.readouterr()
         assert "Stopping redis" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.down.find_matching_service")
+def test_down_config_error(
+    find_matching_service_mock: mock.Mock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    find_matching_service_mock.side_effect = ConfigError("Config error")
+    args = Namespace(service_name="example-service", debug=False)
+
+    with pytest.raises(SystemExit):
+        down(args)
+
+    find_matching_service_mock.assert_called_once_with("example-service")
+    captured = capsys.readouterr()
+    assert "Config error" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.down.find_matching_service")
+def test_down_service_not_found_error(
+    find_matching_service_mock: mock.Mock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    find_matching_service_mock.side_effect = ServiceNotFoundError("Service not found")
+    args = Namespace(service_name="example-service", debug=False)
+
+    with pytest.raises(SystemExit):
+        down(args)
+
+    find_matching_service_mock.assert_called_once_with("example-service")
+    captured = capsys.readouterr()
+    assert "Service not found" in captured.out.strip()
