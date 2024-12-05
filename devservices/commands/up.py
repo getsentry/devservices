@@ -142,7 +142,7 @@ def up(args: Namespace) -> None:
             pass
         try:
             mode_dependencies = modes[mode]
-            _up(service, remote_dependencies, mode_dependencies, status)
+            _up(service, [mode], remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce)
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
@@ -163,6 +163,7 @@ def _bring_up_dependency(
 
 def _up(
     service: Service,
+    modes: list[str],
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
     status: Status,
@@ -180,7 +181,7 @@ def _up(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
     options = ["-d"]
-    dependency_graph = construct_dependency_graph(service)
+    dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
         remote_dependencies, key=lambda dep: starting_order.index(dep.service_name)
