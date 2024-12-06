@@ -160,11 +160,20 @@ class GitConfigManager:
 
 
 def install_and_verify_dependencies(
-    service: Service, force_update_dependencies: bool = False, mode: str = "default"
+    service: Service,
+    force_update_dependencies: bool = False,
+    modes: list[str] | None = None,
 ) -> set[InstalledRemoteDependency]:
-    if mode not in service.config.modes:
-        raise ModeDoesNotExistError(service_name=service.name, mode=mode)
-    mode_dependencies = set(service.config.modes[mode])
+    """
+    Install and verify dependencies for a service
+    """
+    if modes is None:
+        modes = ["default"]
+    mode_dependencies = set()
+    for mode in modes:
+        if mode not in service.config.modes:
+            raise ModeDoesNotExistError(service_name=service.name, mode=mode)
+        mode_dependencies.update(service.config.modes[mode])
     matching_dependencies = [
         dependency
         for dependency_key, dependency in list(service.config.dependencies.items())
