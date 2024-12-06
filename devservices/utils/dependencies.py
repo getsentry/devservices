@@ -534,8 +534,6 @@ def construct_dependency_graph(
     def _construct_dependency_graph(
         service_config: ServiceConfig, modes: list[str]
     ) -> None:
-        if modes is None:
-            modes = ["default"]
         service_mode_dependencies = set()
         for mode in modes:
             service_mode_dependencies.update(service_config.modes.get(mode, []))
