@@ -73,7 +73,6 @@ def up(args: Namespace) -> None:
     ) as status:
         try:
             status.info("Retrieving dependencies")
-            # TODO: should we install dependencies of all active modes?
             remote_dependencies = install_and_verify_dependencies(
                 service, force_update_dependencies=True, modes=[mode]
             )
