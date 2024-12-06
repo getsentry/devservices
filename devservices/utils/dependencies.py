@@ -531,14 +531,14 @@ def construct_dependency_graph(
 ) -> DependencyGraph:
     dependency_graph = DependencyGraph()
 
-    if modes is None:
-        modes = ["default"]
-
-    service_mode_dependencies = set()
-    for mode in modes:
-        service_mode_dependencies.update(service.config.modes.get(mode, []))
-
-    def _construct_dependency_graph(service_config: ServiceConfig) -> None:
+    def _construct_dependency_graph(
+        service_config: ServiceConfig, modes: list[str]
+    ) -> None:
+        if modes is None:
+            modes = ["default"]
+        service_mode_dependencies = set()
+        for mode in modes:
+            service_mode_dependencies.update(service_config.modes.get(mode, []))
         for dependency_name, dependency in service_config.dependencies.items():
             # Skip the dependency if it's not in the modes (since it may not be installed and we don't care about it)
             if (
@@ -549,7 +549,7 @@ def construct_dependency_graph(
             dependency_graph.add_edge(service_config.service_name, dependency_name)
             if _has_remote_config(dependency.remote):
                 dependency_config = get_remote_dependency_config(dependency.remote)
-                _construct_dependency_graph(dependency_config)
+                _construct_dependency_graph(dependency_config, [dependency.remote.mode])
 
-    _construct_dependency_graph(service.config)
+    _construct_dependency_graph(service.config, modes or ["default"])
     return dependency_graph
