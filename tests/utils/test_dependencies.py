@@ -1146,6 +1146,50 @@ def test_install_dependency_does_not_install_unnecessary_dependencies(
         )
 
 
+def test_install_dependency_invalid_mode(
+    tmp_path: Path,
+) -> None:
+    """
+    Test that installing a dependency with an invalid mode raises an error.
+    """
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        repo_a_path = create_mock_git_repo("blank_repo", tmp_path / "repo-a")
+        repo_b_path = create_mock_git_repo("basic_repo", tmp_path / "repo-b")
+        repo_a_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "repo-a",
+                "dependencies": {
+                    "repo-b": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "repo-b",
+                            "repo_link": f"file://{repo_b_path}",
+                            "branch": "main",
+                        },
+                    },
+                },
+                "modes": {"default": ["repo-b"]},
+            },
+        }
+        create_config_file(repo_a_path, repo_a_config)
+        run_git_command(["add", "."], cwd=repo_a_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=repo_a_path)
+
+        repo_a_dependency = RemoteConfig(
+            repo_name="repo-a",
+            branch="main",
+            repo_link=f"file://{repo_a_path}",
+            mode="invalid-mode",
+        )
+
+        with pytest.raises(ModeDoesNotExistError):
+            install_dependency(repo_a_dependency)
+
+
 def test_install_dependency_invalid_nested_dependency(tmp_path: Path) -> None:
     """
     Test that installing a nested dependency with an invalid config raises an error.
