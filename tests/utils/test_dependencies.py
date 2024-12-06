@@ -1637,7 +1637,7 @@ def test_construct_dependency_graph_simple(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "dependency-1": set(),
             "test-service": {"dependency-1"},
@@ -1735,7 +1735,7 @@ def test_construct_dependency_graph_one_nested_dependency(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "child-service": set(),
             "parent-service": {"child-service"},
@@ -1846,7 +1846,7 @@ def test_construct_dependency_graph_shared_dependency(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "child-service": set(),
             "parent-service": {"child-service"},
@@ -2043,7 +2043,7 @@ def test_construct_dependency_graph_complex(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "child-service": set(),
             "parent-service": {"child-service"},

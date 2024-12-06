@@ -526,9 +526,7 @@ def get_remote_dependency_config(remote_config: RemoteConfig) -> ServiceConfig:
     return load_service_config_from_file(dependency_repo_dir)
 
 
-def construct_dependency_graph(
-    service: Service, modes: list[str] | None = None
-) -> DependencyGraph:
+def construct_dependency_graph(service: Service, modes: list[str]) -> DependencyGraph:
     dependency_graph = DependencyGraph()
 
     def _construct_dependency_graph(
@@ -546,5 +544,5 @@ def construct_dependency_graph(
                 dependency_config = get_remote_dependency_config(dependency.remote)
                 _construct_dependency_graph(dependency_config, [dependency.remote.mode])
 
-    _construct_dependency_graph(service.config, modes or ["default"])
+    _construct_dependency_graph(service.config, modes)
     return dependency_graph
