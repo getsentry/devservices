@@ -19,7 +19,7 @@ def test_list_running_services(
         return_value=str(tmp_path / "code"),
     ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("example-service", "default")
+        state.update_started_service("example-service", "default")
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -47,7 +47,7 @@ def test_list_running_services(
 
         assert (
             captured.out
-            == f"Running services:\n- example-service\n  mode: default\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
+            == f"Running services:\n- example-service\n  modes: ['default']\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )
 
 
@@ -57,7 +57,7 @@ def test_list_all_services(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         return_value=str(tmp_path / "code"),
     ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("example-service", "default")
+        state.update_started_service("example-service", "default")
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -85,5 +85,5 @@ def test_list_all_services(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
 
         assert (
             captured.out
-            == f"Services installed locally:\n- example-service\n  mode: default\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
+            == f"Services installed locally:\n- example-service\n  modes: ['default']\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )

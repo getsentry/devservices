@@ -54,7 +54,7 @@ def test_purge_with_cache_and_state_and_no_running_containers_confirmed(
         cache_file.write_text("This is a test cache file.")
 
         state = State()
-        state.add_started_service("test-service", "test-mode")
+        state.update_started_service("test-service", "test-mode")
 
         assert cache_file.exists()
         assert state.get_started_services() == ["test-service"]
@@ -96,7 +96,7 @@ def test_purge_with_cache_and_state_and_running_containers_with_networks_confirm
         cache_file.write_text("This is a test cache file.")
 
         state = State()
-        state.add_started_service("test-service", "test-mode")
+        state.update_started_service("test-service", "test-mode")
 
         assert cache_file.exists()
         assert state.get_started_services() == ["test-service"]
@@ -155,7 +155,7 @@ def test_purge_with_cache_and_state_and_running_containers_not_confirmed(
         cache_file.write_text("This is a test cache file.")
 
         state = State()
-        state.add_started_service("test-service", "test-mode")
+        state.update_started_service("test-service", "test-mode")
 
         args = Namespace()
         purge(args)

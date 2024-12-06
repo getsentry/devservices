@@ -72,15 +72,20 @@ def down(args: Namespace) -> None:
         console.warning(f"{service.name} is not running")
         exit(0)
 
-    mode = state.get_mode_for_service(service.name) or "default"
-    mode_dependencies = modes[mode]
+    active_modes = state.get_active_modes_for_service(service.name)
+    mode_dependencies = set()
+    for active_mode in active_modes:
+        active_mode_dependencies = modes.get(active_mode, [])
+        mode_dependencies.update(active_mode_dependencies)
 
     with Status(
         lambda: console.warning(f"Stopping {service.name}"),
         lambda: console.success(f"{service.name} stopped"),
     ) as status:
         try:
-            remote_dependencies = install_and_verify_dependencies(service, mode=mode)
+            remote_dependencies = install_and_verify_dependencies(
+                service, modes=active_modes
+            )
         except DependencyError as de:
             capture_exception(de)
             status.failure(str(de))
@@ -89,7 +94,7 @@ def down(args: Namespace) -> None:
             service, remote_dependencies
         )
         try:
-            _down(service, remote_dependencies, mode_dependencies, status)
+            _down(service, remote_dependencies, list(mode_dependencies), status)
         except DockerComposeError as dce:
             capture_exception(dce)
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")

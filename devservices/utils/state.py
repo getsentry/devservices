@@ -35,17 +35,26 @@ class State:
         )
         self.conn.commit()
 
-    def add_started_service(self, service_name: str, mode: str) -> None:
+    def update_started_service(self, service_name: str, mode: str) -> None:
         cursor = self.conn.cursor()
         started_services = self.get_started_services()
-        if service_name in started_services:
+        active_modes = self.get_active_modes_for_service(service_name)
+        if service_name in started_services and mode in active_modes:
             return
-        cursor.execute(
-            """
-            INSERT INTO started_services (service_name, mode) VALUES (?, ?)
-        """,
-            (service_name, mode),
-        )
+        if service_name in started_services:
+            cursor.execute(
+                """
+                UPDATE started_services SET mode = ? WHERE service_name = ?
+            """,
+                (",".join(active_modes + [mode]), service_name),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO started_services (service_name, mode) VALUES (?, ?)
+            """,
+                (service_name, ",".join(active_modes + [mode])),
+            )
         self.conn.commit()
 
     def remove_started_service(self, service_name: str) -> None:
@@ -67,7 +76,7 @@ class State:
         )
         return [row[0] for row in cursor.fetchall()]
 
-    def get_mode_for_service(self, service_name: str) -> str | None:
+    def get_active_modes_for_service(self, service_name: str) -> list[str]:
         cursor = self.conn.cursor()
         cursor.execute(
             """
@@ -77,8 +86,8 @@ class State:
         )
         result = cursor.fetchone()
         if result is None:
-            return None
-        return str(result[0])
+            return []
+        return str(result[0]).split(",")
 
     def clear_state(self) -> None:
         cursor = self.conn.cursor()

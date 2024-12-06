@@ -1270,8 +1270,8 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("service-1", "default")
-        state.add_started_service("service-2", "default")
+        state.update_started_service("service-1", "default")
+        state.update_started_service("service-2", "default")
     service_to_stop = Service(
         name="service-1",
         repo_path="/path/to/service-1",
@@ -1345,8 +1345,8 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("service-1", "default")
-        state.add_started_service("service-2", "default")
+        state.update_started_service("service-1", "default")
+        state.update_started_service("service-2", "default")
     service_to_stop = Service(
         name="service-1",
         repo_path="/path/to/service-1",
@@ -1413,8 +1413,8 @@ def test_get_non_shared_remote_dependencies_complex(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("service-1", "default")
-        state.add_started_service("service-2", "default")
+        state.update_started_service("service-1", "default")
+        state.update_started_service("service-2", "default")
     service_to_stop = Service(
         name="service-1",
         repo_path="/path/to/service-1",
@@ -1544,7 +1544,7 @@ def test_install_and_verify_dependencies_mode_simple(
             },
         ),
     )
-    install_and_verify_dependencies(service, mode="test")
+    install_and_verify_dependencies(service, modes=["test"])
 
     mock_install_dependencies.assert_called_once_with(
         [service.config.dependencies["dependency-1"]]
@@ -1580,7 +1580,7 @@ def test_install_and_verify_dependencies_mode_does_not_exist(tmp_path: Path) -> 
         ),
     )
     with pytest.raises(ModeDoesNotExistError):
-        install_and_verify_dependencies(service, mode="unknown-mode")
+        install_and_verify_dependencies(service, modes=["unknown-mode"])
 
 
 def test_construct_dependency_graph_simple(

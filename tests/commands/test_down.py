@@ -66,7 +66,7 @@ def test_down_simple(
             "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
         ):
             state = State()
-            state.add_started_service("example-service", "default")
+            state.update_started_service("example-service", "default")
             down(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
@@ -137,7 +137,7 @@ def test_down_error(
 
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.add_started_service("example-service", "default")
+        state.update_started_service("example-service", "default")
         with pytest.raises(SystemExit):
             down(args)
 
@@ -202,7 +202,7 @@ def test_down_mode_simple(
             "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
         ):
             state = State()
-            state.add_started_service("example-service", "test")
+            state.update_started_service("example-service", "test")
             down(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative

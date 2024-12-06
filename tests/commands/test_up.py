@@ -30,11 +30,11 @@ from testing.utils import run_git_command
         stdout="clickhouse\nredis\n",
     ),
 )
-@mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_simple(
     mock_create_devservices_network: mock.Mock,
-    mock_add_started_service: mock.Mock,
+    mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -97,7 +97,7 @@ def test_up_simple(
             env=mock.ANY,
         )
 
-        mock_add_started_service.assert_called_with("example-service", "default")
+        mock_update_started_service.assert_called_with("example-service", "default")
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
@@ -106,11 +106,11 @@ def test_up_simple(
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
-@mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_dependency_error(
     mock_create_devservices_network: mock.Mock,
-    mock_add_started_service: mock.Mock,
+    mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -153,7 +153,7 @@ def test_up_dependency_error(
 
         assert "DependencyError: example-repo (link) on branch" in captured.out.strip()
 
-        mock_add_started_service.assert_not_called()
+        mock_update_started_service.assert_not_called()
 
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
@@ -165,11 +165,11 @@ def test_up_dependency_error(
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
-@mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_error(
     mock_create_devservices_network: mock.Mock,
-    mock_add_started_service: mock.Mock,
+    mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -212,7 +212,7 @@ def test_up_error(
         "Failed to start example-service: Docker Compose error" in captured.out.strip()
     )
 
-    mock_add_started_service.assert_not_called()
+    mock_update_started_service.assert_not_called()
 
     captured = capsys.readouterr()
     assert "Retrieving dependencies" not in captured.out.strip()
@@ -229,11 +229,11 @@ def test_up_error(
         stdout="clickhouse\nredis\n",
     ),
 )
-@mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
 def test_up_mode_simple(
     mock_create_devservices_network: mock.Mock,
-    mock_add_started_service: mock.Mock,
+    mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -295,7 +295,7 @@ def test_up_mode_simple(
             env=mock.ANY,
         )
 
-        mock_add_started_service.assert_called_with("example-service", "test")
+        mock_update_started_service.assert_called_with("example-service", "test")
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
@@ -310,9 +310,9 @@ def test_up_mode_simple(
         stdout="clickhouse\nredis\n",
     ),
 )
-@mock.patch("devservices.utils.state.State.add_started_service")
+@mock.patch("devservices.utils.state.State.update_started_service")
 def test_up_mode_does_not_exist(
-    mock_add_started_service: mock.Mock,
+    mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -356,7 +356,7 @@ def test_up_mode_does_not_exist(
             in captured.out.strip()
         )
 
-        mock_add_started_service.assert_not_called()
+        mock_update_started_service.assert_not_called()
 
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
@@ -373,7 +373,7 @@ def test_up_mode_does_not_exist(
         stdout="clickhouse\nredis\n",
     ),
 )
-def test_up_switching_modes(
+def test_up_mutliple_modes(
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -408,30 +408,13 @@ def test_up_switching_modes(
         os.chdir(service_path)
 
         state = State()
-        state.add_started_service("example-service", "default")
+        state.update_started_service("example-service", "default")
 
         args = Namespace(service_name=None, debug=False, mode="test")
         up(args)
 
         mock_run.assert_has_calls(
             [
-                mock.call(
-                    [
-                        "docker",
-                        "compose",
-                        "-p",
-                        "example-service",
-                        "-f",
-                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "down",
-                        "clickhouse",
-                        "redis",
-                    ],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                    env=mock.ANY,
-                ),
                 mock.call(
                     [
                         "docker",
@@ -454,16 +437,12 @@ def test_up_switching_modes(
         )
 
         captured = capsys.readouterr()
-        assert (
-            "Service 'example-service' is already running in mode: 'default', restarting in mode: 'test'"
-            in captured.out.strip()
-        )
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
 
 
-def test_up_switching_modes_overlapping_running_service(
+def test_up_multiple_modes_overlapping_running_service(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -546,8 +525,8 @@ def test_up_switching_modes_overlapping_running_service(
         os.chdir(service_path)
 
         state = State()
-        state.add_started_service("example-service", "default")
-        state.add_started_service("other-service", "default")
+        state.update_started_service("example-service", "default")
+        state.update_started_service("other-service", "default")
 
         args = Namespace(service_name="example-service", debug=False, mode="test")
 
@@ -571,19 +550,6 @@ def test_up_switching_modes_overlapping_running_service(
                             "example-service",
                             "-f",
                             f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                            "down",
-                            "clickhouse",
-                        ],
-                        mock.ANY,
-                    ),
-                    mock.call(
-                        [
-                            "docker",
-                            "compose",
-                            "-p",
-                            "example-service",
-                            "-f",
-                            f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                             "up",
                             "clickhouse",
                             "-d",
@@ -594,10 +560,6 @@ def test_up_switching_modes_overlapping_running_service(
             )
 
         captured = capsys.readouterr()
-        assert (
-            "Service 'example-service' is already running in mode: 'default', restarting in mode: 'test'"
-            in captured.out.strip()
-        )
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting clickhouse" in captured.out.strip()
