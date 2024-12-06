@@ -541,10 +541,7 @@ def construct_dependency_graph(
             service_mode_dependencies.update(service_config.modes.get(mode, []))
         for dependency_name, dependency in service_config.dependencies.items():
             # Skip the dependency if it's not in the modes (since it may not be installed and we don't care about it)
-            if (
-                service_config.service_name == service.name
-                and dependency_name not in service_mode_dependencies
-            ):
+            if dependency_name not in service_mode_dependencies:
                 continue
             dependency_graph.add_edge(service_config.service_name, dependency_name)
             if _has_remote_config(dependency.remote):
