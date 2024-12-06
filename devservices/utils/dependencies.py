@@ -526,15 +526,23 @@ def get_remote_dependency_config(remote_config: RemoteConfig) -> ServiceConfig:
     return load_service_config_from_file(dependency_repo_dir)
 
 
-def construct_dependency_graph(service: Service) -> DependencyGraph:
+def construct_dependency_graph(service: Service, modes: list[str]) -> DependencyGraph:
     dependency_graph = DependencyGraph()
 
-    def _construct_dependency_graph(service_config: ServiceConfig) -> None:
+    def _construct_dependency_graph(
+        service_config: ServiceConfig, modes: list[str]
+    ) -> None:
+        service_mode_dependencies = set()
+        for mode in modes:
+            service_mode_dependencies.update(service_config.modes.get(mode, []))
         for dependency_name, dependency in service_config.dependencies.items():
+            # Skip the dependency if it's not in the modes (since it may not be installed and we don't care about it)
+            if dependency_name not in service_mode_dependencies:
+                continue
             dependency_graph.add_edge(service_config.service_name, dependency_name)
             if _has_remote_config(dependency.remote):
                 dependency_config = get_remote_dependency_config(dependency.remote)
-                _construct_dependency_graph(dependency_config)
+                _construct_dependency_graph(dependency_config, [dependency.remote.mode])
 
-    _construct_dependency_graph(service.config)
+    _construct_dependency_graph(service.config, modes)
     return dependency_graph

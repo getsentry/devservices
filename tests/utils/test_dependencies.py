@@ -1637,7 +1637,7 @@ def test_construct_dependency_graph_simple(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "dependency-1": set(),
             "test-service": {"dependency-1"},
@@ -1735,7 +1735,7 @@ def test_construct_dependency_graph_one_nested_dependency(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "child-service": set(),
             "parent-service": {"child-service"},
@@ -1846,7 +1846,7 @@ def test_construct_dependency_graph_shared_dependency(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "child-service": set(),
             "parent-service": {"child-service"},
@@ -1863,12 +1863,31 @@ def test_construct_dependency_graph_shared_dependency(
 def test_construct_dependency_graph_complex(
     tmp_path: Path,
 ) -> None:
+    other_service_repo_path = tmp_path / "other-service-repo"
     parent_service_repo_path = tmp_path / "parent-service-repo"
     child_service_repo_path = tmp_path / "child-service-repo"
     grandparent_service_repo_path = tmp_path / "grandparent-service-repo"
+    create_mock_git_repo("blank_repo", other_service_repo_path)
     create_mock_git_repo("blank_repo", parent_service_repo_path)
     create_mock_git_repo("blank_repo", child_service_repo_path)
     create_mock_git_repo("blank_repo", grandparent_service_repo_path)
+    other_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "other-service",
+            "dependencies": {
+                "other-service": {
+                    "description": "other-service",
+                },
+            },
+            "modes": {"default": ["other-service"]},
+        },
+        "services": {
+            "other-service": {
+                "image": "other-service",
+            },
+        },
+    }
     parent_service_repo_config = {
         "x-sentry-service-config": {
             "version": 0.1,
@@ -1885,8 +1904,19 @@ def test_construct_dependency_graph_complex(
                 "parent-service": {
                     "description": "parent-service",
                 },
+                "other-service": {
+                    "description": "other-service",
+                    "remote": {
+                        "repo_name": "other-service",
+                        "repo_link": f"file://{other_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
             },
-            "modes": {"default": ["child-service", "parent-service"]},
+            "modes": {
+                "default": ["child-service", "parent-service"],
+                "other": ["other-service"],
+            },
         },
         "services": {
             "parent-service": {
@@ -1902,8 +1932,16 @@ def test_construct_dependency_graph_complex(
                 "child-service": {
                     "description": "child-service",
                 },
+                "other-service": {
+                    "description": "other-service",
+                    "remote": {
+                        "repo_name": "other-service",
+                        "repo_link": f"file://{other_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
             },
-            "modes": {"default": ["child-service"]},
+            "modes": {"default": ["child-service"], "other": ["other-service"]},
         },
         "services": {
             "child-service": {
@@ -1924,11 +1962,22 @@ def test_construct_dependency_graph_complex(
                         "branch": "main",
                     },
                 },
+                "other-service": {
+                    "description": "other-service",
+                    "remote": {
+                        "repo_name": "other-service",
+                        "repo_link": f"file://{other_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
                 "grandparent-service": {
                     "description": "grandparent-service",
                 },
             },
-            "modes": {"default": ["parent-service", "grandparent-service"]},
+            "modes": {
+                "default": ["parent-service", "grandparent-service"],
+                "other": ["other-service"],
+            },
         },
         "services": {
             "grandparent-service": {
@@ -1936,9 +1985,14 @@ def test_construct_dependency_graph_complex(
             },
         },
     }
+    create_config_file(other_service_repo_path, other_service_repo_config)
     create_config_file(parent_service_repo_path, parent_service_repo_config)
     create_config_file(child_service_repo_path, child_service_repo_config)
     create_config_file(grandparent_service_repo_path, grandparent_service_repo_config)
+    run_git_command(["add", "."], cwd=other_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=other_service_repo_path
+    )
     run_git_command(["add", "."], cwd=parent_service_repo_path)
     run_git_command(
         ["commit", "-m", "Add devservices config"], cwd=parent_service_repo_path
@@ -1989,7 +2043,7 @@ def test_construct_dependency_graph_complex(
         str(tmp_path / "dependency-dir"),
     ):
         install_and_verify_dependencies(service)
-        dependency_graph = construct_dependency_graph(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
             "child-service": set(),
             "parent-service": {"child-service"},
