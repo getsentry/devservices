@@ -1073,6 +1073,123 @@ def test_install_dependency_nested_dependency_with_edits(tmp_path: Path) -> None
             assert f.read().endswith("\nedited: true")
 
 
+def test_install_dependency_does_not_install_unnecessary_dependencies(
+    tmp_path: Path,
+) -> None:
+    """
+    Test that installing a dependency does not install nested dependencies not in the modes.
+    """
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        repo_a_path = create_mock_git_repo("blank_repo", tmp_path / "repo-a")
+        repo_b_path = create_mock_git_repo("basic_repo", tmp_path / "repo-b")
+        repo_a_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "repo-a",
+                "dependencies": {
+                    "repo-b": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "repo-b",
+                            "repo_link": f"file://{repo_b_path}",
+                            "branch": "main",
+                        },
+                    },
+                    "unnecessary-repo": {
+                        "description": "unnecessary nested dependency",
+                        "remote": {
+                            "repo_name": "unnecessary-repo",
+                            "repo_link": "invalid-link",
+                            "branch": "main",
+                        },
+                    },
+                },
+                "modes": {"default": ["repo-b"], "other": ["unnecessary-repo"]},
+            },
+        }
+        create_config_file(repo_a_path, repo_a_config)
+        run_git_command(["add", "."], cwd=repo_a_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=repo_a_path)
+
+        repo_a_dependency = RemoteConfig(
+            repo_name="repo-a",
+            branch="main",
+            repo_link=f"file://{repo_a_path}",
+        )
+
+        installed_remote_dependencies = install_dependency(repo_a_dependency)
+
+        assert installed_remote_dependencies == set(
+            [
+                InstalledRemoteDependency(
+                    service_name="repo-a",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-a"
+                    ),
+                ),
+                InstalledRemoteDependency(
+                    service_name="basic",
+                    repo_path=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "repo-b"
+                    ),
+                ),
+            ]
+        )
+
+
+def test_install_dependency_invalid_mode(
+    tmp_path: Path,
+) -> None:
+    """
+    Test that installing a dependency with an invalid mode raises an error.
+    """
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        repo_a_path = create_mock_git_repo("blank_repo", tmp_path / "repo-a")
+        repo_b_path = create_mock_git_repo("basic_repo", tmp_path / "repo-b")
+        repo_a_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "repo-a",
+                "dependencies": {
+                    "repo-b": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "repo-b",
+                            "repo_link": f"file://{repo_b_path}",
+                            "branch": "main",
+                        },
+                    },
+                },
+                "modes": {"default": ["repo-b"]},
+            },
+        }
+        create_config_file(repo_a_path, repo_a_config)
+        run_git_command(["add", "."], cwd=repo_a_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=repo_a_path)
+
+        repo_a_dependency = RemoteConfig(
+            repo_name="repo-a",
+            branch="main",
+            repo_link=f"file://{repo_a_path}",
+            mode="invalid-mode",
+        )
+
+        with pytest.raises(ModeDoesNotExistError):
+            install_dependency(repo_a_dependency)
+
+
 def test_install_dependency_invalid_nested_dependency(tmp_path: Path) -> None:
     """
     Test that installing a nested dependency with an invalid config raises an error.
@@ -1863,31 +1980,12 @@ def test_construct_dependency_graph_shared_dependency(
 def test_construct_dependency_graph_complex(
     tmp_path: Path,
 ) -> None:
-    other_service_repo_path = tmp_path / "other-service-repo"
     parent_service_repo_path = tmp_path / "parent-service-repo"
     child_service_repo_path = tmp_path / "child-service-repo"
     grandparent_service_repo_path = tmp_path / "grandparent-service-repo"
-    create_mock_git_repo("blank_repo", other_service_repo_path)
     create_mock_git_repo("blank_repo", parent_service_repo_path)
     create_mock_git_repo("blank_repo", child_service_repo_path)
     create_mock_git_repo("blank_repo", grandparent_service_repo_path)
-    other_service_repo_config = {
-        "x-sentry-service-config": {
-            "version": 0.1,
-            "service_name": "other-service",
-            "dependencies": {
-                "other-service": {
-                    "description": "other-service",
-                },
-            },
-            "modes": {"default": ["other-service"]},
-        },
-        "services": {
-            "other-service": {
-                "image": "other-service",
-            },
-        },
-    }
     parent_service_repo_config = {
         "x-sentry-service-config": {
             "version": 0.1,
@@ -1908,7 +2006,7 @@ def test_construct_dependency_graph_complex(
                     "description": "other-service",
                     "remote": {
                         "repo_name": "other-service",
-                        "repo_link": f"file://{other_service_repo_path}",
+                        "repo_link": "file://does-not-exist",
                         "branch": "main",
                     },
                 },
@@ -1936,7 +2034,7 @@ def test_construct_dependency_graph_complex(
                     "description": "other-service",
                     "remote": {
                         "repo_name": "other-service",
-                        "repo_link": f"file://{other_service_repo_path}",
+                        "repo_link": "file://does-not-exist",
                         "branch": "main",
                     },
                 },
@@ -1966,7 +2064,7 @@ def test_construct_dependency_graph_complex(
                     "description": "other-service",
                     "remote": {
                         "repo_name": "other-service",
-                        "repo_link": f"file://{other_service_repo_path}",
+                        "repo_link": "file://does-not-exist",
                         "branch": "main",
                     },
                 },
@@ -1985,14 +2083,9 @@ def test_construct_dependency_graph_complex(
             },
         },
     }
-    create_config_file(other_service_repo_path, other_service_repo_config)
     create_config_file(parent_service_repo_path, parent_service_repo_config)
     create_config_file(child_service_repo_path, child_service_repo_config)
     create_config_file(grandparent_service_repo_path, grandparent_service_repo_config)
-    run_git_command(["add", "."], cwd=other_service_repo_path)
-    run_git_command(
-        ["commit", "-m", "Add devservices config"], cwd=other_service_repo_path
-    )
     run_git_command(["add", "."], cwd=parent_service_repo_path)
     run_git_command(
         ["commit", "-m", "Add devservices config"], cwd=parent_service_repo_path
