@@ -355,8 +355,18 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
                 branch=dependency.branch,
             ) from e
 
-    nested_dependencies = list(installed_config.dependencies.values())
-    nested_remote_configs = _get_remote_configs(nested_dependencies)
+    if dependency.mode not in installed_config.modes:
+        raise ModeDoesNotExistError(
+            service_name=installed_config.service_name,
+            mode=dependency.mode,
+        )
+
+    active_nested_dependencies = [
+        nested_dependency
+        for nested_dependency_name, nested_dependency in installed_config.dependencies.items()
+        if nested_dependency_name in installed_config.modes[dependency.mode]
+    ]
+    nested_remote_configs = _get_remote_configs(active_nested_dependencies)
 
     installed_dependencies: set[InstalledRemoteDependency] = set(
         [
