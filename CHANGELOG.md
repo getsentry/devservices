@@ -1,3 +1,20 @@
+## 1.0.5
+
+### Various fixes & improvements
+
+- fix(dependencies): Only install dependenices needed for the mode (#175) by @IanWoodard
+- use expanduser (#174) by @hubertdeng123
+- ref(modes): Refactoring modes to support multiple concurrent modes (#173) by @IanWoodard
+- fix(dependencies): Fixing dependency graph construction for simple modes (#172) by @IanWoodard
+- ls should show mode of service that is running (#170) by @hubertdeng123
+- Replace release bot with GH app (#171) by @Jeffreyhung
+- fix(sentry): Do not report to sentry if service is not found (#169) by @hubertdeng123
+- test list dependencies (#168) by @hubertdeng123
+- feat(services): Adding find_matching_service test (#167) by @IanWoodard
+- feat(services): Adding test for skipping non-devservices repos (#166) by @IanWoodard
+- feat(tests): Test status command (#165) by @hubertdeng123
+- feat(services): Adding test for local services with invalid config (#164) by @IanWoodard
+
 ## 1.0.4
 
 ### Various fixes & improvements
