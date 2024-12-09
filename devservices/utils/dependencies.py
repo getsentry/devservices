@@ -361,12 +361,12 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
             mode=dependency.mode,
         )
 
-    nested_dependencies = [
+    active_nested_dependencies = [
         nested_dependency
         for nested_dependency_name, nested_dependency in installed_config.dependencies.items()
         if nested_dependency_name in installed_config.modes[dependency.mode]
     ]
-    nested_remote_configs = _get_remote_configs(nested_dependencies)
+    nested_remote_configs = _get_remote_configs(active_nested_dependencies)
 
     installed_dependencies: set[InstalledRemoteDependency] = set(
         [
