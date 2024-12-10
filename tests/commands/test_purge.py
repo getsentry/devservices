@@ -4,8 +4,111 @@ from argparse import Namespace
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from devservices.commands.purge import purge
+from devservices.exceptions import DockerDaemonNotRunningError
+from devservices.exceptions import DockerError
 from devservices.utils.state import State
+
+
+@mock.patch("devservices.commands.purge.stop_matching_containers")
+@mock.patch("devservices.commands.purge.subprocess.run")
+def test_purge_docker_daemon_not_running(
+    mock_run: mock.Mock,
+    mock_stop_matching_containers: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_stop_matching_containers.side_effect = DockerDaemonNotRunningError()
+    with (
+        mock.patch(
+            "devservices.commands.purge.DEVSERVICES_CACHE_DIR",
+            str(tmp_path / ".devservices-cache"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.commands.purge.subprocess.check_output",
+            return_value=b"",
+        ),
+    ):
+        # Create a cache file to test purging
+        cache_dir = tmp_path / ".devservices-cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = tmp_path / ".devservices-cache" / "test.txt"
+        cache_file.write_text("This is a test cache file.")
+
+        state = State()
+        state.update_started_service("test-service", "test-mode")
+
+        assert cache_file.exists()
+        assert state.get_started_services() == ["test-service"]
+
+        args = Namespace()
+        purge(args)
+
+        assert not cache_file.exists()
+        assert state.get_started_services() == []
+
+        mock_stop_matching_containers.assert_called_once()
+        mock_run.assert_not_called()
+
+        captured = capsys.readouterr()
+        assert (
+            "The docker daemon is not running, no containers to stop"
+            in captured.out.strip()
+        )
+
+
+@mock.patch("devservices.commands.purge.stop_matching_containers")
+@mock.patch("devservices.commands.purge.subprocess.run")
+def test_purge_docker_daemon_docker_error(
+    mock_run: mock.Mock,
+    mock_stop_matching_containers: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_stop_matching_containers.side_effect = DockerError(
+        "command", 1, "output", "stderr"
+    )
+    with (
+        mock.patch(
+            "devservices.commands.purge.DEVSERVICES_CACHE_DIR",
+            str(tmp_path / ".devservices-cache"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.commands.purge.subprocess.check_output",
+            return_value=b"",
+        ),
+    ):
+        # Create a cache file to test purging
+        cache_dir = tmp_path / ".devservices-cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = tmp_path / ".devservices-cache" / "test.txt"
+        cache_file.write_text("This is a test cache file.")
+
+        state = State()
+        state.update_started_service("test-service", "test-mode")
+
+        assert cache_file.exists()
+        assert state.get_started_services() == ["test-service"]
+
+        args = Namespace()
+        with pytest.raises(SystemExit):
+            purge(args)
+
+        assert not cache_file.exists()
+        assert state.get_started_services() == []
+
+        mock_stop_matching_containers.assert_called_once()
+        mock_run.assert_not_called()
+
+        captured = capsys.readouterr()
+        assert (
+            "Failed to stop running devservices containers stderr"
+            in captured.out.strip()
+        )
 
 
 @mock.patch("devservices.commands.purge.stop_matching_containers")

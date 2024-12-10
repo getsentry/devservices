@@ -11,6 +11,7 @@ from devservices.constants import DEVSERVICES_CACHE_DIR
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.constants import DOCKER_NETWORK_NAME
 from devservices.exceptions import DockerDaemonNotRunningError
+from devservices.exceptions import DockerError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.docker import stop_matching_containers
@@ -41,7 +42,10 @@ def purge(_args: Namespace) -> None:
         try:
             stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
         except DockerDaemonNotRunningError:
-            console.warning("The docker daemon not running, no containers to stop")
+            console.warning("The docker daemon is not running, no containers to stop")
+        except DockerError as e:
+            console.failure(f"Failed to stop running devservices containers {e.stderr}")
+            exit(1)
 
     console.warning("Removing any devservices networks")
     devservices_networks = (
