@@ -11,6 +11,7 @@ DEVSERVICES_CACHE_DIR = os.path.expanduser("~/.cache/sentry-devservices")
 DEVSERVICES_LOCAL_DIR = os.path.expanduser("~/.local/share/sentry-devservices")
 DEVSERVICES_DEPENDENCIES_CACHE_DIR = os.path.join(DEVSERVICES_CACHE_DIR, "dependencies")
 DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY = "DEVSERVICES_DEPENDENCIES_CACHE_DIR"
+DEVSERVICES_ORCHESTRATOR_LABEL = "orchestrator=devservices"
 STATE_DB_FILE = os.path.join(DEVSERVICES_LOCAL_DIR, "state")
 DOCKER_COMPOSE_COMMAND_LENGTH = 7
 

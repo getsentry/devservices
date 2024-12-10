@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from devservices.constants import DEVSERVICES_CACHE_DIR
+from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.constants import DOCKER_NETWORK_NAME
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.console import Console
@@ -38,7 +39,7 @@ def purge(_args: Namespace) -> None:
         lambda: console.success("All running devservices containers have been stopped"),
     ):
         try:
-            stop_matching_containers("orchestrator=devservices", should_remove=True)
+            stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
         except DockerDaemonNotRunningError:
             console.warning("The docker daemon not running, no containers to stop")
 
