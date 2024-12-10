@@ -134,3 +134,49 @@ def test_stop_matching_containers_should_remove(
             ),
         ]
     )
+
+
+@mock.patch("subprocess.run")
+@mock.patch("devservices.utils.docker.get_matching_containers")
+def test_stop_matching_containers_stop_error(
+    mock_get_matching_containers: mock.Mock,
+    mock_run: mock.Mock,
+) -> None:
+    mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
+    mock_get_matching_containers.return_value = ["container1", "container2"]
+    with pytest.raises(DockerError):
+        stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
+    mock_run.assert_called_once_with(
+        ["docker", "stop", "container1", "container2"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@mock.patch("subprocess.run")
+@mock.patch("devservices.utils.docker.get_matching_containers")
+def test_stop_matching_containers_remove_error(
+    mock_get_matching_containers: mock.Mock,
+    mock_run: mock.Mock,
+) -> None:
+    mock_run.side_effect = [None, subprocess.CalledProcessError(1, "cmd")]
+    mock_get_matching_containers.return_value = ["container1", "container2"]
+    with pytest.raises(DockerError):
+        stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
+    mock_run.assert_has_calls(
+        [
+            mock.call(
+                ["docker", "stop", "container1", "container2"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ),
+            mock.call(
+                ["docker", "rm", "container1", "container2"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ),
+        ]
+    )
