@@ -101,6 +101,17 @@ def test_stop_matching_containers_should_not_remove(
 
 @mock.patch("subprocess.run")
 @mock.patch("devservices.utils.docker.get_matching_containers")
+def test_stop_matching_containers_none(
+    mock_get_matching_containers: mock.Mock,
+    mock_run: mock.Mock,
+) -> None:
+    mock_get_matching_containers.return_value = []
+    stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
+    mock_run.assert_not_called()
+
+
+@mock.patch("subprocess.run")
+@mock.patch("devservices.utils.docker.get_matching_containers")
 def test_stop_matching_containers_should_remove(
     mock_get_matching_containers: mock.Mock,
     mock_run: mock.Mock,
