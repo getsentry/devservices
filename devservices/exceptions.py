@@ -57,14 +57,20 @@ class DockerComposeInstallationError(BinaryInstallError):
     pass
 
 
-class DockerComposeError(Exception):
-    """Base class for Docker Compose related errors."""
+class DockerError(Exception):
+    """Base class for Docker related errors."""
 
     def __init__(self, command: str, returncode: int, stdout: str, stderr: str):
         self.command = command
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
+
+
+class DockerComposeError(DockerError):
+    """Base class for Docker Compose related errors."""
+
+    pass
 
 
 class ModeDoesNotExistError(Exception):
