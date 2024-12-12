@@ -7,6 +7,7 @@ from unittest import mock
 
 from freezegun import freeze_time
 
+from devservices.constants import DEVSERVICES_LATEST_VERSION_CACHE_TTL
 from devservices.constants import DEVSERVICES_RELEASES_URL
 from devservices.utils.check_for_update import check_for_update
 
@@ -74,7 +75,11 @@ def test_check_for_update_cached_fresh(mock_urlopen: mock.Mock, tmp_path: Path) 
         freeze_time("2024-05-14 05:43:21"),
         mock.patch(
             "devservices.utils.check_for_update.os.path.getmtime",
-            return_value=(datetime.now() - timedelta(minutes=14)).timestamp(),
+            return_value=(
+                datetime.now()
+                - DEVSERVICES_LATEST_VERSION_CACHE_TTL
+                + timedelta(minutes=1)
+            ).timestamp(),
         ),
         mock.patch(
             "devservices.utils.check_for_update.DEVSERVICES_CACHE_DIR",
@@ -104,7 +109,9 @@ def test_check_for_update_cached_stale_without_update(
         freeze_time("2024-05-14 05:43:21"),
         mock.patch(
             "devservices.utils.check_for_update.os.path.getmtime",
-            return_value=(datetime.now() - timedelta(minutes=16)).timestamp(),
+            return_value=(
+                datetime.now() - DEVSERVICES_LATEST_VERSION_CACHE_TTL
+            ).timestamp(),
         ),
         mock.patch(
             "devservices.utils.check_for_update.DEVSERVICES_CACHE_DIR",
@@ -138,7 +145,11 @@ def test_check_for_update_cached_stale_with_update(
         freeze_time("2024-05-14 05:43:21"),
         mock.patch(
             "devservices.utils.check_for_update.os.path.getmtime",
-            return_value=(datetime.now() - timedelta(minutes=16)).timestamp(),
+            return_value=(
+                datetime.now()
+                - DEVSERVICES_LATEST_VERSION_CACHE_TTL
+                - timedelta(minutes=1)
+            ).timestamp(),
         ),
         mock.patch(
             "devservices.utils.check_for_update.DEVSERVICES_CACHE_DIR",
