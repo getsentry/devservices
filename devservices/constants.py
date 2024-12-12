@@ -35,6 +35,6 @@ DOCKER_NETWORK_NAME = "devservices"
 
 # Latest Version Cache
 DEVSERVICES_LATEST_VERSION_CACHE_FILE = os.path.join(
-    DEVSERVICES_CACHE_DIR, "latest_version.json"
+    DEVSERVICES_CACHE_DIR, "latest_version.txt"
 )
 DEVSERVICES_LATEST_VERSION_CACHE_TTL = timedelta(minutes=15)
