@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -128,7 +129,7 @@ def _up(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
-    options = ["-d"]
+    options = ["-d", "--wait"]
     dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
@@ -144,8 +145,16 @@ def _up(
         mode_dependencies=mode_dependencies,
     )
 
-    for cmd in docker_compose_commands:
-        _bring_up_dependency(cmd, current_env, status, len(options))
+    cmd_outputs = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(
+                _bring_up_dependency, cmd, current_env, status, len(options)
+            )
+            for cmd in docker_compose_commands
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            cmd_outputs.append(future.result())
 
 
 def _create_devservices_network() -> None:
