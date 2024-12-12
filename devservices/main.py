@@ -23,10 +23,10 @@ from devservices.commands import purge
 from devservices.commands import status
 from devservices.commands import up
 from devservices.commands import update
-from devservices.commands.check_for_update import check_for_update
 from devservices.constants import LOGGER_NAME
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
+from devservices.utils.check_for_update import check_for_update
 from devservices.utils.console import Console
 from devservices.utils.docker_compose import check_docker_compose_version
 

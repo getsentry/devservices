@@ -7,10 +7,10 @@ from argparse import ArgumentParser
 from argparse import Namespace
 from importlib import metadata
 
-from devservices.commands.check_for_update import check_for_update
 from devservices.constants import DEVSERVICES_DOWNLOAD_URL
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DevservicesUpdateError
+from devservices.utils.check_for_update import check_for_update
 from devservices.utils.console import Console
 from devservices.utils.install_binary import install_binary
 
