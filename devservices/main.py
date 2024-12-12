@@ -102,7 +102,7 @@ def main() -> None:
     else:
         parser.print_help()
 
-    if args.command != "update":
+    if args.command != "update" and os.environ.get("CI") != "true":
         newest_version = check_for_update()
         if newest_version != current_version:
             console.warning(
