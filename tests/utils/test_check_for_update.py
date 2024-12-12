@@ -17,18 +17,51 @@ def test_check_for_update_not_cached(mock_urlopen: mock.Mock, tmp_path: Path) ->
     mock_response = mock.mock_open(read_data=b'{"tag_name": "1.0.0"}').return_value
     mock_response.status = 200
     mock_urlopen.side_effect = [mock_response]
+    cache_dir = tmp_path / "cache"
+    cached_file = cache_dir / "latest_version.json"
     with (
+        freeze_time("2024-05-14 05:43:21"),
         mock.patch(
             "devservices.utils.check_for_update.DEVSERVICES_CACHE_DIR",
-            str(tmp_path / "cache"),
+            str(cache_dir),
         ),
         mock.patch(
             "devservices.utils.check_for_update.DEVSERVICES_LATEST_VERSION_CACHE_FILE",
-            str(tmp_path / "cache" / "latest_version.json"),
+            str(cached_file),
         ),
     ):
         assert check_for_update() == "1.0.0"
         mock_urlopen.assert_called_once_with(DEVSERVICES_RELEASES_URL)
+
+        with cached_file.open("r") as f:
+            cached_data = json.load(f)
+            cached_data["latest_version"] = "1.0.0"
+            cached_data["timestamp"] = datetime.now().isoformat()
+
+
+@mock.patch("devservices.utils.check_for_update.urlopen")
+def test_check_for_update_no_cache_not_ok(
+    mock_urlopen: mock.Mock, tmp_path: Path
+) -> None:
+    mock_response = mock.mock_open().return_value
+    mock_response.status = 500
+    mock_urlopen.side_effect = [mock_response]
+    cache_dir = tmp_path / "cache"
+    cached_file = cache_dir / "latest_version.json"
+    with (
+        mock.patch(
+            "devservices.utils.check_for_update.DEVSERVICES_CACHE_DIR",
+            str(cache_dir),
+        ),
+        mock.patch(
+            "devservices.utils.check_for_update.DEVSERVICES_LATEST_VERSION_CACHE_FILE",
+            str(cached_file),
+        ),
+    ):
+        assert check_for_update() is None
+        mock_urlopen.assert_called_once_with(DEVSERVICES_RELEASES_URL)
+
+        assert not cached_file.exists()
 
 
 @mock.patch("devservices.utils.check_for_update.urlopen")
