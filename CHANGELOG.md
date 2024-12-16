@@ -1,3 +1,12 @@
+## 1.0.6
+
+### Various fixes & improvements
+
+- fix(down): Adding error handling to get_non_shared_remote_dependencies (#180) by @IanWoodard
+- ref(update): Adding caching to checking for latest version (#179) by @IanWoodard
+- avoid checking for update in CI (#177) by @hubertdeng123
+- feat(purge): Updating purge to only stop relevant containers (#176) by @IanWoodard
+
 ## 1.0.5
 
 ### Various fixes & improvements
