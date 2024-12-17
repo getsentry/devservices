@@ -134,6 +134,51 @@ def test_git_config_manager_ensure_config_sparse_checkout_overwrite(
     )
 
 
+def test_git_config_manager_get_relevant_config_mostly_empty(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "test-repo"
+    create_mock_git_repo("basic_repo", repo_dir)
+    git_config_manager = GitConfigManager(
+        str(repo_dir),
+        {},
+    )
+    relevant_configs = git_config_manager.get_relevant_config()
+    assert relevant_configs == {
+        "init.defaultbranch": "main",
+    }
+
+
+def test_git_config_manager_get_relevant_config_populated(tmp_path: Path) -> None:
+    repo_dir = tmp_path / "test-repo"
+    create_mock_git_repo("basic_repo", repo_dir)
+    git_config_manager = GitConfigManager(
+        str(repo_dir),
+        {
+            "init.defaultbranch": "main",
+            "core.sparsecheckout": "true",
+            "remote.origin.url": "test-url",
+            "remote.origin.fetch": "test-fetch",
+            "remote.origin.promisor": "true",
+            "remote.origin.partialclonefilter": "blob:none",
+            "protocol.version": "2",
+            "extensions.partialclone": "true",
+            "core.filemode": "true",  # We don't care about this one
+        },
+        f"{DEVSERVICES_DIR_NAME}/",
+    )
+    git_config_manager.ensure_config()
+    relevant_configs = git_config_manager.get_relevant_config()
+    assert relevant_configs == {
+        "init.defaultbranch": "main",
+        "core.sparsecheckout": "true",
+        "remote.origin.url": "test-url",
+        "remote.origin.fetch": "test-fetch",
+        "remote.origin.promisor": "true",
+        "remote.origin.partialclonefilter": "blob:none",
+        "protocol.version": "2",
+        "extensions.partialclone": "true",
+    }
+
+
 def test_verify_local_dependencies_no_dependencies(tmp_path: Path) -> None:
     with mock.patch(
         "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
