@@ -65,7 +65,7 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
                 stderr=e.stderr,
             ) from e
 
-        if result != "unhealthy":
+        if result == "healthy" or result == "unknown":
             return
 
         # If not healthy, wait and try again
