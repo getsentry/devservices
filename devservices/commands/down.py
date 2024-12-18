@@ -90,9 +90,14 @@ def down(args: Namespace) -> None:
             capture_exception(de)
             status.failure(str(de))
             exit(1)
-        remote_dependencies = get_non_shared_remote_dependencies(
-            service, remote_dependencies
-        )
+        try:
+            remote_dependencies = get_non_shared_remote_dependencies(
+                service, remote_dependencies
+            )
+        except DependencyError as de:
+            capture_exception(de)
+            status.failure(str(de))
+            exit(1)
         try:
             _down(service, remote_dependencies, list(mode_dependencies), status)
         except DockerComposeError as dce:

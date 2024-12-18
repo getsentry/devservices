@@ -8,3 +8,4 @@ types-PyYAML==6.0.11
 setuptools==70.0.0
 build==0.8.0
 wheel==0.42.0
+freezegun==1.2.2
