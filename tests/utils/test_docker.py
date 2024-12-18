@@ -203,7 +203,31 @@ def test_wait_for_healthy_success(mock_check_output: mock.Mock) -> None:
     mock_status = mock.Mock()
     wait_for_healthy("container1", mock_status)
     mock_check_output.assert_called_once_with(
-        ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+        [
+            "docker",
+            "inspect",
+            "-f",
+            "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+            "container1",
+        ],
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    mock_status.failure.assert_not_called()
+
+
+@mock.patch("devservices.utils.docker.subprocess.check_output", return_value="unknown")
+def test_wait_for_healthy_no_healthcheck(mock_check_output: mock.Mock) -> None:
+    mock_status = mock.Mock()
+    wait_for_healthy("container1", mock_status)
+    mock_check_output.assert_called_once_with(
+        [
+            "docker",
+            "inspect",
+            "-f",
+            "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+            "container1",
+        ],
         stderr=subprocess.DEVNULL,
         text=True,
     )
@@ -223,12 +247,24 @@ def test_wait_for_healthy_initial_check_failed_then_success(
     mock_check_output.assert_has_calls(
         [
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container1",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container1",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
@@ -247,7 +283,13 @@ def test_wait_for_healthy_docker_error(mock_check_output: mock.Mock) -> None:
         ):
             wait_for_healthy("container1", mock_status)
     mock_check_output.assert_called_once_with(
-        ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+        [
+            "docker",
+            "inspect",
+            "-f",
+            "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+            "container1",
+        ],
         stderr=subprocess.DEVNULL,
         text=True,
     )
@@ -264,12 +306,24 @@ def test_wait_for_healthy_healthcheck_failed(mock_check_output: mock.Mock) -> No
     mock_check_output.assert_has_calls(
         [
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container1",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container1",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
@@ -294,12 +348,24 @@ def test_check_all_containers_healthy_success(
     mock_check_output.assert_has_calls(
         [
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container1",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container2"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container2",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
@@ -325,17 +391,35 @@ def test_check_all_containers_healthy_failure(
     mock_check_output.assert_has_calls(
         [
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container1"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container1",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container2"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container2",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),
             mock.call(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", "container2"],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    "container2",
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ),

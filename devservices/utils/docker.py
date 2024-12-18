@@ -45,8 +45,15 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
     while time.time() - start < HEALTHCHECK_TIMEOUT:
         # Run docker inspect to get the container's health status
         try:
+            # For containers with no healthchecks, the output will be "unknown"
             result = subprocess.check_output(
-                ["docker", "inspect", "-f", "{{.State.Health.Status}}", container_name],
+                [
+                    "docker",
+                    "inspect",
+                    "-f",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
+                    container_name,
+                ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ).strip()
@@ -58,7 +65,7 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
                 stderr=e.stderr,
             ) from e
 
-        if result == "healthy":
+        if result != "unhealthy":
             return
 
         # If not healthy, wait and try again
