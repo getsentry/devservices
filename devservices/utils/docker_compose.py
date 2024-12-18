@@ -15,6 +15,7 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
+from devservices.constants import DockerComposeCommand
 from devservices.constants import LOGGER_NAME
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
@@ -169,10 +170,12 @@ def get_docker_compose_commands_to_run(
     options: list[str],
     service_config_file_path: str,
     mode_dependencies: list[str],
-) -> list[list[str]]:
+) -> list[DockerComposeCommand]:
     docker_compose_commands = []
-    create_docker_compose_command: Callable[[str, str, set[str]], list[str]] = (
-        lambda name, config_path, services_to_use: [
+    create_docker_compose_command: Callable[
+        [str, str, set[str]], DockerComposeCommand
+    ] = lambda name, config_path, services_to_use: DockerComposeCommand(
+        full_command=[
             "docker",
             "compose",
             "-p",
@@ -181,8 +184,11 @@ def get_docker_compose_commands_to_run(
             config_path,
             command,
         ]
-        + sorted(list(services_to_use))  # Sort the services to prevent flaky tests
-        + options
+        + sorted(list(services_to_use))
+        + options,
+        project_name=name,
+        config_path=config_path,
+        services=sorted(list(services_to_use)),
     )
     for dependency in remote_dependencies:
         # TODO: Consider passing in service config in InstalledRemoteDependency instead of loading it here
