@@ -146,16 +146,38 @@ def _up(
         mode_dependencies=mode_dependencies,
     )
 
-    cmd_outputs = []
+    containers_to_check = []
     with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
         futures = [
             dependency_executor.submit(_bring_up_dependency, cmd, current_env, status)
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
-            cmd_outputs.append(future.result())
+            _ = future.result()
 
-    check_all_containers_healthy(status)
+    for cmd in docker_compose_commands:
+        try:
+            container_names = subprocess.check_output(
+                [
+                    "docker",
+                    "compose",
+                    "-p",
+                    cmd.project_name,
+                    "-f",
+                    cmd.config_path,
+                    "ps",
+                    "--format",
+                    "{{.Name}}",
+                ],
+                text=True,
+            ).splitlines()
+            containers_to_check.extend(container_names)
+        except subprocess.CalledProcessError:
+            status.failure(
+                f"Failed to get containers to healthcheck for {cmd.project_name}"
+            )
+            exit(1)
+    check_all_containers_healthy(status, containers_to_check)
 
 
 def _create_devservices_network() -> None:

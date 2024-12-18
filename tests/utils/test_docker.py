@@ -53,8 +53,7 @@ def test_get_matching_containers(
         [
             "docker",
             "ps",
-            "--format",
-            "{{.Names}}",
+            "-q",
             "--filter",
             f"label={DEVSERVICES_ORCHESTRATOR_LABEL}",
         ],
@@ -91,8 +90,7 @@ def test_get_matching_containers_error(
         [
             "docker",
             "ps",
-            "--format",
-            "{{.Names}}",
+            "-q",
             "--filter",
             f"label={DEVSERVICES_ORCHESTRATOR_LABEL}",
         ],
@@ -337,16 +335,12 @@ def test_wait_for_healthy_healthcheck_failed(mock_check_output: mock.Mock) -> No
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
-@mock.patch(
-    "devservices.utils.docker.get_matching_containers",
-    return_value=["container1", "container2"],
-)
 def test_check_all_containers_healthy_success(
-    mock_get_matching_containers: mock.Mock, mock_check_output: mock.Mock
+    mock_check_output: mock.Mock,
 ) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["healthy", "healthy"]
-    check_all_containers_healthy(mock_status)
+    check_all_containers_healthy(mock_status, ["container1", "container2"])
     mock_check_output.assert_has_calls(
         [
             mock.call(
@@ -377,19 +371,15 @@ def test_check_all_containers_healthy_success(
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
-@mock.patch(
-    "devservices.utils.docker.get_matching_containers",
-    return_value=["container1", "container2"],
-)
 def test_check_all_containers_healthy_failure(
-    mock_get_matching_containers: mock.Mock, mock_check_output: mock.Mock
+    mock_check_output: mock.Mock,
 ) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["healthy", "unhealthy", "unhealthy"]
     with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
         "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
     ):
-        check_all_containers_healthy(mock_status)
+        check_all_containers_healthy(mock_status, ["container1", "container2"])
     mock_check_output.assert_has_calls(
         [
             mock.call(

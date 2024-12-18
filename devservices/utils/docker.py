@@ -4,7 +4,6 @@ import concurrent.futures
 import subprocess
 import time
 
-from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.constants import HEALTHCHECK_INTERVAL
 from devservices.constants import HEALTHCHECK_TIMEOUT
 from devservices.exceptions import DockerDaemonNotRunningError
@@ -25,9 +24,8 @@ def check_docker_daemon_running() -> None:
         raise DockerDaemonNotRunningError from e
 
 
-def check_all_containers_healthy(status: Status) -> None:
+def check_all_containers_healthy(status: Status, containers: list[str]) -> None:
     """Ensures all containers are healthy."""
-    containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
     with concurrent.futures.ThreadPoolExecutor() as healthcheck_executor:
         futures = [
             healthcheck_executor.submit(wait_for_healthy, container, status)
@@ -65,7 +63,10 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
                 stderr=e.stderr,
             ) from e
 
-        if result == "healthy" or result == "unknown":
+        if result == "healthy":
+            return
+        elif result == "unknown":
+            status.warning(f"Container {container_name} does not have a healthcheck.")
             return
 
         # If not healthy, wait and try again
@@ -87,8 +88,7 @@ def get_matching_containers(label: str) -> list[str]:
                 [
                     "docker",
                     "ps",
-                    "--format",
-                    "{{.Names}}",
+                    "-q",
                     "--filter",
                     f"label={label}",
                 ],
