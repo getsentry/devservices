@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -24,6 +25,7 @@ from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
@@ -144,8 +146,38 @@ def _up(
         mode_dependencies=mode_dependencies,
     )
 
+    containers_to_check = []
+    with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
+        futures = [
+            dependency_executor.submit(_bring_up_dependency, cmd, current_env, status)
+            for cmd in docker_compose_commands
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            _ = future.result()
+
     for cmd in docker_compose_commands:
-        _bring_up_dependency(cmd, current_env, status)
+        try:
+            container_names = subprocess.check_output(
+                [
+                    "docker",
+                    "compose",
+                    "-p",
+                    cmd.project_name,
+                    "-f",
+                    cmd.config_path,
+                    "ps",
+                    "--format",
+                    "{{.Name}}",
+                ],
+                text=True,
+            ).splitlines()
+            containers_to_check.extend(container_names)
+        except subprocess.CalledProcessError:
+            status.failure(
+                f"Failed to get containers to healthcheck for {cmd.project_name}"
+            )
+            exit(1)
+    check_all_containers_healthy(status, containers_to_check)
 
 
 def _create_devservices_network() -> None:
