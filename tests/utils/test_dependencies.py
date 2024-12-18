@@ -143,6 +143,7 @@ def test_git_config_manager_get_relevant_config_mostly_empty(tmp_path: Path) -> 
             "init.defaultbranch": "main",
         },
     )
+    git_config_manager.ensure_config()
     relevant_configs = git_config_manager.get_relevant_config()
     assert relevant_configs == {
         "init.defaultbranch": "main",
