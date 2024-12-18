@@ -49,24 +49,56 @@ def get_matching_containers(label: str) -> list[str]:
         ) from e
 
 
-def stop_matching_containers(label: str, should_remove: bool = False) -> None:
+def get_volumes_for_containers(containers: list[str]) -> set[str]:
     """
-    Stops all containers with the given label.
+    Returns a set of volume names for the given containers.
+    """
+    if len(containers) == 0:
+        return set()
+    try:
+        return {
+            volume
+            for volume in subprocess.check_output(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{ range .Mounts }}{{ .Name }}\n{{ end }}",
+                    *containers,
+                ],
+                stderr=subprocess.STDOUT,
+            )
+            .decode()
+            .strip()
+            .splitlines()
+            if volume
+        }
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker inspect --format '{{ range .Mounts }}{{ .Name }}\n{{ end }}' {' '.join(containers)}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+
+
+def stop_containers(containers: list[str], should_remove: bool = False) -> None:
+    """
+    Stops the given containers.
     If should_remove is True, the containers will be removed.
     """
-    matching_containers = get_matching_containers(label)
-    if len(matching_containers) == 0:
+    if len(containers) == 0:
         return
     try:
         subprocess.run(
-            ["docker", "stop"] + matching_containers,
+            ["docker", "stop"] + containers,
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
     except subprocess.CalledProcessError as e:
         raise DockerError(
-            command=f"docker stop {' '.join(matching_containers)}",
+            command=f"docker stop {' '.join(containers)}",
             returncode=e.returncode,
             stdout=e.stdout,
             stderr=e.stderr,
@@ -74,14 +106,14 @@ def stop_matching_containers(label: str, should_remove: bool = False) -> None:
     if should_remove:
         try:
             subprocess.run(
-                ["docker", "rm"] + matching_containers,
+                ["docker", "rm"] + containers,
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
         except subprocess.CalledProcessError as e:
             raise DockerError(
-                command=f"docker rm {' '.join(matching_containers)}",
+                command=f"docker rm {' '.join(containers)}",
                 returncode=e.returncode,
                 stdout=e.stdout,
                 stderr=e.stderr,
