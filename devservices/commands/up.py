@@ -25,6 +25,7 @@ from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
@@ -129,7 +130,7 @@ def _up(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
-    options = ["-d", "--wait"]
+    options = ["-d"]
     dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
@@ -146,15 +147,17 @@ def _up(
     )
 
     cmd_outputs = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
         futures = [
-            executor.submit(
+            dependency_executor.submit(
                 _bring_up_dependency, cmd, current_env, status, len(options)
             )
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
             cmd_outputs.append(future.result())
+
+    check_all_containers_healthy(status)
 
 
 def _create_devservices_network() -> None:

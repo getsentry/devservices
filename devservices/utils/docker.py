@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import concurrent.futures
 import subprocess
+import time
 
+from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
+from devservices.constants import HEALTHCHECK_INTERVAL
+from devservices.constants import HEALTHCHECK_TIMEOUT
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
+from devservices.utils.console import Status
 
 
 def check_docker_daemon_running() -> None:
@@ -19,6 +25,50 @@ def check_docker_daemon_running() -> None:
         raise DockerDaemonNotRunningError from e
 
 
+def check_all_containers_healthy(status: Status) -> None:
+    """Ensures all containers are healthy."""
+    containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
+    with concurrent.futures.ThreadPoolExecutor() as healthcheck_executor:
+        futures = [
+            healthcheck_executor.submit(wait_for_healthy, container, status)
+            for container in containers
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
+
+
+def wait_for_healthy(container_name: str, status: Status) -> None:
+    """
+    Polls a Docker container's health status until it becomes healthy or a timeout is reached.
+    """
+    start = time.time()
+    while time.time() - start < HEALTHCHECK_TIMEOUT:
+        # Run docker inspect to get the container's health status
+        try:
+            result = subprocess.check_output(
+                ["docker", "inspect", "-f", "{{.State.Health.Status}}", container_name],
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+        except subprocess.CalledProcessError as e:
+            raise DockerError(
+                command=f"docker inspect -f '{{.State.Health.Status}}' {container_name}",
+                returncode=e.returncode,
+                stdout=e.stdout,
+                stderr=e.stderr,
+            ) from e
+
+        if result == "healthy":
+            return
+
+        # If not healthy, wait and try again
+        time.sleep(HEALTHCHECK_INTERVAL)
+
+    status.failure(
+        f"Container {container_name} did not become healthy within {HEALTHCHECK_TIMEOUT} seconds."
+    )
+
+
 def get_matching_containers(label: str) -> list[str]:
     """
     Returns a list of container IDs with the given label
@@ -30,13 +80,14 @@ def get_matching_containers(label: str) -> list[str]:
                 [
                     "docker",
                     "ps",
-                    "-q",
+                    "--format",
+                    "{{.Names}}",
                     "--filter",
                     f"label={label}",
                 ],
+                text=True,
                 stderr=subprocess.DEVNULL,
             )
-            .decode()
             .strip()
             .splitlines()
         )
