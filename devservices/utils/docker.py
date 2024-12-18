@@ -78,7 +78,7 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
 
 def get_matching_containers(label: str) -> list[str]:
     """
-    Returns a list of container IDs with the given label
+    Returns a list of container names with the given label
     """
     check_docker_daemon_running()
     try:
@@ -87,7 +87,8 @@ def get_matching_containers(label: str) -> list[str]:
                 [
                     "docker",
                     "ps",
-                    "-q",
+                    "--format",
+                    "{{.Names}}",
                     "--filter",
                     f"label={label}",
                 ],
