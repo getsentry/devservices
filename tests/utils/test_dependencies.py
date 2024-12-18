@@ -139,7 +139,9 @@ def test_git_config_manager_get_relevant_config_mostly_empty(tmp_path: Path) -> 
     create_mock_git_repo("basic_repo", repo_dir)
     git_config_manager = GitConfigManager(
         str(repo_dir),
-        {},
+        {
+            "init.defaultbranch": "main",
+        },
     )
     relevant_configs = git_config_manager.get_relevant_config()
     assert relevant_configs == {
