@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
+from typing import NamedTuple
 
 MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
 DEVSERVICES_DIR_NAME = "devservices"
@@ -14,7 +15,6 @@ DEVSERVICES_DEPENDENCIES_CACHE_DIR = os.path.join(DEVSERVICES_CACHE_DIR, "depend
 DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY = "DEVSERVICES_DEPENDENCIES_CACHE_DIR"
 STATE_DB_FILE = os.path.join(DEVSERVICES_LOCAL_DIR, "state")
 DEVSERVICES_ORCHESTRATOR_LABEL = "orchestrator=devservices"
-DOCKER_COMPOSE_COMMAND_LENGTH = 7
 
 DEPENDENCY_CONFIG_VERSION = "v1"
 DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS = {
@@ -40,3 +40,10 @@ DEVSERVICES_LATEST_VERSION_CACHE_FILE = os.path.join(
 DEVSERVICES_LATEST_VERSION_CACHE_TTL = timedelta(minutes=15)
 HEALTHCHECK_TIMEOUT = 30
 HEALTHCHECK_INTERVAL = 5
+
+
+class DockerComposeCommand(NamedTuple):
+    full_command: list[str]
+    project_name: str
+    config_path: str
+    services: list[str]

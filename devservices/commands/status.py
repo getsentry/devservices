@@ -152,7 +152,7 @@ def _status(
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(run_cmd, cmd, current_env)
+            executor.submit(run_cmd, cmd.full_command, current_env)
             for cmd in docker_compose_commands
         ]
         for future in concurrent.futures.as_completed(futures):
