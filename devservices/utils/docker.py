@@ -80,8 +80,7 @@ def get_matching_containers(label: str) -> list[str]:
                 [
                     "docker",
                     "ps",
-                    "--format",
-                    "{{.Names}}",
+                    "-q",
                     "--filter",
                     f"label={label}",
                 ],

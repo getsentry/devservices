@@ -53,8 +53,7 @@ def test_get_matching_containers(
         [
             "docker",
             "ps",
-            "--format",
-            "{{.Names}}",
+            "-q",
             "--filter",
             f"label={DEVSERVICES_ORCHESTRATOR_LABEL}",
         ],
@@ -91,8 +90,7 @@ def test_get_matching_containers_error(
         [
             "docker",
             "ps",
-            "--format",
-            "{{.Names}}",
+            "-q",
             "--filter",
             f"label={DEVSERVICES_ORCHESTRATOR_LABEL}",
         ],

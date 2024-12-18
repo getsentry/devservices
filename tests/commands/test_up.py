@@ -32,7 +32,9 @@ from testing.utils import run_git_command
 )
 @mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_simple(
+    mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
@@ -90,7 +92,6 @@ def test_up_simple(
                 "clickhouse",
                 "redis",
                 "-d",
-                "--wait",
             ],
             check=True,
             capture_output=True,
@@ -99,6 +100,7 @@ def test_up_simple(
         )
 
         mock_update_started_service.assert_called_with("example-service", "default")
+        mock_check_all_containers_healthy.assert_called_once()
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
@@ -109,7 +111,9 @@ def test_up_simple(
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_dependency_error(
+    mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
@@ -149,6 +153,7 @@ def test_up_dependency_error(
             up(args)
 
         mock_create_devservices_network.assert_not_called()
+        mock_check_all_containers_healthy.assert_not_called()
         # Capture the printed output
         captured = capsys.readouterr()
 
@@ -168,7 +173,9 @@ def test_up_dependency_error(
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_error(
+    mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
@@ -205,7 +212,7 @@ def test_up_error(
         up(args)
 
     mock_create_devservices_network.assert_called_once()
-
+    mock_check_all_containers_healthy.assert_not_called()
     # Capture the printed output
     captured = capsys.readouterr()
 
@@ -232,7 +239,9 @@ def test_up_error(
 )
 @mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_mode_simple(
+    mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
@@ -289,7 +298,6 @@ def test_up_mode_simple(
                 "up",
                 "redis",
                 "-d",
-                "--wait",
             ],
             check=True,
             capture_output=True,
@@ -298,6 +306,7 @@ def test_up_mode_simple(
         )
 
         mock_update_started_service.assert_called_with("example-service", "test")
+        mock_check_all_containers_healthy.assert_called_once()
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
@@ -313,7 +322,9 @@ def test_up_mode_simple(
     ),
 )
 @mock.patch("devservices.utils.state.State.update_started_service")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_mode_does_not_exist(
+    mock_check_all_containers_healthy: mock.Mock,
     mock_update_started_service: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
@@ -359,7 +370,7 @@ def test_up_mode_does_not_exist(
         )
 
         mock_update_started_service.assert_not_called()
-
+        mock_check_all_containers_healthy.assert_not_called()
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
         assert "Starting 'example-service' in mode: 'test'" not in captured.out.strip()
@@ -375,7 +386,9 @@ def test_up_mode_does_not_exist(
         stdout="clickhouse\nredis\n",
     ),
 )
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_mutliple_modes(
+    mock_check_all_containers_healthy: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -428,7 +441,6 @@ def test_up_mutliple_modes(
                         "up",
                         "redis",
                         "-d",
-                        "--wait",
                     ],
                     check=True,
                     capture_output=True,
@@ -438,6 +450,7 @@ def test_up_mutliple_modes(
             ],
             any_order=True,
         )
+        mock_check_all_containers_healthy.assert_called_once()
 
         captured = capsys.readouterr()
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
@@ -445,7 +458,9 @@ def test_up_mutliple_modes(
         assert "Starting redis" in captured.out.strip()
 
 
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_multiple_modes_overlapping_running_service(
+    mock_check_all_containers_healthy: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -556,12 +571,12 @@ def test_up_multiple_modes_overlapping_running_service(
                             "up",
                             "clickhouse",
                             "-d",
-                            "--wait",
                         ],
                         mock.ANY,
                     ),
                 ],
             )
+        mock_check_all_containers_healthy.assert_called_once()
 
         captured = capsys.readouterr()
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
@@ -570,7 +585,9 @@ def test_up_multiple_modes_overlapping_running_service(
 
 
 @mock.patch("devservices.commands.up.find_matching_service")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_config_error(
+    mock_check_all_containers_healthy: mock.Mock,
     find_matching_service_mock: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -581,13 +598,17 @@ def test_up_config_error(
         up(args)
 
     find_matching_service_mock.assert_called_once_with("example-service")
+    mock_check_all_containers_healthy.assert_not_called()
     captured = capsys.readouterr()
     assert "Config error" in captured.out.strip()
 
 
 @mock.patch("devservices.commands.up.find_matching_service")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
 def test_up_service_not_found_error(
-    find_matching_service_mock: mock.Mock, capsys: pytest.CaptureFixture[str]
+    mock_check_all_containers_healthy: mock.Mock,
+    find_matching_service_mock: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     find_matching_service_mock.side_effect = ServiceNotFoundError("Service not found")
     args = Namespace(service_name="example-service", debug=False, mode="test")
@@ -596,5 +617,6 @@ def test_up_service_not_found_error(
         up(args)
 
     find_matching_service_mock.assert_called_once_with("example-service")
+    mock_check_all_containers_healthy.assert_not_called()
     captured = capsys.readouterr()
     assert "Service not found" in captured.out.strip()
