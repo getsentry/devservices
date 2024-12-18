@@ -66,7 +66,9 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
         if result == "healthy":
             return
         elif result == "unknown":
-            status.warning(f"Container {container_name} does not have a healthcheck.")
+            status.warning(
+                f"WARNING: Container {container_name} does not have a healthcheck"
+            )
             return
 
         # If not healthy, wait and try again
