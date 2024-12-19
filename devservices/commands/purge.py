@@ -39,13 +39,16 @@ def purge(_args: Namespace) -> None:
     state.clear_state()
     try:
         devservices_containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
-    except DockerError as e:
-        console.failure(f"Failed to get devservices containers {e}")
+    except DockerDaemonNotRunningError as e:
+        console.warning(str(e))
+        return
+    except DockerError as de:
+        console.failure(f"Failed to get devservices containers {de.stderr}")
         exit(1)
     try:
         devservices_volumes = get_volumes_for_containers(devservices_containers)
     except DockerError as e:
-        console.failure(f"Failed to get devservices volumes {e}")
+        console.failure(f"Failed to get devservices volumes {e.stderr}")
         exit(1)
     with Status(
         lambda: console.warning("Stopping all running devservices containers"),
