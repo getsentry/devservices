@@ -12,7 +12,8 @@ from devservices.exceptions import DockerError
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.docker import get_matching_containers
-from devservices.utils.docker import stop_matching_containers
+from devservices.utils.docker import get_volumes_for_containers
+from devservices.utils.docker import stop_containers
 from devservices.utils.docker import wait_for_healthy
 
 
@@ -100,16 +101,62 @@ def test_get_matching_containers_error(
     )
 
 
+@mock.patch("subprocess.check_output")
+def test_get_volumes_for_containers_empty(mock_check_output: mock.Mock) -> None:
+    assert get_volumes_for_containers([]) == set()
+    mock_check_output.assert_not_called()
+
+
+@mock.patch("subprocess.check_output")
+def test_get_volumes_for_containers(
+    mock_check_output: mock.Mock,
+) -> None:
+    mock_check_output.return_value = b"volume1\nvolume2"
+    assert get_volumes_for_containers(["container1", "container2"]) == {
+        "volume1",
+        "volume2",
+    }
+    mock_check_output.assert_called_once_with(
+        [
+            "docker",
+            "inspect",
+            "--format",
+            "{{ range .Mounts }}{{ .Name }}\n{{ end }}",
+            "container1",
+            "container2",
+        ],
+        stderr=mock.ANY,
+    )
+
+
+@mock.patch("subprocess.check_output")
+def test_get_volumes_for_containers_error(
+    mock_check_output: mock.Mock,
+) -> None:
+    mock_check_output.side_effect = subprocess.CalledProcessError(1, "cmd")
+    with pytest.raises(DockerError):
+        get_volumes_for_containers(["container1", "container2"])
+    mock_check_output.assert_called_once_with(
+        [
+            "docker",
+            "inspect",
+            "--format",
+            "{{ range .Mounts }}{{ .Name }}\n{{ end }}",
+            "container1",
+            "container2",
+        ],
+        stderr=mock.ANY,
+    )
+
+
 @mock.patch("subprocess.run")
-@mock.patch("devservices.utils.docker.get_matching_containers")
-def test_stop_matching_containers_should_not_remove(
-    mock_get_matching_containers: mock.Mock,
+def test_stop_containers_should_not_remove(
     mock_run: mock.Mock,
 ) -> None:
-    mock_get_matching_containers.return_value = ["container1", "container2"]
-    stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=False)
+    containers = ["container1", "container2"]
+    stop_containers(containers, should_remove=False)
     mock_run.assert_called_once_with(
-        ["docker", "stop", "container1", "container2"],
+        ["docker", "stop", *containers],
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -117,34 +164,29 @@ def test_stop_matching_containers_should_not_remove(
 
 
 @mock.patch("subprocess.run")
-@mock.patch("devservices.utils.docker.get_matching_containers")
-def test_stop_matching_containers_none(
-    mock_get_matching_containers: mock.Mock,
+def test_stop_containers_none(
     mock_run: mock.Mock,
 ) -> None:
-    mock_get_matching_containers.return_value = []
-    stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
+    stop_containers([], should_remove=True)
     mock_run.assert_not_called()
 
 
 @mock.patch("subprocess.run")
-@mock.patch("devservices.utils.docker.get_matching_containers")
-def test_stop_matching_containers_should_remove(
-    mock_get_matching_containers: mock.Mock,
+def test_stop_containers_should_remove(
     mock_run: mock.Mock,
 ) -> None:
-    mock_get_matching_containers.return_value = ["container1", "container2"]
-    stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
+    containers = ["container1", "container2"]
+    stop_containers(containers, should_remove=True)
     mock_run.assert_has_calls(
         [
             mock.call(
-                ["docker", "stop", "container1", "container2"],
+                ["docker", "stop", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             ),
             mock.call(
-                ["docker", "rm", "container1", "container2"],
+                ["docker", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -154,17 +196,15 @@ def test_stop_matching_containers_should_remove(
 
 
 @mock.patch("subprocess.run")
-@mock.patch("devservices.utils.docker.get_matching_containers")
-def test_stop_matching_containers_stop_error(
-    mock_get_matching_containers: mock.Mock,
+def test_stop_containers_stop_error(
     mock_run: mock.Mock,
 ) -> None:
     mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
-    mock_get_matching_containers.return_value = ["container1", "container2"]
+    containers = ["container1", "container2"]
     with pytest.raises(DockerError):
-        stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
+        stop_containers(containers, should_remove=True)
     mock_run.assert_called_once_with(
-        ["docker", "stop", "container1", "container2"],
+        ["docker", "stop", *containers],
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -172,25 +212,23 @@ def test_stop_matching_containers_stop_error(
 
 
 @mock.patch("subprocess.run")
-@mock.patch("devservices.utils.docker.get_matching_containers")
-def test_stop_matching_containers_remove_error(
-    mock_get_matching_containers: mock.Mock,
+def test_stop_containers_remove_error(
     mock_run: mock.Mock,
 ) -> None:
     mock_run.side_effect = [None, subprocess.CalledProcessError(1, "cmd")]
-    mock_get_matching_containers.return_value = ["container1", "container2"]
+    containers = ["container1", "container2"]
     with pytest.raises(DockerError):
-        stop_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL, should_remove=True)
+        stop_containers(containers, should_remove=True)
     mock_run.assert_has_calls(
         [
             mock.call(
-                ["docker", "stop", "container1", "container2"],
+                ["docker", "stop", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             ),
             mock.call(
-                ["docker", "rm", "container1", "container2"],
+                ["docker", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -241,8 +279,9 @@ def test_wait_for_healthy_initial_check_failed_then_success(
 ) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["unhealthy", "healthy"]
-    with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-        "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
+    with (
+        mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2),
+        mock.patch("devservices.utils.docker.HEALTHCHECK_INTERVAL", 1),
     ):
         wait_for_healthy("container1", mock_status)
     mock_check_output.assert_has_calls(
@@ -279,8 +318,9 @@ def test_wait_for_healthy_docker_error(mock_check_output: mock.Mock) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = subprocess.CalledProcessError(1, "cmd")
     with pytest.raises(DockerError):
-        with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-            "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
+        with (
+            mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2),
+            mock.patch("devservices.utils.docker.HEALTHCHECK_INTERVAL", 1),
         ):
             wait_for_healthy("container1", mock_status)
     mock_check_output.assert_called_once_with(
@@ -300,8 +340,9 @@ def test_wait_for_healthy_docker_error(mock_check_output: mock.Mock) -> None:
 def test_wait_for_healthy_healthcheck_failed(mock_check_output: mock.Mock) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["unhealthy", "unhealthy"]
-    with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-        "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
+    with (
+        mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2),
+        mock.patch("devservices.utils.docker.HEALTHCHECK_INTERVAL", 1),
     ):
         with pytest.raises(ContainerHealthcheckFailedError):
             wait_for_healthy("container1", mock_status)
@@ -375,8 +416,9 @@ def test_check_all_containers_healthy_failure(
 ) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["healthy", "unhealthy", "unhealthy"]
-    with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-        "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
+    with (
+        mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2),
+        mock.patch("devservices.utils.docker.HEALTHCHECK_INTERVAL", 1),
     ):
         with pytest.raises(ContainerHealthcheckFailedError):
             check_all_containers_healthy(mock_status, ["container1", "container2"])
