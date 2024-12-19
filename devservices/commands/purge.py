@@ -83,9 +83,10 @@ def purge(_args: Namespace) -> None:
                 f"name={DOCKER_NETWORK_NAME}",
                 "--format",
                 "{{.ID}}",
-            ]
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
         )
-        .decode()
         .strip()
         .splitlines()
     )
