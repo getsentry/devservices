@@ -17,6 +17,7 @@ from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import _get_non_remote_services
 from devservices.utils.docker_compose import check_docker_compose_version
+from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import install_docker_compose
 from devservices.utils.services import Service
@@ -298,17 +299,22 @@ def test_get_all_commands_to_run_simple_local(
         mode_dependencies=mode_dependencies,
     )
     assert commands == [
-        [
-            "docker",
-            "compose",
-            "-p",
-            "child-service",
-            "-f",
-            service_config_file_path,
-            "up",
-            "child-service",
-            "-d",
-        ]
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "child-service",
+                "-f",
+                service_config_file_path,
+                "up",
+                "child-service",
+                "-d",
+            ],
+            project_name="child-service",
+            config_path=service_config_file_path,
+            services=["child-service"],
+        ),
     ]
 
 
@@ -406,30 +412,44 @@ def test_get_all_commands_to_run_simple_remote(
         mode_dependencies=mode_dependencies,
     )
     assert commands == [
-        [
-            "docker",
-            "compose",
-            "-p",
-            "child-service",
-            "-f",
-            os.path.join(
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "child-service",
+                "-f",
+                os.path.join(
+                    child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+                ),
+                "up",
+                "child-service",
+                "-d",
+            ],
+            project_name="child-service",
+            config_path=os.path.join(
                 child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
             ),
-            "up",
-            "child-service",
-            "-d",
-        ],
-        [
-            "docker",
-            "compose",
-            "-p",
-            "parent-service",
-            "-f",
-            service_config_file_path,
-            "up",
-            "parent-service",
-            "-d",
-        ],
+            services=["child-service"],
+        ),
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "parent-service",
+                "-f",
+                service_config_file_path,
+                "up",
+                "parent-service",
+                "-d",
+            ],
+            project_name="parent-service",
+            config_path=os.path.join(
+                parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+            ),
+            services=["parent-service"],
+        ),
     ]
 
 
@@ -501,43 +521,66 @@ def test_get_all_commands_to_run_complex_remote(
         mode_dependencies=mode_dependencies,
     )
     assert commands == [
-        [
-            "docker",
-            "compose",
-            "-p",
-            "child-service",
-            "-f",
-            os.path.join(
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "child-service",
+                "-f",
+                os.path.join(
+                    child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+                ),
+                "up",
+                "child-service",
+                "-d",
+            ],
+            project_name="child-service",
+            config_path=os.path.join(
                 child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
             ),
-            "up",
-            "child-service",
-            "-d",
-        ],
-        [
-            "docker",
-            "compose",
-            "-p",
-            "parent-service",
-            "-f",
-            os.path.join(
+            services=["child-service"],
+        ),
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "parent-service",
+                "-f",
+                os.path.join(
+                    parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+                ),
+                "up",
+                "parent-service",
+                "-d",
+            ],
+            project_name="parent-service",
+            config_path=os.path.join(
                 parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
             ),
-            "up",
-            "parent-service",
-            "-d",
-        ],
-        [
-            "docker",
-            "compose",
-            "-p",
-            "grandparent-service",
-            "-f",
-            service_config_file_path,
-            "up",
-            "grandparent-service",
-            "-d",
-        ],
+            services=["parent-service"],
+        ),
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "grandparent-service",
+                "-f",
+                service_config_file_path,
+                "up",
+                "grandparent-service",
+                "-d",
+            ],
+            project_name="grandparent-service",
+            config_path=os.path.join(
+                grandparent_service_repo_path_str,
+                DEVSERVICES_DIR_NAME,
+                CONFIG_FILE_NAME,
+            ),
+            services=["grandparent-service"],
+        ),
     ]
 
 
@@ -610,41 +653,64 @@ def test_get_all_commands_to_run_complex_shared_dependency(
     )
 
     assert commands == [
-        [
-            "docker",
-            "compose",
-            "-p",
-            "child-service",
-            "-f",
-            os.path.join(
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "child-service",
+                "-f",
+                os.path.join(
+                    child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+                ),
+                "up",
+                "child-service",
+                "-d",
+            ],
+            project_name="child-service",
+            config_path=os.path.join(
                 child_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
             ),
-            "up",
-            "child-service",
-            "-d",
-        ],
-        [
-            "docker",
-            "compose",
-            "-p",
-            "parent-service",
-            "-f",
-            os.path.join(
+            services=["child-service"],
+        ),
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "parent-service",
+                "-f",
+                os.path.join(
+                    parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+                ),
+                "up",
+                "parent-service",
+                "-d",
+            ],
+            project_name="parent-service",
+            config_path=os.path.join(
                 parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
             ),
-            "up",
-            "parent-service",
-            "-d",
-        ],
-        [
-            "docker",
-            "compose",
-            "-p",
-            "grandparent-service",
-            "-f",
-            service_config_file_path,
-            "up",
-            "grandparent-service",
-            "-d",
-        ],
+            services=["parent-service"],
+        ),
+        DockerComposeCommand(
+            full_command=[
+                "docker",
+                "compose",
+                "-p",
+                "grandparent-service",
+                "-f",
+                service_config_file_path,
+                "up",
+                "grandparent-service",
+                "-d",
+            ],
+            project_name="grandparent-service",
+            config_path=os.path.join(
+                grandparent_service_repo_path_str,
+                DEVSERVICES_DIR_NAME,
+                CONFIG_FILE_NAME,
+            ),
+            services=["grandparent-service"],
+        ),
     ]

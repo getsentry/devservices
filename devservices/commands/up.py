@@ -13,7 +13,6 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import DOCKER_COMPOSE_COMMAND_LENGTH
 from devservices.exceptions import ConfigError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
@@ -24,6 +23,7 @@ from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
@@ -101,12 +101,12 @@ def up(args: Namespace) -> None:
 
 
 def _bring_up_dependency(
-    cmd: list[str], current_env: dict[str, str], status: Status, len_options: int
+    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
 ) -> subprocess.CompletedProcess[str]:
     # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought up
-    for dependency in cmd[DOCKER_COMPOSE_COMMAND_LENGTH:-len_options]:
+    for dependency in cmd.services:
         status.info(f"Starting {dependency}")
-    return run_cmd(cmd, current_env)
+    return run_cmd(cmd.full_command, current_env)
 
 
 def _up(
@@ -145,7 +145,7 @@ def _up(
     )
 
     for cmd in docker_compose_commands:
-        _bring_up_dependency(cmd, current_env, status, len(options))
+        _bring_up_dependency(cmd, current_env, status)
 
 
 def _create_devservices_network() -> None:
