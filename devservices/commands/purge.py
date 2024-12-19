@@ -56,8 +56,6 @@ def purge(_args: Namespace) -> None:
     ):
         try:
             stop_containers(devservices_containers, should_remove=True)
-        except DockerDaemonNotRunningError:
-            console.warning("The docker daemon is not running, no containers to stop")
         except DockerError as e:
             console.failure(f"Failed to stop running devservices containers {e.stderr}")
             exit(1)
