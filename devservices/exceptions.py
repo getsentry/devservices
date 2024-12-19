@@ -127,3 +127,14 @@ class FailedToSetGitConfigError(GitConfigError):
     """Raised when a git config cannot be set."""
 
     pass
+
+
+class ContainerHealthcheckFailedError(Exception):
+    """Raised when a container is not healthy."""
+
+    def __init__(self, container_name: str, timeout: int):
+        self.container_name = container_name
+        self.timeout = timeout
+
+    def __str__(self) -> str:
+        return f"Container {self.container_name} did not become healthy within {self.timeout} seconds."
