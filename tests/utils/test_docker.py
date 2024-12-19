@@ -45,11 +45,12 @@ def test_get_matching_containers(
     mock_check_output: mock.Mock,
 ) -> None:
     mock_check_docker_daemon_running.return_value = None
-    mock_check_output.return_value = b""
+    mock_check_output.return_value = ""
     get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
         ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
+        text=True,
         stderr=subprocess.DEVNULL,
     )
 
@@ -80,6 +81,7 @@ def test_get_matching_containers_error(
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
         ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
+        text=True,
         stderr=subprocess.DEVNULL,
     )
 
@@ -94,7 +96,7 @@ def test_get_volumes_for_containers_empty(mock_check_output: mock.Mock) -> None:
 def test_get_volumes_for_containers(
     mock_check_output: mock.Mock,
 ) -> None:
-    mock_check_output.return_value = b"volume1\nvolume2"
+    mock_check_output.return_value = "volume1\nvolume2"
     assert get_volumes_for_containers(["container1", "container2"]) == {
         "volume1",
         "volume2",
@@ -108,6 +110,7 @@ def test_get_volumes_for_containers(
             "container1",
             "container2",
         ],
+        text=True,
         stderr=mock.ANY,
     )
 
@@ -128,6 +131,7 @@ def test_get_volumes_for_containers_error(
             "container1",
             "container2",
         ],
+        text=True,
         stderr=mock.ANY,
     )
 

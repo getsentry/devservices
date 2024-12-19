@@ -34,9 +34,9 @@ def get_matching_containers(label: str) -> list[str]:
                     "--filter",
                     f"label={label}",
                 ],
+                text=True,
                 stderr=subprocess.DEVNULL,
             )
-            .decode()
             .strip()
             .splitlines()
         )
@@ -66,9 +66,9 @@ def get_volumes_for_containers(containers: list[str]) -> set[str]:
                     "{{ range .Mounts }}{{ .Name }}\n{{ end }}",
                     *containers,
                 ],
-                stderr=subprocess.STDOUT,
+                text=True,
+                stderr=subprocess.DEVNULL,
             )
-            .decode()
             .strip()
             .splitlines()
             if volume
