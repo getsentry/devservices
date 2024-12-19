@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
+from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.docker import check_all_containers_healthy
@@ -302,7 +303,8 @@ def test_wait_for_healthy_healthcheck_failed(mock_check_output: mock.Mock) -> No
     with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
         "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
     ):
-        wait_for_healthy("container1", mock_status)
+        with pytest.raises(ContainerHealthcheckFailedError):
+            wait_for_healthy("container1", mock_status)
     mock_check_output.assert_has_calls(
         [
             mock.call(
@@ -328,9 +330,6 @@ def test_wait_for_healthy_healthcheck_failed(mock_check_output: mock.Mock) -> No
                 text=True,
             ),
         ]
-    )
-    mock_status.failure.assert_called_once_with(
-        "Container container1 did not become healthy within 2 seconds."
     )
 
 
@@ -379,7 +378,8 @@ def test_check_all_containers_healthy_failure(
     with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
         "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
     ):
-        check_all_containers_healthy(mock_status, ["container1", "container2"])
+        with pytest.raises(ContainerHealthcheckFailedError):
+            check_all_containers_healthy(mock_status, ["container1", "container2"])
     mock_check_output.assert_has_calls(
         [
             mock.call(
@@ -416,7 +416,4 @@ def test_check_all_containers_healthy_failure(
                 text=True,
             ),
         ]
-    )
-    mock_status.failure.assert_called_once_with(
-        "Container container2 did not become healthy within 2 seconds."
     )

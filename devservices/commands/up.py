@@ -15,6 +15,7 @@ from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
+from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ModeDoesNotExistError
@@ -177,7 +178,11 @@ def _up(
                 f"Failed to get containers to healthcheck for {cmd.project_name}"
             )
             exit(1)
-    check_all_containers_healthy(status, containers_to_check)
+    try:
+        check_all_containers_healthy(status, containers_to_check)
+    except ContainerHealthcheckFailedError as e:
+        status.failure(str(e))
+        exit(1)
 
 
 def _create_devservices_network() -> None:

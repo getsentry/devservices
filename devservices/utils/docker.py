@@ -6,6 +6,7 @@ import time
 
 from devservices.constants import HEALTHCHECK_INTERVAL
 from devservices.constants import HEALTHCHECK_TIMEOUT
+from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.console import Status
@@ -57,7 +58,7 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
             ).strip()
         except subprocess.CalledProcessError as e:
             raise DockerError(
-                command=f"docker inspect -f '{{.State.Health.Status}}' {container_name}",
+                command=f"docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' {container_name}",
                 returncode=e.returncode,
                 stdout=e.stdout,
                 stderr=e.stderr,
@@ -74,9 +75,7 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
         # If not healthy, wait and try again
         time.sleep(HEALTHCHECK_INTERVAL)
 
-    status.failure(
-        f"Container {container_name} did not become healthy within {HEALTHCHECK_TIMEOUT} seconds."
-    )
+    raise ContainerHealthcheckFailedError(container_name, HEALTHCHECK_TIMEOUT)
 
 
 def get_matching_containers(label: str) -> list[str]:
