@@ -138,5 +138,3 @@ class ContainerHealthcheckFailedError(Exception):
 
     def __str__(self) -> str:
         return f"Container {self.container_name} did not become healthy within {self.timeout} seconds."
-
-    pass
