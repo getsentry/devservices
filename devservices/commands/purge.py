@@ -64,13 +64,17 @@ def purge(_args: Namespace) -> None:
     if len(devservices_volumes) == 0:
         console.success("No devservices volumes found to remove")
     else:
-        subprocess.run(
-            ["docker", "volume", "rm", *devservices_volumes],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        console.success("All devservices volumes removed")
+        try:
+            subprocess.run(
+                ["docker", "volume", "rm", *devservices_volumes],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            console.success("All devservices volumes removed")
+        except subprocess.CalledProcessError as e:
+            # We don't want to exit here since we still want to try to remove the networks
+            console.failure(f"Failed to remove devservices volumes {e.stderr}")
 
     console.warning("Removing any devservices networks")
     devservices_networks = (
