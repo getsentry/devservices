@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from typing import TextIO
 from typing import TypeGuard
 
+from sentry_sdk import set_context
+
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.configs.service_config import RemoteConfig
@@ -35,6 +37,17 @@ from devservices.utils.file_lock import lock
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
 from devservices.utils.state import State
+
+RELEVANT_GIT_CONFIG_KEYS = [
+    "init.defaultbranch",
+    "core.sparsecheckout",
+    "remote.origin.url",
+    "remote.origin.fetch",
+    "remote.origin.promisor",
+    "remote.origin.partialclonefilter",
+    "protocol.version",
+    "extensions.partialclone",
+]
 
 
 class DependencyGraph:
@@ -148,6 +161,28 @@ class GitConfigManager:
 
         if self.sparse_pattern:
             self.sparse_checkout_manager.set_sparse_checkout(self.sparse_pattern)
+
+    def get_relevant_config(self) -> dict[str, str]:
+        """
+        Get the relevant git config entries (to avoid logging sensitive information)
+        """
+        git_config = (
+            subprocess.check_output(
+                ["git", "config", "--list"],
+                cwd=self.repo_dir,
+                stderr=subprocess.PIPE,
+            )
+            .decode()
+            .strip()
+        )
+        git_config_dict = dict()
+        for line in git_config.split("\n"):
+            if not line:
+                continue
+            key, value = line.split("=")
+            if key in RELEVANT_GIT_CONFIG_KEYS:
+                git_config_dict[key] = value
+        return git_config_dict
 
     def _set_config(self, key: str, value: str) -> None:
         """
@@ -411,12 +446,15 @@ def _update_dependency(
             repo_link=dependency.repo_link,
             branch=dependency.branch,
         ) from e
+
     try:
         _run_command(
             ["git", "fetch", "origin", dependency.branch, "--filter=blob:none"],
             cwd=dependency_repo_dir,
         )
     except subprocess.CalledProcessError as e:
+        # Try to set the git config context to help with debugging
+        _try_set_git_config_context(git_config_manager)
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
@@ -534,6 +572,17 @@ def _run_command(
     logger = logging.getLogger(LOGGER_NAME)
     logger.debug(f"Running command: {' '.join(cmd)} in {cwd}")
     subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.DEVNULL)
+
+
+def _try_set_git_config_context(
+    git_config_manager: GitConfigManager,
+) -> None:
+    try:
+        git_config = git_config_manager.get_relevant_config()
+        set_context("git_config", git_config)
+    except subprocess.CalledProcessError as e:
+        logger = logging.getLogger(LOGGER_NAME)
+        logger.exception(e)
 
 
 def get_remote_dependency_config(remote_config: RemoteConfig) -> ServiceConfig:

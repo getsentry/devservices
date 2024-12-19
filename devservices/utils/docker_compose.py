@@ -7,6 +7,7 @@ import re
 import subprocess
 from collections.abc import Callable
 from typing import cast
+from typing import NamedTuple
 
 from packaging import version
 
@@ -15,7 +16,6 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
-from devservices.constants import DockerComposeCommand
 from devservices.constants import LOGGER_NAME
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
@@ -26,6 +26,13 @@ from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
+
+
+class DockerComposeCommand(NamedTuple):
+    full_command: list[str]
+    project_name: str
+    config_path: str
+    services: list[str]
 
 
 def install_docker_compose() -> None:
