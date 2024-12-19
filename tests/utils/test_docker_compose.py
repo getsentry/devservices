@@ -10,7 +10,6 @@ import pytest
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import DockerComposeCommand
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
@@ -18,6 +17,7 @@ from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import _get_non_remote_services
 from devservices.utils.docker_compose import check_docker_compose_version
+from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import install_docker_compose
 from devservices.utils.services import Service

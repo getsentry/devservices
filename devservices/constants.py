@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
-from typing import NamedTuple
 
 MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
 DEVSERVICES_DIR_NAME = "devservices"
@@ -38,10 +37,3 @@ DEVSERVICES_LATEST_VERSION_CACHE_FILE = os.path.join(
     DEVSERVICES_CACHE_DIR, "latest_version.txt"
 )
 DEVSERVICES_LATEST_VERSION_CACHE_TTL = timedelta(minutes=15)
-
-
-class DockerComposeCommand(NamedTuple):
-    full_command: list[str]
-    project_name: str
-    config_path: str
-    services: list[str]
