@@ -95,6 +95,32 @@ def install_docker_compose() -> None:
     console.success(f"Verified Docker Compose installation: v{version}")
 
 
+def get_container_names_for_project(project_name: str, config_path: str) -> list[str]:
+    try:
+        container_names = subprocess.check_output(
+            [
+                "docker",
+                "compose",
+                "-p",
+                project_name,
+                "-f",
+                config_path,
+                "ps",
+                "--format",
+                "{{.Name}}",
+            ],
+            text=True,
+        ).splitlines()
+    except subprocess.CalledProcessError as e:
+        raise DockerComposeError(
+            command=f"docker compose -p {project_name} -f {config_path} ps --format {{.Name}}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+    return container_names
+
+
 def check_docker_compose_version() -> None:
     console = Console()
     # Throw an error if docker daemon isn't running

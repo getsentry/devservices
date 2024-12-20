@@ -27,6 +27,7 @@ from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker_compose import DockerComposeCommand
+from devservices.utils.docker_compose import get_container_names_for_project
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
@@ -158,24 +159,13 @@ def _up(
 
     for cmd in docker_compose_commands:
         try:
-            container_names = subprocess.check_output(
-                [
-                    "docker",
-                    "compose",
-                    "-p",
-                    cmd.project_name,
-                    "-f",
-                    cmd.config_path,
-                    "ps",
-                    "--format",
-                    "{{.Name}}",
-                ],
-                text=True,
-            ).splitlines()
+            container_names = get_container_names_for_project(
+                cmd.project_name, cmd.config_path
+            )
             containers_to_check.extend(container_names)
-        except subprocess.CalledProcessError:
+        except DockerComposeError as dce:
             status.failure(
-                f"Failed to get containers to healthcheck for {cmd.project_name}"
+                f"Failed to get containers to healthcheck for {cmd.project_name}: {dce.stderr}"
             )
             exit(1)
     try:
