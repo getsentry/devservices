@@ -55,7 +55,6 @@ def test_get_matching_containers(
         ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
         text=True,
         stderr=subprocess.DEVNULL,
-        text=True,
     )
 
 
@@ -87,7 +86,6 @@ def test_get_matching_containers_error(
         ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
         text=True,
         stderr=subprocess.DEVNULL,
-        text=True,
     )
 
 
