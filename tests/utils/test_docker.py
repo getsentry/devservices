@@ -336,7 +336,7 @@ def test_wait_for_healthy_no_healthcheck(mock_check_output: mock.Mock) -> None:
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
-@mock.patch("time.sleep")
+@mock.patch("devservices.utils.docker.time.sleep")
 def test_wait_for_healthy_initial_check_failed_then_success(
     mock_sleep: mock.Mock,
     mock_check_output: mock.Mock,
@@ -344,13 +344,7 @@ def test_wait_for_healthy_initial_check_failed_then_success(
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["unhealthy", "healthy"]
 
-    with (
-        mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", HEALTHCHECK_TIMEOUT),
-        mock.patch(
-            "devservices.utils.docker.HEALTHCHECK_INTERVAL", HEALTHCHECK_INTERVAL
-        ),
-        freeze_time("2024-05-14 00:00:00") as frozen_time,
-    ):
+    with (freeze_time("2024-05-14 00:00:00") as frozen_time,):
         mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
         wait_for_healthy("container1", mock_status)
 
@@ -380,12 +374,12 @@ def test_wait_for_healthy_initial_check_failed_then_success(
             ),
         ]
     )
-    mock_sleep.assert_called_once_with(5)
+    mock_sleep.assert_called_once_with(HEALTHCHECK_INTERVAL)
     mock_status.failure.assert_not_called()
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
-@mock.patch("time.sleep")
+@mock.patch("devservices.utils.docker.time.sleep")
 def test_wait_for_healthy_docker_error(
     mock_sleep: mock.Mock,
     mock_check_output: mock.Mock,
@@ -393,13 +387,7 @@ def test_wait_for_healthy_docker_error(
     mock_status = mock.Mock()
     mock_check_output.side_effect = subprocess.CalledProcessError(1, "cmd")
     with pytest.raises(DockerError):
-        with mock.patch(
-            "devservices.utils.docker.HEALTHCHECK_TIMEOUT", HEALTHCHECK_TIMEOUT
-        ), mock.patch(
-            "devservices.utils.docker.HEALTHCHECK_INTERVAL", HEALTHCHECK_INTERVAL
-        ), freeze_time(
-            "2024-05-14 00:00:00"
-        ) as frozen_time:
+        with freeze_time("2024-05-14 00:00:00") as frozen_time:
             mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
             wait_for_healthy("container1", mock_status)
     mock_check_output.assert_called_once_with(

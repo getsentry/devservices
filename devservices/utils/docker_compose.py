@@ -111,6 +111,7 @@ def get_container_names_for_project(project_name: str, config_path: str) -> list
             ],
             text=True,
         ).splitlines()
+        return container_names
     except subprocess.CalledProcessError as e:
         raise DockerComposeError(
             command=f"docker compose -p {project_name} -f {config_path} ps --format {{.Name}}",
@@ -118,7 +119,6 @@ def get_container_names_for_project(project_name: str, config_path: str) -> list
             stdout=e.stdout,
             stderr=e.stderr,
         ) from e
-    return container_names
 
 
 def check_docker_compose_version() -> None:
