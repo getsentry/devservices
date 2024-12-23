@@ -291,6 +291,71 @@ def test_purge_docker_error_stop_containers(
 @mock.patch("devservices.commands.purge.get_matching_networks")
 @mock.patch("devservices.commands.purge.stop_containers")
 @mock.patch("devservices.commands.purge.remove_docker_resources")
+def test_purge_docker_error_remove_volumes_continues_to_remove_networks(
+    mock_remove_docker_resources: mock.Mock,
+    mock_stop_containers: mock.Mock,
+    mock_get_matching_networks: mock.Mock,
+    mock_get_volumes_for_containers: mock.Mock,
+    mock_get_matching_containers: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_get_matching_containers.return_value = ["abc", "def", "ghi"]
+    mock_get_volumes_for_containers.return_value = ["jkl", "mno", "pqr"]
+    mock_get_matching_networks.return_value = ["devservices"]
+    mock_remove_docker_resources.side_effect = [
+        DockerError("command", 1, "output", "stderr"),
+        None,
+    ]
+    with (
+        mock.patch(
+            "devservices.commands.purge.DEVSERVICES_CACHE_DIR",
+            str(tmp_path / ".devservices-cache"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        # Create a cache file to test purging
+        cache_dir = tmp_path / ".devservices-cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_file = tmp_path / ".devservices-cache" / "test.txt"
+        cache_file.write_text("This is a test cache file.")
+
+        state = State()
+        state.update_started_service("test-service", "test-mode")
+
+        assert cache_file.exists()
+        assert state.get_started_services() == ["test-service"]
+
+        args = Namespace()
+        purge(args)
+
+        assert not cache_file.exists()
+        assert state.get_started_services() == []
+
+        mock_get_matching_containers.assert_called_once_with(
+            DEVSERVICES_ORCHESTRATOR_LABEL
+        )
+        mock_get_volumes_for_containers.assert_called_once_with(["abc", "def", "ghi"])
+        mock_stop_containers.assert_called_once_with(
+            ["abc", "def", "ghi"], should_remove=True
+        )
+        mock_get_matching_networks.assert_called_once_with(DOCKER_NETWORK_NAME)
+        mock_remove_docker_resources.assert_has_calls(
+            [
+                mock.call("volume", ["jkl", "mno", "pqr"]),
+                mock.call("network", ["devservices"]),
+            ]
+        )
+
+        captured = capsys.readouterr()
+        assert "Failed to remove devservices volumes stderr" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.purge.get_matching_containers")
+@mock.patch("devservices.commands.purge.get_volumes_for_containers")
+@mock.patch("devservices.commands.purge.get_matching_networks")
+@mock.patch("devservices.commands.purge.stop_containers")
+@mock.patch("devservices.commands.purge.remove_docker_resources")
 def test_purge_docker_error_remove_networks(
     mock_remove_docker_resources: mock.Mock,
     mock_stop_containers: mock.Mock,
