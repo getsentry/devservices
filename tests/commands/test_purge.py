@@ -349,19 +349,7 @@ def test_purge_with_cache_and_state_and_running_containers_with_networks_and_vol
                     stderr=mock.ANY,
                 ),
                 mock.call(
-                    ["docker", "network", "rm", "abc"],
-                    check=True,
-                    stdout=mock.ANY,
-                    stderr=mock.ANY,
-                ),
-                mock.call(
-                    ["docker", "network", "rm", "def"],
-                    check=True,
-                    stdout=mock.ANY,
-                    stderr=mock.ANY,
-                ),
-                mock.call(
-                    ["docker", "network", "rm", "ghe"],
+                    ["docker", "network", "rm", "abc", "def", "ghe"],
                     check=True,
                     stdout=mock.ANY,
                     stderr=mock.ANY,

@@ -49,6 +49,38 @@ def get_matching_containers(label: str) -> list[str]:
         ) from e
 
 
+def get_matching_networks(name: str) -> list[str]:
+    """
+    Returns a list of network IDs with the given name
+    """
+    check_docker_daemon_running()
+    try:
+        return (
+            subprocess.check_output(
+                [
+                    "docker",
+                    "network",
+                    "ls",
+                    "--filter",
+                    f"name={name}",
+                    "--format",
+                    "{{.ID}}",
+                ],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+            .strip()
+            .splitlines()
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker network ls --filter name={name} --format '{{.ID}}'",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+
+
 def get_volumes_for_containers(containers: list[str]) -> set[str]:
     """
     Returns a set of volume names for the given containers.

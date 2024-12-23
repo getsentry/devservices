@@ -15,6 +15,7 @@ from devservices.exceptions import DockerError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.docker import get_matching_containers
+from devservices.utils.docker import get_matching_networks
 from devservices.utils.docker import get_volumes_for_containers
 from devservices.utils.docker import stop_containers
 from devservices.utils.state import State
@@ -77,32 +78,24 @@ def purge(_args: Namespace) -> None:
             console.failure(f"Failed to remove devservices volumes {e.stderr}")
 
     console.warning("Removing any devservices networks")
-    devservices_networks = (
-        subprocess.check_output(
-            [
-                "docker",
-                "network",
-                "ls",
-                "--filter",
-                f"name={DOCKER_NETWORK_NAME}",
-                "--format",
-                "{{.ID}}",
-            ],
-            text=True,
-            stderr=subprocess.DEVNULL,
-        )
-        .strip()
-        .splitlines()
-    )
+    try:
+        devservices_networks = get_matching_networks(DOCKER_NETWORK_NAME)
+    except DockerError as e:
+        console.failure(f"Failed to get devservices networks {e.stderr}")
+        exit(1)
     if len(devservices_networks) == 0:
         console.success("No devservices networks found to remove")
-    for network in devservices_networks:
-        subprocess.run(
-            ["docker", "network", "rm", network],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        console.success(f"Network {network} removed")
+    else:
+        try:
+            subprocess.run(
+                ["docker", "network", "rm", *devservices_networks],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            console.success("All devservices networks removed")
+        except subprocess.CalledProcessError as e:
+            console.failure(f"Failed to remove devservices networks {e.stderr}")
+            exit(1)
 
     console.success("The local devservices cache and state has been purged")
