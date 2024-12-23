@@ -173,7 +173,7 @@ def test_stop_containers_should_remove(
                 stderr=subprocess.DEVNULL,
             ),
             mock.call(
-                ["docker", "rm", *containers],
+                ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -215,7 +215,7 @@ def test_stop_containers_remove_error(
                 stderr=subprocess.DEVNULL,
             ),
             mock.call(
-                ["docker", "rm", *containers],
+                ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
