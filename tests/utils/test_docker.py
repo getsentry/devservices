@@ -6,10 +6,12 @@ from unittest import mock
 import pytest
 
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
+from devservices.constants import DOCKER_NETWORK_NAME
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.docker import get_matching_containers
+from devservices.utils.docker import get_matching_networks
 from devservices.utils.docker import get_volumes_for_containers
 from devservices.utils.docker import stop_containers
 
@@ -45,14 +47,41 @@ def test_get_matching_containers(
     mock_check_output: mock.Mock,
 ) -> None:
     mock_check_docker_daemon_running.return_value = None
-    mock_check_output.return_value = ""
-    get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
+    mock_check_output.return_value = "container1\ncontainer2"
+    matching_containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
         ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
         text=True,
         stderr=subprocess.DEVNULL,
     )
+    assert matching_containers == ["container1", "container2"]
+
+
+@mock.patch("subprocess.check_output")
+@mock.patch("devservices.utils.docker.check_docker_daemon_running")
+def test_get_matching_networks(
+    mock_check_docker_daemon_running: mock.Mock,
+    mock_check_output: mock.Mock,
+) -> None:
+    mock_check_docker_daemon_running.return_value = None
+    mock_check_output.return_value = "network1\nnetwork2"
+    matching_networks = get_matching_networks(DOCKER_NETWORK_NAME)
+    mock_check_docker_daemon_running.assert_called_once()
+    mock_check_output.assert_called_once_with(
+        [
+            "docker",
+            "network",
+            "ls",
+            "--filter",
+            f"name={DOCKER_NETWORK_NAME}",
+            "--format",
+            "{{.ID}}",
+        ],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+    assert matching_networks == ["network1", "network2"]
 
 
 @mock.patch("subprocess.check_output")
@@ -70,6 +99,19 @@ def test_get_matching_containers_docker_daemon_not_running(
 
 @mock.patch("subprocess.check_output")
 @mock.patch("devservices.utils.docker.check_docker_daemon_running")
+def test_get_matching_networks_docker_daemon_not_running(
+    mock_check_docker_daemon_running: mock.Mock,
+    mock_check_output: mock.Mock,
+) -> None:
+    mock_check_docker_daemon_running.side_effect = DockerDaemonNotRunningError()
+    with pytest.raises(DockerDaemonNotRunningError):
+        get_matching_networks(DOCKER_NETWORK_NAME)
+    mock_check_docker_daemon_running.assert_called_once()
+    mock_check_output.assert_not_called()
+
+
+@mock.patch("subprocess.check_output")
+@mock.patch("devservices.utils.docker.check_docker_daemon_running")
 def test_get_matching_containers_error(
     mock_check_docker_daemon_running: mock.Mock,
     mock_check_output: mock.Mock,
@@ -81,6 +123,32 @@ def test_get_matching_containers_error(
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
         ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@mock.patch("subprocess.check_output")
+@mock.patch("devservices.utils.docker.check_docker_daemon_running")
+def test_get_matching_networks_error(
+    mock_check_docker_daemon_running: mock.Mock,
+    mock_check_output: mock.Mock,
+) -> None:
+    mock_check_docker_daemon_running.return_value = None
+    mock_check_output.side_effect = subprocess.CalledProcessError(1, "cmd")
+    with pytest.raises(DockerError):
+        get_matching_networks(DOCKER_NETWORK_NAME)
+    mock_check_docker_daemon_running.assert_called_once()
+    mock_check_output.assert_called_once_with(
+        [
+            "docker",
+            "network",
+            "ls",
+            "--filter",
+            f"name={DOCKER_NETWORK_NAME}",
+            "--format",
+            "{{.ID}}",
+        ],
         text=True,
         stderr=subprocess.DEVNULL,
     )
@@ -173,7 +241,7 @@ def test_stop_containers_should_remove(
                 stderr=subprocess.DEVNULL,
             ),
             mock.call(
-                ["docker", "rm", *containers],
+                ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -215,7 +283,7 @@ def test_stop_containers_remove_error(
                 stderr=subprocess.DEVNULL,
             ),
             mock.call(
-                ["docker", "rm", *containers],
+                ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

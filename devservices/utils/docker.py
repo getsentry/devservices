@@ -49,6 +49,38 @@ def get_matching_containers(label: str) -> list[str]:
         ) from e
 
 
+def get_matching_networks(name: str) -> list[str]:
+    """
+    Returns a list of network IDs with the given name
+    """
+    check_docker_daemon_running()
+    try:
+        return (
+            subprocess.check_output(
+                [
+                    "docker",
+                    "network",
+                    "ls",
+                    "--filter",
+                    f"name={name}",
+                    "--format",
+                    "{{.ID}}",
+                ],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+            .strip()
+            .splitlines()
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker network ls --filter name={name} --format '{{.ID}}'",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
+
+
 def get_volumes_for_containers(containers: list[str]) -> set[str]:
     """
     Returns a set of volume names for the given containers.
@@ -104,17 +136,24 @@ def stop_containers(containers: list[str], should_remove: bool = False) -> None:
             stderr=e.stderr,
         ) from e
     if should_remove:
-        try:
-            subprocess.run(
-                ["docker", "rm"] + containers,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError as e:
-            raise DockerError(
-                command=f"docker rm {' '.join(containers)}",
-                returncode=e.returncode,
-                stdout=e.stdout,
-                stderr=e.stderr,
-            ) from e
+        remove_docker_resources("container", containers)
+
+
+def remove_docker_resources(resource_type: str, resources: list[str]) -> None:
+    """
+    Removes the given Docker resources.
+    """
+    try:
+        subprocess.run(
+            ["docker", resource_type, "rm", *resources],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker {resource_type} rm {' '.join(resources)}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
