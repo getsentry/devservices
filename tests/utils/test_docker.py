@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import timedelta
 from unittest import mock
 
 import pytest
+from freezegun import freeze_time
 
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
+from devservices.constants import HEALTHCHECK_INTERVAL
+from devservices.constants import HEALTHCHECK_TIMEOUT
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
@@ -264,15 +268,24 @@ def test_wait_for_healthy_no_healthcheck(mock_check_output: mock.Mock) -> None:
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
+@mock.patch("time.sleep")
 def test_wait_for_healthy_initial_check_failed_then_success(
+    mock_sleep: mock.Mock,
     mock_check_output: mock.Mock,
 ) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["unhealthy", "healthy"]
-    with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-        "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
+
+    with (
+        mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", HEALTHCHECK_TIMEOUT),
+        mock.patch(
+            "devservices.utils.docker.HEALTHCHECK_INTERVAL", HEALTHCHECK_INTERVAL
+        ),
+        freeze_time("2024-05-14 00:00:00") as frozen_time,
     ):
+        mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
         wait_for_healthy("container1", mock_status)
+
     mock_check_output.assert_has_calls(
         [
             mock.call(
@@ -299,17 +312,27 @@ def test_wait_for_healthy_initial_check_failed_then_success(
             ),
         ]
     )
+    mock_sleep.assert_called_once_with(5)
     mock_status.failure.assert_not_called()
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
-def test_wait_for_healthy_docker_error(mock_check_output: mock.Mock) -> None:
+@mock.patch("time.sleep")
+def test_wait_for_healthy_docker_error(
+    mock_sleep: mock.Mock,
+    mock_check_output: mock.Mock,
+) -> None:
     mock_status = mock.Mock()
     mock_check_output.side_effect = subprocess.CalledProcessError(1, "cmd")
     with pytest.raises(DockerError):
-        with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-            "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
-        ):
+        with mock.patch(
+            "devservices.utils.docker.HEALTHCHECK_TIMEOUT", HEALTHCHECK_TIMEOUT
+        ), mock.patch(
+            "devservices.utils.docker.HEALTHCHECK_INTERVAL", HEALTHCHECK_INTERVAL
+        ), freeze_time(
+            "2024-05-14 00:00:00"
+        ) as frozen_time:
+            mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
             wait_for_healthy("container1", mock_status)
     mock_check_output.assert_called_once_with(
         [
@@ -325,13 +348,18 @@ def test_wait_for_healthy_docker_error(mock_check_output: mock.Mock) -> None:
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
-def test_wait_for_healthy_healthcheck_failed(mock_check_output: mock.Mock) -> None:
+@mock.patch("devservices.utils.docker.time.sleep")
+def test_wait_for_healthy_healthcheck_failed(
+    mock_sleep: mock.Mock,
+    mock_check_output: mock.Mock,
+) -> None:
     mock_status = mock.Mock()
-    mock_check_output.side_effect = ["unhealthy", "unhealthy"]
-    with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-        "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
-    ):
+    mock_check_output.return_value = "unhealthy"
+    with freeze_time("2024-05-14 00:00:00") as frozen_time:
         with pytest.raises(ContainerHealthcheckFailedError):
+            mock_sleep.side_effect = lambda _: frozen_time.tick(
+                timedelta(seconds=HEALTHCHECK_TIMEOUT / 2)
+            )
             wait_for_healthy("container1", mock_status)
     mock_check_output.assert_has_calls(
         [
@@ -361,87 +389,35 @@ def test_wait_for_healthy_healthcheck_failed(mock_check_output: mock.Mock) -> No
     )
 
 
-@mock.patch("devservices.utils.docker.subprocess.check_output")
+@mock.patch("devservices.utils.docker.wait_for_healthy")
 def test_check_all_containers_healthy_success(
-    mock_check_output: mock.Mock,
+    mock_wait_for_healthy: mock.Mock,
 ) -> None:
     mock_status = mock.Mock()
-    mock_check_output.side_effect = ["healthy", "healthy"]
+    mock_wait_for_healthy.side_effect = [None, None]
     check_all_containers_healthy(mock_status, ["container1", "container2"])
-    mock_check_output.assert_has_calls(
+    mock_wait_for_healthy.assert_has_calls(
         [
-            mock.call(
-                [
-                    "docker",
-                    "inspect",
-                    "-f",
-                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container1",
-                ],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ),
-            mock.call(
-                [
-                    "docker",
-                    "inspect",
-                    "-f",
-                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container2",
-                ],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ),
+            mock.call("container1", mock_status),
+            mock.call("container2", mock_status),
         ]
     )
-    mock_status.failure.assert_not_called()
 
 
-@mock.patch("devservices.utils.docker.subprocess.check_output")
+@mock.patch("devservices.utils.docker.wait_for_healthy")
 def test_check_all_containers_healthy_failure(
-    mock_check_output: mock.Mock,
+    mock_wait_for_healthy: mock.Mock,
 ) -> None:
     mock_status = mock.Mock()
-    mock_check_output.side_effect = ["healthy", "unhealthy", "unhealthy"]
-    with mock.patch("devservices.utils.docker.HEALTHCHECK_TIMEOUT", 2), mock.patch(
-        "devservices.utils.docker.HEALTHCHECK_INTERVAL", 1
-    ):
-        with pytest.raises(ContainerHealthcheckFailedError):
-            check_all_containers_healthy(mock_status, ["container1", "container2"])
-    mock_check_output.assert_has_calls(
+    mock_wait_for_healthy.side_effect = [
+        None,
+        ContainerHealthcheckFailedError("container2", HEALTHCHECK_TIMEOUT),
+    ]
+    with pytest.raises(ContainerHealthcheckFailedError):
+        check_all_containers_healthy(mock_status, ["container1", "container2"])
+    mock_wait_for_healthy.assert_has_calls(
         [
-            mock.call(
-                [
-                    "docker",
-                    "inspect",
-                    "-f",
-                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container1",
-                ],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ),
-            mock.call(
-                [
-                    "docker",
-                    "inspect",
-                    "-f",
-                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container2",
-                ],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ),
-            mock.call(
-                [
-                    "docker",
-                    "inspect",
-                    "-f",
-                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container2",
-                ],
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ),
+            mock.call("container1", mock_status),
+            mock.call("container2", mock_status),
         ]
     )
