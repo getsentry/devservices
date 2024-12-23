@@ -136,17 +136,24 @@ def stop_containers(containers: list[str], should_remove: bool = False) -> None:
             stderr=e.stderr,
         ) from e
     if should_remove:
-        try:
-            subprocess.run(
-                ["docker", "rm"] + containers,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except subprocess.CalledProcessError as e:
-            raise DockerError(
-                command=f"docker rm {' '.join(containers)}",
-                returncode=e.returncode,
-                stdout=e.stdout,
-                stderr=e.stderr,
-            ) from e
+        remove_docker_resources("container", containers)
+
+
+def remove_docker_resources(resource_type: str, resources: list[str]) -> None:
+    """
+    Removes the given Docker resources.
+    """
+    try:
+        subprocess.run(
+            ["docker", resource_type, "rm", *resources],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerError(
+            command=f"docker {resource_type} rm {' '.join(resources)}",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        ) from e
