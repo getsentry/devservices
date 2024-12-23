@@ -74,7 +74,7 @@ def test_purge_docker_daemon_not_running(
 @mock.patch("devservices.commands.purge.get_volumes_for_containers")
 @mock.patch("devservices.commands.purge.stop_containers")
 @mock.patch("devservices.commands.purge.subprocess.run")
-def test_purge_docker_error_find_matching_containers(
+def test_purge_docker_error_get_matching_containers(
     mock_run: mock.Mock,
     mock_stop_containers: mock.Mock,
     mock_get_volumes_for_containers: mock.Mock,
