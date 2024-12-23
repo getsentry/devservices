@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -15,7 +14,9 @@ from devservices.exceptions import DockerError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.docker import get_matching_containers
+from devservices.utils.docker import get_matching_networks
 from devservices.utils.docker import get_volumes_for_containers
+from devservices.utils.docker import remove_docker_resources
 from devservices.utils.docker import stop_containers
 from devservices.utils.state import State
 
@@ -65,44 +66,26 @@ def purge(_args: Namespace) -> None:
         console.success("No devservices volumes found to remove")
     else:
         try:
-            subprocess.run(
-                ["docker", "volume", "rm", *devservices_volumes],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            remove_docker_resources("volume", list(devservices_volumes))
             console.success("All devservices volumes removed")
-        except subprocess.CalledProcessError as e:
+        except DockerError as e:
             # We don't want to exit here since we still want to try to remove the networks
             console.failure(f"Failed to remove devservices volumes {e.stderr}")
 
     console.warning("Removing any devservices networks")
-    devservices_networks = (
-        subprocess.check_output(
-            [
-                "docker",
-                "network",
-                "ls",
-                "--filter",
-                f"name={DOCKER_NETWORK_NAME}",
-                "--format",
-                "{{.ID}}",
-            ],
-            text=True,
-            stderr=subprocess.DEVNULL,
-        )
-        .strip()
-        .splitlines()
-    )
+    try:
+        devservices_networks = get_matching_networks(DOCKER_NETWORK_NAME)
+    except DockerError as e:
+        console.failure(f"Failed to get devservices networks {e.stderr}")
+        exit(1)
     if len(devservices_networks) == 0:
         console.success("No devservices networks found to remove")
-    for network in devservices_networks:
-        subprocess.run(
-            ["docker", "network", "rm", network],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        console.success(f"Network {network} removed")
+    else:
+        try:
+            remove_docker_resources("network", devservices_networks)
+            console.success("All devservices networks removed")
+        except DockerError as e:
+            console.failure(f"Failed to remove devservices networks {e.stderr}")
+            exit(1)
 
     console.success("The local devservices cache and state has been purged")

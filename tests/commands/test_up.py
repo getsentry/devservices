@@ -99,6 +99,8 @@ def test_up_simple(
                 "clickhouse",
                 "redis",
                 "-d",
+                "--pull",
+                "always",
             ],
             check=True,
             capture_output=True,
@@ -168,6 +170,8 @@ def test_up_dependency_error(
 
         mock_update_started_service.assert_not_called()
 
+        mock_run.assert_not_called()
+
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
         assert (
@@ -228,6 +232,22 @@ def test_up_error(
     )
 
     mock_update_started_service.assert_not_called()
+
+    mock_run.assert_called_with(
+        [
+            "docker",
+            "compose",
+            "-f",
+            f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+            "config",
+            "--services",
+        ],
+        stdout=subprocess.PIPE,
+        timeout=None,
+        check=True,
+        text=True,
+        env=mock.ANY,
+    )
 
     captured = capsys.readouterr()
     assert "Retrieving dependencies" not in captured.out.strip()
@@ -315,6 +335,8 @@ def test_up_docker_compose_container_lookup_error(
                 "clickhouse",
                 "redis",
                 "-d",
+                "--pull",
+                "always",
             ],
             check=True,
             capture_output=True,
@@ -418,6 +440,8 @@ def test_up_docker_compose_container_healthcheck_failed(
                 "clickhouse",
                 "redis",
                 "-d",
+                "--pull",
+                "always",
             ],
             check=True,
             capture_output=True,
@@ -512,6 +536,8 @@ def test_up_mode_simple(
                 "up",
                 "redis",
                 "-d",
+                "--pull",
+                "always",
             ],
             check=True,
             capture_output=True,
@@ -585,6 +611,9 @@ def test_up_mode_does_not_exist(
 
         mock_update_started_service.assert_not_called()
         mock_check_all_containers_healthy.assert_not_called()
+
+        mock_run.assert_not_called()
+
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
         assert "Starting 'example-service' in mode: 'test'" not in captured.out.strip()
@@ -655,6 +684,8 @@ def test_up_mutliple_modes(
                         "up",
                         "redis",
                         "-d",
+                        "--pull",
+                        "always",
                     ],
                     check=True,
                     capture_output=True,
@@ -785,6 +816,8 @@ def test_up_multiple_modes_overlapping_running_service(
                             "up",
                             "clickhouse",
                             "-d",
+                            "--pull",
+                            "always",
                         ],
                         mock.ANY,
                     ),
