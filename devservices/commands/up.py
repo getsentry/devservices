@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -14,6 +15,7 @@ from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
+from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ModeDoesNotExistError
@@ -23,7 +25,9 @@ from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker_compose import DockerComposeCommand
+from devservices.utils.docker_compose import get_container_names_for_project
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
@@ -144,8 +148,31 @@ def _up(
         mode_dependencies=mode_dependencies,
     )
 
+    containers_to_check = []
+    with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
+        futures = [
+            dependency_executor.submit(_bring_up_dependency, cmd, current_env, status)
+            for cmd in docker_compose_commands
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            _ = future.result()
+
     for cmd in docker_compose_commands:
-        _bring_up_dependency(cmd, current_env, status)
+        try:
+            container_names = get_container_names_for_project(
+                cmd.project_name, cmd.config_path
+            )
+            containers_to_check.extend(container_names)
+        except DockerComposeError as dce:
+            status.failure(
+                f"Failed to get containers to healthcheck for {cmd.project_name}: {dce.stderr}"
+            )
+            exit(1)
+    try:
+        check_all_containers_healthy(status, containers_to_check)
+    except ContainerHealthcheckFailedError as e:
+        status.failure(str(e))
+        exit(1)
 
 
 def _create_devservices_network() -> None:
