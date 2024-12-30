@@ -457,7 +457,7 @@ def test_up_docker_compose_container_healthcheck_failed(
         assert "Starting clickhouse" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
         assert (
-            "Container container1 did not become healthy within 30 seconds."
+            "Container container1 did not become healthy within 45 seconds."
             in captured.out.strip()
         )
 
