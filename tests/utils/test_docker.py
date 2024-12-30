@@ -58,7 +58,14 @@ def test_get_matching_containers(
     matching_containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
-        ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
+        [
+            "docker",
+            "ps",
+            "-a",
+            "-q",
+            "--filter",
+            f"label={DEVSERVICES_ORCHESTRATOR_LABEL}",
+        ],
         text=True,
         stderr=subprocess.DEVNULL,
     )
@@ -129,7 +136,14 @@ def test_get_matching_containers_error(
         get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
-        ["docker", "ps", "-q", "--filter", f"label={DEVSERVICES_ORCHESTRATOR_LABEL}"],
+        [
+            "docker",
+            "ps",
+            "-a",
+            "-q",
+            "--filter",
+            f"label={DEVSERVICES_ORCHESTRATOR_LABEL}",
+        ],
         text=True,
         stderr=subprocess.DEVNULL,
     )

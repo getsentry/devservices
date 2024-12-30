@@ -27,7 +27,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 
 def purge(_args: Namespace) -> None:
-    """Purge the local devservices cache."""
+    """Purge the local devservices state and cache and remove all devservices containers and volumes."""
     console = Console()
 
     if os.path.exists(DEVSERVICES_CACHE_DIR):
@@ -38,6 +38,7 @@ def purge(_args: Namespace) -> None:
             exit(1)
     state = State()
     state.clear_state()
+
     try:
         devservices_containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
     except DockerDaemonNotRunningError as e:
@@ -46,19 +47,21 @@ def purge(_args: Namespace) -> None:
     except DockerError as de:
         console.failure(f"Failed to get devservices containers {de.stderr}")
         exit(1)
+
     try:
         devservices_volumes = get_volumes_for_containers(devservices_containers)
     except DockerError as e:
         console.failure(f"Failed to get devservices volumes {e.stderr}")
         exit(1)
+
     with Status(
-        lambda: console.warning("Stopping all running devservices containers"),
-        lambda: console.success("All running devservices containers have been stopped"),
+        lambda: console.warning("Stopping all devservices containers"),
+        lambda: console.success("All devservices containers have been stopped"),
     ):
         try:
             stop_containers(devservices_containers, should_remove=True)
         except DockerError as e:
-            console.failure(f"Failed to stop running devservices containers {e.stderr}")
+            console.failure(f"Failed to stop devservices containers {e.stderr}")
             exit(1)
 
     console.warning("Removing any devservices docker volumes")
