@@ -68,7 +68,7 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
     config_path = os.path.join(repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME)
     if not os.path.exists(config_path):
         raise ConfigNotFoundError(f"Config file not found in directory: {config_path}")
-    with open(config_path, "r") as stream:
+    with open(config_path, "r", encoding="utf-8") as stream:
         try:
             config = yaml.safe_load(stream)
         except yaml.YAMLError as yml_error:

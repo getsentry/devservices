@@ -107,7 +107,6 @@ def up(args: Namespace) -> None:
 def _bring_up_dependency(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
 ) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought up
     for dependency in cmd.services:
         status.info(f"Starting {dependency}")
     return run_cmd(cmd.full_command, current_env)
@@ -132,7 +131,6 @@ def _up(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
-    options = ["-d", "--pull", "always"]
     dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
@@ -143,7 +141,7 @@ def _up(
         remote_dependencies=sorted_remote_dependencies,
         current_env=current_env,
         command="up",
-        options=options,
+        options=["-d", "--pull", "always"],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
@@ -180,4 +178,5 @@ def _create_devservices_network() -> None:
         ["docker", "network", "create", "devservices"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        check=True,
     )
