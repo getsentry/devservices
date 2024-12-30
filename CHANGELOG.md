@@ -1,3 +1,16 @@
+## 1.0.7
+
+### Various fixes & improvements
+
+- fix(purge): Updating purge to stop/remove all devservices containers (#188) by @IanWoodard
+- feat(devservices): Add healthcheck wait condition and parallelize starting of containers (#178) by @hubertdeng123
+- ref(purge): Cleaning up purge network logic (#186) by @IanWoodard
+- fix(up): Always pull new images (#187) by @IanWoodard
+- chore(docker): Cleaning up docker utils (#185) by @IanWoodard
+- feat(purge): Purge removes corresponding volumes (#184) by @IanWoodard
+- feat(devservices): Return namedtuple for docker compose command (#183) by @hubertdeng123
+- ref(dependencies): Adding more context to sentry (#181) by @IanWoodard
+
 ## 1.0.6
 
 ### Various fixes & improvements
