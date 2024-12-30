@@ -26,7 +26,6 @@ from devservices.commands import update
 from devservices.constants import LOGGER_NAME
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
-from devservices.utils.check_for_update import check_for_update
 from devservices.utils.console import Console
 from devservices.utils.docker_compose import check_docker_compose_version
 
@@ -101,14 +100,6 @@ def main() -> None:
             args.func(args)
     else:
         parser.print_help()
-
-    if args.command != "update" and os.environ.get("CI") != "true":
-        newest_version = check_for_update()
-        if newest_version != current_version:
-            console.warning(
-                f"WARNING: A new version of devservices is available: {newest_version}"
-            )
-            console.warning('To update, run: "devservices update"')
 
 
 if __name__ == "__main__":
