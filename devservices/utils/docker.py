@@ -89,6 +89,7 @@ def get_matching_containers(label: str) -> list[str]:
                 [
                     "docker",
                     "ps",
+                    "-a",
                     "-q",
                     "--filter",
                     f"label={label}",

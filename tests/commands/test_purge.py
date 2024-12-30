@@ -280,10 +280,7 @@ def test_purge_docker_error_stop_containers(
         )
 
         captured = capsys.readouterr()
-        assert (
-            "Failed to stop running devservices containers stderr"
-            in captured.out.strip()
-        )
+        assert "Failed to stop devservices containers stderr" in captured.out.strip()
 
 
 @mock.patch("devservices.commands.purge.get_matching_containers")
@@ -418,18 +415,21 @@ def test_purge_docker_error_remove_networks(
 
 
 @mock.patch("devservices.commands.purge.get_matching_containers")
+@mock.patch("devservices.commands.purge.get_matching_networks")
 @mock.patch("devservices.commands.purge.get_volumes_for_containers")
 @mock.patch("devservices.commands.purge.stop_containers")
 @mock.patch("devservices.commands.purge.remove_docker_resources")
-def test_purge_with_cache_and_state_and_no_running_containers(
+def test_purge_with_cache_and_state_and_no_containers(
     mock_remove_docker_resources: mock.Mock,
     mock_stop_containers: mock.Mock,
     mock_get_volumes_for_containers: mock.Mock,
+    mock_get_matching_networks: mock.Mock,
     mock_get_matching_containers: mock.Mock,
     tmp_path: Path,
 ) -> None:
     mock_get_matching_containers.return_value = []
     mock_get_volumes_for_containers.return_value = []
+    mock_get_matching_networks.return_value = []
     with (
         mock.patch(
             "devservices.commands.purge.DEVSERVICES_CACHE_DIR",
@@ -467,7 +467,7 @@ def test_purge_with_cache_and_state_and_no_running_containers(
 @mock.patch("devservices.commands.purge.get_volumes_for_containers")
 @mock.patch("devservices.commands.purge.stop_containers")
 @mock.patch("devservices.commands.purge.remove_docker_resources")
-def test_purge_with_cache_and_state_and_running_containers_with_networks_and_volumes(
+def test_purge_with_cache_and_state_and_containers_with_networks_and_volumes(
     mock_remove_docker_resources: mock.Mock,
     mock_stop_containers: mock.Mock,
     mock_get_volumes_for_containers: mock.Mock,
