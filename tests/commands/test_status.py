@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from devservices.commands.status import status
+from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
 from devservices.exceptions import DependencyError
 from devservices.exceptions import ServiceNotFoundError
@@ -156,6 +157,79 @@ def test_status_service_running(
     assert (
         """Service: test-service
 
+========================================
+test-service
+Container: test-container
+Status: running
+Health: healthy
+Uptime: 2 days ago
+Ports:
+  http://localhost:8080:8080 -> 8080/tcp
+----------------------------------------
+
+"""
+        == captured.out
+    )
+
+
+@mock.patch("devservices.commands.status._status")
+@mock.patch("devservices.commands.status.find_matching_service")
+@mock.patch("devservices.commands.status.install_and_verify_dependencies")
+def test_status_services_running_sorted_order(
+    mock_install_and_verify_dependencies: mock.Mock,
+    mock_find_matching_service: mock.Mock,
+    mock_status: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    args = Namespace(service_name="test-service")
+    service = Service(
+        name="test-service",
+        repo_path=str(tmp_path),
+        config=ServiceConfig(
+            version=0.1,
+            service_name="test-service",
+            dependencies={
+                "test-dependency": Dependency(
+                    description="Test dependency",
+                )
+            },
+            modes={"default": []},
+        ),
+    )
+    mock_find_matching_service.return_value = service
+    mock_install_and_verify_dependencies.return_value = set()
+    mock_status.return_value = [
+        subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"Service": "test-service", "State": "running", "Name": "test-container", "Health": "healthy", "RunningFor": "2 days ago", "Publishers": [{"URL": "http://localhost:8080", "PublishedPort": 8080, "TargetPort": 8080, "Protocol": "tcp"}]}\n',
+        ),
+        subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"Service": "test-dependency", "State": "running", "Name": "test-dependency-container", "Health": "healthy", "RunningFor": "2 days ago", "Publishers": [{"URL": "http://localhost:8081", "PublishedPort": 8081, "TargetPort": 8081, "Protocol": "tcp"}]}\n',
+        ),
+    ]
+
+    status(args)
+
+    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_install_and_verify_dependencies.assert_called_once_with(service)
+    mock_status.assert_called_once_with(service, set(), [])
+
+    captured = capsys.readouterr()
+    assert (
+        """Service: test-service
+
+========================================
+test-dependency
+Container: test-dependency-container
+Status: running
+Health: healthy
+Uptime: 2 days ago
+Ports:
+  http://localhost:8081:8081 -> 8081/tcp
 ----------------------------------------
 test-service
 Container: test-container
@@ -164,7 +238,7 @@ Health: healthy
 Uptime: 2 days ago
 Ports:
   http://localhost:8080:8080 -> 8080/tcp
-========================================
+----------------------------------------
 
 """
         == captured.out
