@@ -7,6 +7,7 @@ import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from collections import namedtuple
 
 from sentry_sdk import capture_exception
 
@@ -30,6 +31,9 @@ from devservices.utils.services import Service
 LINE_LENGTH = 40
 
 
+ServiceStatus = namedtuple("ServiceStatus", ["name", "formatted_output"])
+
+
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser = subparsers.add_parser("status", help="View status of a service")
     parser.add_argument(
@@ -41,12 +45,12 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.set_defaults(func=status)
 
 
-def format_status_output(status_json: str) -> str:
+def format_status_output(service_status_json: str) -> list[ServiceStatus]:
     # Docker compose ps is line delimited json, so this constructs this into an array we can use
-    service_statuses = status_json.split("\n")[:-1]
-    output = []
-    output.append("-" * LINE_LENGTH)
+    service_statuses = service_status_json.split("\n")[:-1]
+    outputs = []
     for service_status in service_statuses:
+        output = []
         service = json.loads(service_status)
         name = service["Service"]
         state = service["State"]
@@ -71,8 +75,9 @@ def format_status_output(status_json: str) -> str:
             output.append("No ports exposed")
 
         output.append("")  # Empty line for readability
+        outputs.append(ServiceStatus(name=name, formatted_output="\n".join(output)))
 
-    return "\n".join(output)
+    return outputs
 
 
 def status(args: Namespace) -> None:
@@ -115,10 +120,15 @@ def status(args: Namespace) -> None:
         console.warning(f"{service.name} is not running")
         return
     output = f"Service: {service.name}\n\n"
+    output += "=" * LINE_LENGTH + "\n"
+    formatted_status_outputs = []
     for status_json in status_json_results:
-        output += format_status_output(status_json.stdout)
-    output += "=" * LINE_LENGTH
-    console.info(output + "\n")
+        formatted_status_outputs.extend(format_status_output(status_json.stdout))
+    formatted_status_outputs.sort(key=lambda x: x.name)
+    for formatted_status_output in formatted_status_outputs:
+        output += formatted_status_output[1]
+        output += "-" * LINE_LENGTH + "\n"
+    console.info(output)
 
 
 def _status(
