@@ -1,3 +1,13 @@
+## 1.0.8
+
+### Various fixes & improvements
+
+- fix(status): Adding consistent ordering to status output (#191) by @IanWoodard
+- add missing depenedencies (#193) by @hubertdeng123
+- remove update warning message (#189) by @hubertdeng123
+- chore: cleaning up various nits (#192) by @IanWoodard
+- chore: Bump healthcheck timeout to 45 seconds (#190) by @hubertdeng123
+
 ## 1.0.7
 
 ### Various fixes & improvements
