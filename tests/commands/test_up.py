@@ -181,6 +181,30 @@ def test_up_dependency_error(
         assert "Starting redis" not in captured.out.strip()
 
 
+@mock.patch("devservices.utils.state.State.update_started_service")
+def test_up_no_config_file(
+    mock_update_started_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    os.chdir(tmp_path)
+
+    args = Namespace(service_name=None, debug=False)
+
+    with pytest.raises(SystemExit):
+        up(args)
+
+    # Capture the printed output
+    captured = capsys.readouterr()
+
+    assert (
+        f"No devservices configuration found in {tmp_path}/devservices/config.yml. Please specify a service (i.e. `devservices up sentry`) or run the command from a directory with a devservices configuration."
+        in captured.out.strip()
+    )
+
+    mock_update_started_service.assert_not_called()
+
+
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.update_started_service")
 @mock.patch("devservices.commands.up._create_devservices_network")
@@ -249,9 +273,8 @@ def test_up_error(
         env=mock.ANY,
     )
 
-    captured = capsys.readouterr()
-    assert "Retrieving dependencies" not in captured.out.strip()
-    assert "Starting 'example-service' in mode: 'default'" not in captured.out.strip()
+    assert "Retrieving dependencies" in captured.out.strip()
+    assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
     assert "Starting clickhouse" not in captured.out.strip()
     assert "Starting redis" not in captured.out.strip()
 

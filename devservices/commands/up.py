@@ -15,6 +15,7 @@ from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
+from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
@@ -60,6 +61,12 @@ def up(args: Namespace) -> None:
     service_name = args.service_name
     try:
         service = find_matching_service(service_name)
+    except ConfigNotFoundError as e:
+        capture_exception(e)
+        console.failure(
+            f"{str(e)}. Please specify a service (i.e. `devservices up sentry`) or run the command from a directory with a devservices configuration."
+        )
+        exit(1)
     except ConfigError as e:
         capture_exception(e)
         console.failure(str(e))
