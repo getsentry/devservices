@@ -113,7 +113,7 @@ def test_load_service_config_from_file_missing_config(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Config file not found in directory: {tmp_path / 'devservices' / 'config.yml'}"
+        == f"No devservices configuration found in {tmp_path / 'devservices' / 'config.yml'}"
     )
 
 

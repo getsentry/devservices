@@ -7,6 +7,7 @@ from argparse import Namespace
 from sentry_sdk import capture_exception
 
 from devservices.exceptions import ConfigError
+from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.services import find_matching_service
@@ -32,6 +33,12 @@ def list_dependencies(args: Namespace) -> None:
 
     try:
         service = find_matching_service(service_name)
+    except ConfigNotFoundError as e:
+        capture_exception(e)
+        console.failure(
+            f"{str(e)}. Please specify a service (i.e. `devservices list-dependencies sentry`) or run the command from a directory with a devservices configuration."
+        )
+        exit(1)
     except ConfigError as e:
         capture_exception(e)
         console.failure(str(e))
