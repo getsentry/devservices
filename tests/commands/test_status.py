@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from argparse import Namespace
 from pathlib import Path
@@ -13,6 +14,26 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.exceptions import DependencyError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import Service
+
+
+def test_status_no_config_file(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    os.chdir(tmp_path)
+
+    args = Namespace(service_name=None, debug=False)
+
+    with pytest.raises(SystemExit):
+        status(args)
+
+    # Capture the printed output
+    captured = capsys.readouterr()
+
+    assert (
+        f"No devservices configuration found in {tmp_path}/devservices/config.yml. Please specify a service (i.e. `devservices status sentry`) or run the command from a directory with a devservices configuration."
+        in captured.out.strip()
+    )
 
 
 @mock.patch("devservices.commands.status._status")

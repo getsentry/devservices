@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from argparse import Namespace
 from pathlib import Path
@@ -150,6 +151,26 @@ def test_logs_no_specified_service_success(
 
         captured = capsys.readouterr()
         assert captured.out.endswith("redis and clickhouse log output\n")
+
+
+def test_logs_no_config_file(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    os.chdir(tmp_path)
+
+    args = Namespace(service_name=None, debug=False)
+
+    with pytest.raises(SystemExit):
+        logs(args)
+
+    # Capture the printed output
+    captured = capsys.readouterr()
+
+    assert (
+        f"No devservices configuration found in {tmp_path}/devservices/config.yml. Please specify a service (i.e. `devservices logs sentry`) or run the command from a directory with a devservices configuration."
+        in captured.out.strip()
+    )
 
 
 @mock.patch("devservices.commands.logs.find_matching_service")

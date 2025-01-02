@@ -101,6 +101,30 @@ def test_down_simple(
         assert "Stopping redis" in captured.out.strip()
 
 
+@mock.patch("devservices.utils.state.State.remove_started_service")
+def test_down_no_config_file(
+    mock_remove_started_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    os.chdir(tmp_path)
+
+    args = Namespace(service_name=None, debug=False)
+
+    with pytest.raises(SystemExit):
+        down(args)
+
+    # Capture the printed output
+    captured = capsys.readouterr()
+
+    assert (
+        f"No devservices configuration found in {tmp_path}/devservices/config.yml. Please specify a service (i.e. `devservices down sentry`) or run the command from a directory with a devservices configuration."
+        in captured.out.strip()
+    )
+
+    mock_remove_started_service.assert_not_called()
+
+
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
 @mock.patch("devservices.utils.state.State.remove_started_service")
 def test_down_error(
@@ -150,7 +174,6 @@ def test_down_error(
 
     mock_remove_started_service.assert_not_called()
 
-    captured = capsys.readouterr()
     assert "Stopping clickhouse" not in captured.out.strip()
     assert "Stopping redis" not in captured.out.strip()
 
