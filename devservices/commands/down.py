@@ -141,7 +141,7 @@ def _down(
         service=service,
         remote_dependencies=list(remote_dependencies),
         current_env=current_env,
-        command="down",
+        command="stop",
         options=[],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
