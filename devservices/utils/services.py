@@ -68,8 +68,8 @@ def find_matching_service(service_name: str | None = None) -> Service:
     unique_service_names = sorted(set(service.name for service in services))
     error_message = f"Service '{service_name}' not found."
     if len(unique_service_names) > 0:
-        service_bullet_points = [
-            f"- {service_name}" for service_name in unique_service_names
-        ]
-        error_message += f"\nSupported services:\n{'\n'.join(service_bullet_points)}"
+        service_bullet_points = "\n".join(
+            [f"- {service_name}" for service_name in unique_service_names]
+        )
+        error_message += "\nSupported services:\n" + service_bullet_points
     raise ServiceNotFoundError(error_message)
