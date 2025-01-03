@@ -87,6 +87,37 @@ def test_up_simple(
 
         mock_create_devservices_network.assert_called_once()
 
+        mock_subprocess_check_output.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "config",
+                        "--services",
+                    ],
+                    text=True,
+                    env=mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "ps",
+                        "--format",
+                        "{{.Name}}",
+                    ],
+                    text=True,
+                ),
+            ]
+        )
+
         mock_run.assert_called_with(
             [
                 "docker",
@@ -346,6 +377,37 @@ def test_up_docker_compose_container_lookup_error(
 
         mock_create_devservices_network.assert_called_once()
 
+        mock_subprocess_check_output.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "config",
+                        "--services",
+                    ],
+                    text=True,
+                    env=mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "ps",
+                        "--format",
+                        "{{.Name}}",
+                    ],
+                    text=True,
+                ),
+            ]
+        )
+
         mock_run.assert_called_with(
             [
                 "docker",
@@ -451,6 +513,37 @@ def test_up_docker_compose_container_healthcheck_failed(
 
         mock_create_devservices_network.assert_called_once()
 
+        mock_subprocess_check_output.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "config",
+                        "--services",
+                    ],
+                    text=True,
+                    env=mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "ps",
+                        "--format",
+                        "{{.Name}}",
+                    ],
+                    text=True,
+                ),
+            ]
+        )
+
         mock_run.assert_called_with(
             [
                 "docker",
@@ -547,6 +640,37 @@ def test_up_mode_simple(
         )
 
         mock_create_devservices_network.assert_called_once()
+
+        mock_subprocess_check_output.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "config",
+                        "--services",
+                    ],
+                    text=True,
+                    env=mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "ps",
+                        "--format",
+                        "{{.Name}}",
+                    ],
+                    text=True,
+                ),
+            ]
+        )
 
         mock_run.assert_called_with(
             [
