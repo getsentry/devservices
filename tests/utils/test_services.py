@@ -6,9 +6,11 @@ from unittest import mock
 
 import pytest
 
+from devservices.configs.service_config import ServiceConfig
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import get_local_services
+from devservices.utils.services import Service
 from testing.utils import create_mock_git_repo
 
 
@@ -85,7 +87,13 @@ def test_get_local_services_skips_non_devservices_repos(tmp_path: Path) -> None:
         assert local_services[0].repo_path == str(mock_basic_repo_path)
 
 
-def test_find_matching_service_not_found(tmp_path: Path) -> None:
+@mock.patch(
+    "devservices.utils.services.get_local_services",
+    return_value=[],
+)
+def test_find_matching_service_not_found_no_local_services(
+    mock_get_local_services: mock.Mock, tmp_path: Path
+) -> None:
     mock_code_root = tmp_path / "code"
     os.makedirs(mock_code_root)
     with (
@@ -98,5 +106,60 @@ def test_find_matching_service_not_found(tmp_path: Path) -> None:
             return_value=str(mock_code_root),
         ),
     ):
-        with pytest.raises(ServiceNotFoundError):
+        with pytest.raises(ServiceNotFoundError) as e:
             find_matching_service(str(tmp_path / "non-existent-repo"))
+
+        assert str(e.value) == f"Service '{tmp_path / 'non-existent-repo'}' not found."
+
+        mock_get_local_services.assert_called_once_with(str(mock_code_root))
+
+
+@mock.patch(
+    "devservices.utils.services.get_local_services",
+    return_value=[
+        Service(
+            name="example-service-1",
+            repo_path="/path/to/example-service-1",
+            config=ServiceConfig(
+                version=0.1,
+                service_name="example-service-1",
+                dependencies={},
+                modes={"default": []},
+            ),
+        ),
+        Service(
+            name="example-service-2",
+            repo_path="/path/to/example-service-2",
+            config=ServiceConfig(
+                version=0.1,
+                service_name="example-service-2",
+                dependencies={},
+                modes={"default": []},
+            ),
+        ),
+    ],
+)
+def test_find_matching_service_not_found_with_local_services(
+    mock_get_local_services: mock.Mock, tmp_path: Path
+) -> None:
+    mock_code_root = tmp_path / "code"
+    os.makedirs(mock_code_root)
+    with (
+        mock.patch(
+            "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(mock_code_root),
+        ),
+    ):
+        with pytest.raises(ServiceNotFoundError) as e:
+            find_matching_service(str(tmp_path / "non-existent-repo"))
+
+        assert (
+            str(e.value)
+            == f"Service '{tmp_path / 'non-existent-repo'}' not found.\nSupported services:\n- example-service-1\n- example-service-2"
+        )
+
+        mock_get_local_services.assert_called_once_with(str(mock_code_root))
