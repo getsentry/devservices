@@ -15,10 +15,10 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
-from devservices.utils.docker_compose import _get_non_remote_services
 from devservices.utils.docker_compose import check_docker_compose_version
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
+from devservices.utils.docker_compose import get_non_remote_services
 from devservices.utils.docker_compose import install_docker_compose
 from devservices.utils.services import Service
 from testing.utils import create_mock_git_repo
@@ -244,7 +244,7 @@ def test_install_docker_compose_linux_x86(
     ),
 )
 def test_get_non_remote_services_success(_mock_run: mock.Mock) -> None:
-    services = _get_non_remote_services("config_path", {})
+    services = get_non_remote_services("config_path", {})
     assert services == {"service-1", "service-2"}
 
 
@@ -256,7 +256,7 @@ def test_get_non_remote_services_success(_mock_run: mock.Mock) -> None:
 )
 def test_get_non_remote_services_error(_mock_run: mock.Mock) -> None:
     with pytest.raises(DockerComposeError) as e:
-        _get_non_remote_services("config_path", {})
+        get_non_remote_services("config_path", {})
         assert str(e.value) == "command failed"
 
 
