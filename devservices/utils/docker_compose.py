@@ -5,15 +5,11 @@ import os
 import platform
 import re
 import subprocess
-from collections.abc import Callable
 from typing import cast
 from typing import NamedTuple
 
 from packaging import version
 
-from devservices.configs.service_config import load_service_config_from_file
-from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
 from devservices.constants import LOGGER_NAME
@@ -22,10 +18,8 @@ from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.console import Console
-from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.install_binary import install_binary
-from devservices.utils.services import Service
 
 
 class DockerComposeCommand(NamedTuple):
@@ -170,7 +164,7 @@ def check_docker_compose_version() -> None:
 
 
 # TODO: Consider removing this in favor of in house logic for determining non-remote services
-def _get_non_remote_services(
+def get_non_remote_services(
     service_config_path: str, current_env: dict[str, str]
 ) -> set[str]:
     config_command = [
@@ -195,19 +189,14 @@ def _get_non_remote_services(
     return set(config_services.splitlines())
 
 
-def get_docker_compose_commands_to_run(
-    service: Service,
-    remote_dependencies: list[InstalledRemoteDependency],
-    current_env: dict[str, str],
+def create_docker_compose_command(
+    name: str,
+    config_path: str,
+    services_to_use: set[str],
     command: str,
     options: list[str],
-    service_config_file_path: str,
-    mode_dependencies: list[str],
-) -> list[DockerComposeCommand]:
-    docker_compose_commands = []
-    create_docker_compose_command: Callable[
-        [str, str, set[str]], DockerComposeCommand
-    ] = lambda name, config_path, services_to_use: DockerComposeCommand(
+) -> DockerComposeCommand:
+    return DockerComposeCommand(
         full_command=[
             "docker",
             "compose",
@@ -223,38 +212,6 @@ def get_docker_compose_commands_to_run(
         config_path=config_path,
         services=sorted(list(services_to_use)),
     )
-    for dependency in remote_dependencies:
-        # TODO: Consider passing in service config in InstalledRemoteDependency instead of loading it here
-        dependency_service_config = load_service_config_from_file(dependency.repo_path)
-        dependency_config_path = os.path.join(
-            dependency.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-        )
-        non_remote_services = _get_non_remote_services(
-            dependency_config_path, current_env
-        )
-        services_to_use = non_remote_services.intersection(
-            set(dependency_service_config.modes[dependency.mode])
-        )
-        docker_compose_commands.append(
-            create_docker_compose_command(
-                dependency_service_config.service_name,
-                dependency_config_path,
-                services_to_use,
-            )
-        )
-
-    # Add docker compose command for the top level service
-    non_remote_services = _get_non_remote_services(
-        service_config_file_path, current_env
-    )
-    services_to_use = non_remote_services.intersection(set(mode_dependencies))
-    if len(services_to_use) > 0:
-        docker_compose_commands.append(
-            create_docker_compose_command(
-                service.name, service_config_file_path, services_to_use
-            )
-        )
-    return docker_compose_commands
 
 
 def run_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:

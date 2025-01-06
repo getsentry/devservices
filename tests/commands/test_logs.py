@@ -67,7 +67,7 @@ def test_logs_no_specified_service_not_running(
 @mock.patch("devservices.commands.logs.find_matching_service")
 @mock.patch("devservices.utils.state.State.get_started_services")
 @mock.patch("devservices.commands.logs.install_and_verify_dependencies")
-@mock.patch("devservices.utils.docker_compose._get_non_remote_services")
+@mock.patch("devservices.commands.logs.get_non_remote_services")
 def test_logs_no_specified_service_success(
     mock_get_non_remote_services: mock.Mock,
     mock_install_and_verify_dependencies: mock.Mock,
