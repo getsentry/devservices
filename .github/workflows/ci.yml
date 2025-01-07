@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     outputs:
-      devservices: ${{ steps.changes.outputs.devservices }}
+      devservices-files-changed: ${{ steps.changes.outputs.devservices-files-changed   }}
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -22,18 +22,18 @@ jobs:
         with:
           token: ${{ github.token }}
           filters: |
-            devservices:
+            devservices-files-changed:
               - 'devservices/**'
               - '.github/workflows/ci.yml'
               - 'requirements-dev.txt'
   ci:
     runs-on: ubuntu-24.04
     needs: files-changed
-    if: ${{ needs.files-changed.outputs.devservices == 'true' }}
+    if: ${{ needs.files-changed.outputs.devservices-files-changed == 'true' }}
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         name: Checkout repository
-      - uses: getsentry/action-validate-devservices-config@049567d407bbf73e3b0cad39dae7bc9447fc7669
+      - uses: getsentry/action-validate-devservices-config@6477ef1e9c96e456bfad726006e731f89fcd81db
         name: Validate devservices config
         with:
           requirements-file-path: requirements-dev.txt
