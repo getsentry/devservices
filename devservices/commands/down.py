@@ -110,7 +110,7 @@ def down(args: Namespace) -> None:
 
         # Check if any service depends on the service we are trying to bring down
         # TODO: We should also take into account the active modes of the other services (this is not trivial to do)
-        other_started_services = set(started_services) - {service.name}
+        other_started_services = set(started_services).difference({service.name})
         dependent_service_name = None
         for other_started_service in other_started_services:
             other_service = find_matching_service(other_started_service)
