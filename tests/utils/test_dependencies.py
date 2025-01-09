@@ -1437,45 +1437,45 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
         state = State()
         state.update_started_service("service-1", "default")
         state.update_started_service("service-2", "default")
-    service_to_stop = Service(
-        name="service-1",
-        repo_path="/path/to/service-1",
-        config=ServiceConfig(
-            version=0.1,
-            service_name="service-1",
-            dependencies={
-                "dependency-1": Dependency(
-                    description="dependency-1",
-                    remote=RemoteConfig(
-                        repo_name="dependency-1",
-                        repo_link="file://path/to/dependency-1",
-                        branch="main",
-                    ),
-                )
-            },
-            modes={"default": ["dependency-1"]},
-        ),
-    )
-    shared_remote_dependencies = get_non_shared_remote_dependencies(
-        service_to_stop,
-        set(
-            [
-                InstalledRemoteDependency(
-                    service_name="dependency-1",
-                    repo_path="/path/to/dependency-1",
-                    mode="default",
-                )
-            ]
-        ),
-    )
-    assert len(shared_remote_dependencies) == 1
-    assert shared_remote_dependencies == {
-        InstalledRemoteDependency(
-            service_name="dependency-1",
-            repo_path="/path/to/dependency-1",
-            mode="default",
+        service_to_stop = Service(
+            name="service-1",
+            repo_path="/path/to/service-1",
+            config=ServiceConfig(
+                version=0.1,
+                service_name="service-1",
+                dependencies={
+                    "dependency-1": Dependency(
+                        description="dependency-1",
+                        remote=RemoteConfig(
+                            repo_name="dependency-1",
+                            repo_link="file://path/to/dependency-1",
+                            branch="main",
+                        ),
+                    )
+                },
+                modes={"default": ["dependency-1"]},
+            ),
         )
-    }
+        shared_remote_dependencies = get_non_shared_remote_dependencies(
+            service_to_stop,
+            set(
+                [
+                    InstalledRemoteDependency(
+                        service_name="dependency-1",
+                        repo_path="/path/to/dependency-1",
+                        mode="default",
+                    )
+                ]
+            ),
+        )
+        assert len(shared_remote_dependencies) == 1
+        assert shared_remote_dependencies == {
+            InstalledRemoteDependency(
+                service_name="dependency-1",
+                repo_path="/path/to/dependency-1",
+                mode="default",
+            )
+        }
 
 
 @mock.patch(
@@ -1512,38 +1512,38 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
         state = State()
         state.update_started_service("service-1", "default")
         state.update_started_service("service-2", "default")
-    service_to_stop = Service(
-        name="service-1",
-        repo_path="/path/to/service-1",
-        config=ServiceConfig(
-            version=0.1,
-            service_name="service-1",
-            dependencies={
-                "dependency-1": Dependency(
-                    description="dependency-1",
-                    remote=RemoteConfig(
-                        repo_name="dependency-1",
-                        repo_link="file://path/to/dependency-1",
-                        branch="main",
-                    ),
-                )
-            },
-            modes={"default": ["dependency-1"]},
-        ),
-    )
-    shared_remote_dependencies = get_non_shared_remote_dependencies(
-        service_to_stop,
-        set(
-            [
-                InstalledRemoteDependency(
-                    service_name="dependency-1",
-                    repo_path="/path/to/dependency-1",
-                    mode="default",
-                )
-            ]
-        ),
-    )
-    assert len(shared_remote_dependencies) == 0
+        service_to_stop = Service(
+            name="service-1",
+            repo_path="/path/to/service-1",
+            config=ServiceConfig(
+                version=0.1,
+                service_name="service-1",
+                dependencies={
+                    "dependency-1": Dependency(
+                        description="dependency-1",
+                        remote=RemoteConfig(
+                            repo_name="dependency-1",
+                            repo_link="file://path/to/dependency-1",
+                            branch="main",
+                        ),
+                    )
+                },
+                modes={"default": ["dependency-1"]},
+            ),
+        )
+        shared_remote_dependencies = get_non_shared_remote_dependencies(
+            service_to_stop,
+            set(
+                [
+                    InstalledRemoteDependency(
+                        service_name="dependency-1",
+                        repo_path="/path/to/dependency-1",
+                        mode="default",
+                    )
+                ]
+            ),
+        )
+        assert len(shared_remote_dependencies) == 0
 
 
 @mock.patch(
@@ -1580,58 +1580,58 @@ def test_get_non_shared_remote_dependencies_complex(
         state = State()
         state.update_started_service("service-1", "default")
         state.update_started_service("service-2", "default")
-    service_to_stop = Service(
-        name="service-1",
-        repo_path="/path/to/service-1",
-        config=ServiceConfig(
-            version=0.1,
-            service_name="service-1",
-            dependencies={
-                "dependency-1": Dependency(
-                    description="dependency-1",
-                    remote=RemoteConfig(
-                        repo_name="dependency-1",
-                        repo_link="file://path/to/dependency-1",
-                        branch="main",
+        service_to_stop = Service(
+            name="service-1",
+            repo_path="/path/to/service-1",
+            config=ServiceConfig(
+                version=0.1,
+                service_name="service-1",
+                dependencies={
+                    "dependency-1": Dependency(
+                        description="dependency-1",
+                        remote=RemoteConfig(
+                            repo_name="dependency-1",
+                            repo_link="file://path/to/dependency-1",
+                            branch="main",
+                        ),
                     ),
-                ),
-                "dependency-2": Dependency(
-                    description="dependency-2",
-                    remote=RemoteConfig(
-                        repo_name="dependency-2",
-                        repo_link="file://path/to/dependency-2",
-                        branch="main",
+                    "dependency-2": Dependency(
+                        description="dependency-2",
+                        remote=RemoteConfig(
+                            repo_name="dependency-2",
+                            repo_link="file://path/to/dependency-2",
+                            branch="main",
+                        ),
                     ),
-                ),
-            },
-            modes={"default": ["dependency-1", "dependency-2"]},
-        ),
-    )
-    shared_remote_dependencies = get_non_shared_remote_dependencies(
-        service_to_stop,
-        set(
-            [
-                InstalledRemoteDependency(
-                    service_name="dependency-1",
-                    repo_path="/path/to/dependency-1",
-                    mode="default",
-                ),
-                InstalledRemoteDependency(
-                    service_name="dependency-2",
-                    repo_path="/path/to/dependency-2",
-                    mode="default",
-                ),
-            ]
-        ),
-    )
-    assert len(shared_remote_dependencies) == 1
-    assert shared_remote_dependencies == {
-        InstalledRemoteDependency(
-            service_name="dependency-2",
-            repo_path="/path/to/dependency-2",
-            mode="default",
+                },
+                modes={"default": ["dependency-1", "dependency-2"]},
+            ),
         )
-    }
+        shared_remote_dependencies = get_non_shared_remote_dependencies(
+            service_to_stop,
+            set(
+                [
+                    InstalledRemoteDependency(
+                        service_name="dependency-1",
+                        repo_path="/path/to/dependency-1",
+                        mode="default",
+                    ),
+                    InstalledRemoteDependency(
+                        service_name="dependency-2",
+                        repo_path="/path/to/dependency-2",
+                        mode="default",
+                    ),
+                ]
+            ),
+        )
+        assert len(shared_remote_dependencies) == 1
+        assert shared_remote_dependencies == {
+            InstalledRemoteDependency(
+                service_name="dependency-2",
+                repo_path="/path/to/dependency-2",
+                mode="default",
+            )
+        }
 
 
 @mock.patch("devservices.utils.dependencies.install_dependencies", return_value=[])
