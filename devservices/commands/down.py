@@ -101,7 +101,6 @@ def down(args: Namespace) -> None:
             status.failure(str(de))
             exit(1)
         try:
-            # TODO: What does this even mean? Why are we filtering out shared dependencies?
             remote_dependencies = get_non_shared_remote_dependencies(
                 service, remote_dependencies
             )
