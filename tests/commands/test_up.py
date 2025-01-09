@@ -873,7 +873,7 @@ def test_up_multiple_modes_overlapping_running_service(
     ):
         redis_repo_path = tmp_path / "redis"
         create_mock_git_repo("blank_repo", redis_repo_path)
-        mock_git_repo_config = {
+        mock_redis_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
                 "service_name": "shared-redis",
@@ -884,7 +884,7 @@ def test_up_multiple_modes_overlapping_running_service(
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(redis_repo_path, mock_git_repo_config)
+        create_config_file(redis_repo_path, mock_redis_config)
         run_git_command(["add", "."], cwd=redis_repo_path)
         run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
         config = {
