@@ -22,6 +22,7 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
+from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -100,6 +101,7 @@ def down(args: Namespace) -> None:
             status.failure(str(de))
             exit(1)
         try:
+            # TODO: What does this even mean? Why are we filtering out shared dependencies?
             remote_dependencies = get_non_shared_remote_dependencies(
                 service, remote_dependencies
             )
@@ -107,12 +109,32 @@ def down(args: Namespace) -> None:
             capture_exception(de)
             status.failure(str(de))
             exit(1)
-        try:
-            _down(service, remote_dependencies, list(mode_dependencies), status)
-        except DockerComposeError as dce:
-            capture_exception(dce)
-            status.failure(f"Failed to stop {service.name}: {dce.stderr}")
-            exit(1)
+
+        # Check if any service depends on the service we are trying to bring down
+        # TODO: We should also take into account the active modes of the other services (this is not trivial to do)
+        other_started_services = set(started_services) - {service.name}
+        has_dependent_service = False
+        for other_started_service in other_started_services:
+            other_service = find_matching_service(other_started_service)
+            other_service_active_modes = state.get_active_modes_for_service(
+                other_service.name
+            )
+            dependency_graph = construct_dependency_graph(
+                other_service, other_service_active_modes
+            )
+            # If the service we are trying to bring down is in the dependency graph of another service, we should not bring it down
+            if service.name in dependency_graph.graph:
+                has_dependent_service = True
+                break
+
+        # If no other service depends on the service we are trying to bring down, we can bring it down
+        if not has_dependent_service:
+            try:
+                _down(service, remote_dependencies, list(mode_dependencies), status)
+            except DockerComposeError as dce:
+                capture_exception(dce)
+                status.failure(f"Failed to stop {service.name}: {dce.stderr}")
+                exit(1)
 
     # TODO: We should factor in healthchecks here before marking service as not running
     state = State()
