@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from collections import deque
 from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
@@ -448,7 +449,7 @@ def _update_dependency(
         ) from e
 
     try:
-        _run_command(
+        _run_command_with_retries(
             ["git", "fetch", "origin", dependency.branch, "--filter=blob:none"],
             cwd=dependency_repo_dir,
         )
@@ -572,6 +573,25 @@ def _run_command(
     logger = logging.getLogger(LOGGER_NAME)
     logger.debug(f"Running command: {' '.join(cmd)} in {cwd}")
     subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.DEVNULL)
+
+
+def _run_command_with_retries(
+    cmd: list[str],
+    cwd: str,
+    stdout: int | TextIO | None = subprocess.DEVNULL,
+    retries: int = 3,
+    backoff: int = 2,
+) -> None:
+    for i in range(retries):
+        try:
+            _run_command(cmd, cwd=cwd, stdout=stdout)
+            break
+        except subprocess.CalledProcessError as e:
+            logger = logging.getLogger(LOGGER_NAME)
+            logger.exception("Attempt %s of %s failed: %s", i + 1, retries, e)
+            if i == retries - 1:
+                raise e
+            time.sleep(backoff**i)
 
 
 def _try_set_git_config_context(
