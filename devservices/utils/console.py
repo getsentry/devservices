@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import os
 import sys
 import threading
 import time
 from collections.abc import Callable
 from types import TracebackType
-
 
 ANIMATION_FRAMES = ("⠟", "⠯", "⠷", "⠾", "⠽", "⠻")
 
@@ -98,6 +98,8 @@ class Status:
 
     def _loading_animation(self) -> None:
         idx = 0
+        if os.environ.get("CI", default="false") == "true":
+            return
         while not self._stop_loading.is_set():
             sys.stdout.write("\r" + ANIMATION_FRAMES[idx % len(ANIMATION_FRAMES)] + " ")
             sys.stdout.flush()
