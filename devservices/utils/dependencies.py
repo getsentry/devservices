@@ -584,7 +584,7 @@ def _run_command(
     cmd: list[str], cwd: str, stdout: int | TextIO | None = subprocess.DEVNULL
 ) -> None:
     logger = logging.getLogger(LOGGER_NAME)
-    logger.debug(f"Running command: {' '.join(cmd)} in {cwd}")
+    logger.debug("Running command: %s in %s", " ".join(cmd), cwd)
     subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.DEVNULL)
 
 
