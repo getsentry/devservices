@@ -1,3 +1,18 @@
+## 1.0.9
+
+### Various fixes & improvements
+
+- chore: Moving get_docker_compose_commands_to_run back (#204) by @IanWoodard
+- chore(ci): Skip loader for CI (#203) by @hubertdeng123
+- fix(dependencies): Adding retries to fetch (#202) by @IanWoodard
+- fix(down): Fixing down's logic and adding proper tests (#201) by @IanWoodard
+- fix(up): Cleaning up 'up' test cases (#199) by @IanWoodard
+- ref(docker-compose): Starting to refactor docker compose logic (#198) by @IanWoodard
+- chore(up): cleaning up tests (#196) by @IanWoodard
+- ref(commands): Improving error message for service not found DEVINFRA-572 (#197) by @IanWoodard
+- ref(commands): Improving error messages (#195) by @IanWoodard
+- fix(down): Use stop rather than down to avoid removing containers (#194) by @IanWoodard
+
 ## 1.0.8
 
 ### Various fixes & improvements
