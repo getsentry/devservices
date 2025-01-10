@@ -264,15 +264,28 @@ def get_non_shared_remote_dependencies(
     # We don't care about the remote dependencies of the service we are stopping
     started_services.remove(service_to_stop.name)
     other_running_remote_dependencies: set[InstalledRemoteDependency] = set()
-    for service_name in started_services:
-        service = find_matching_service(service_name)
+    base_running_service_names: set[str] = set()
+    for started_service_name in started_services:
+        started_service = find_matching_service(started_service_name)
+        for dependency_name in service_to_stop.config.dependencies.keys():
+            if dependency_name == started_service.config.service_name:
+                base_running_service_names.add(started_service_name)
+        installed_remote_dependencies = get_installed_remote_dependencies(
+            list(started_service.config.dependencies.values())
+        )
         # TODO: There is an edge case here where there is a shared remote dependency with different modes
         other_running_remote_dependencies = other_running_remote_dependencies.union(
-            get_installed_remote_dependencies(
-                list(service.config.dependencies.values())
-            )
+            installed_remote_dependencies
         )
-    return remote_dependencies.difference(other_running_remote_dependencies)
+    non_shared_remote_dependencies = remote_dependencies.difference(
+        other_running_remote_dependencies
+    )
+    non_shared_remote_dependencies = {
+        dependency
+        for dependency in non_shared_remote_dependencies
+        if dependency.service_name not in base_running_service_names
+    }
+    return non_shared_remote_dependencies
 
 
 def get_installed_remote_dependencies(
