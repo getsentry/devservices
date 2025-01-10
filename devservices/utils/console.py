@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import threading
 import time
@@ -97,6 +98,8 @@ class Status:
             self.on_success()
 
     def _loading_animation(self) -> None:
+        if os.environ.get("CI", default="false") == "true":
+            return
         idx = 0
         while not self._stop_loading.is_set():
             sys.stdout.write("\r" + ANIMATION_FRAMES[idx % len(ANIMATION_FRAMES)] + " ")
