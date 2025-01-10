@@ -9,7 +9,6 @@ from argparse import Namespace
 
 from sentry_sdk import capture_exception
 
-from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
@@ -26,9 +25,8 @@ from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
-from devservices.utils.docker_compose import create_docker_compose_command
 from devservices.utils.docker_compose import DockerComposeCommand
-from devservices.utils.docker_compose import get_non_remote_services
+from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
@@ -191,51 +189,3 @@ def _down(
         ]
         for future in concurrent.futures.as_completed(futures):
             cmd_outputs.append(future.result())
-
-
-def get_docker_compose_commands_to_run(
-    service: Service,
-    remote_dependencies: list[InstalledRemoteDependency],
-    current_env: dict[str, str],
-    command: str,
-    options: list[str],
-    service_config_file_path: str,
-    mode_dependencies: list[str],
-) -> list[DockerComposeCommand]:
-    docker_compose_commands = []
-    for dependency in remote_dependencies:
-        # TODO: Consider passing in service config in InstalledRemoteDependency instead of loading it here
-        dependency_service_config = load_service_config_from_file(dependency.repo_path)
-        dependency_config_path = os.path.join(
-            dependency.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-        )
-        non_remote_services = get_non_remote_services(
-            dependency_config_path, current_env
-        )
-        services_to_use = non_remote_services.intersection(
-            set(dependency_service_config.modes[dependency.mode])
-        )
-        docker_compose_commands.append(
-            create_docker_compose_command(
-                dependency_service_config.service_name,
-                dependency_config_path,
-                services_to_use,
-                command,
-                options,
-            )
-        )
-
-    # Add docker compose command for the top level service
-    non_remote_services = get_non_remote_services(service_config_file_path, current_env)
-    services_to_use = non_remote_services.intersection(set(mode_dependencies))
-    if len(services_to_use) > 0:
-        docker_compose_commands.append(
-            create_docker_compose_command(
-                service.name,
-                service_config_file_path,
-                services_to_use,
-                command,
-                options,
-            )
-        )
-    return docker_compose_commands

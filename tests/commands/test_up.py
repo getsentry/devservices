@@ -940,17 +940,23 @@ def test_up_multiple_modes_overlapping_running_service(
 
         args = Namespace(service_name="example-service", debug=False, mode="test")
 
-        with mock.patch(
-            "devservices.commands.up.run_cmd",
-            return_value=subprocess.CompletedProcess(
-                args=["docker", "compose", "config", "--services"],
-                returncode=0,
-                stdout="clickhouse\n",
+        with (
+            mock.patch(
+                "devservices.commands.up.run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=["docker", "compose", "config", "--services"],
+                    returncode=0,
+                    stdout="clickhouse\n",
+                ),
+            ) as mock_run_cmd,
+            mock.patch(
+                "devservices.commands.up.get_container_names_for_project",
+                return_value=["container1", "container2"],
             ),
-        ) as mock_run:
+        ):
             up(args)
 
-            mock_run.assert_has_calls(
+            mock_run_cmd.assert_has_calls(
                 [
                     mock.call(
                         [
@@ -970,7 +976,10 @@ def test_up_multiple_modes_overlapping_running_service(
                     ),
                 ],
             )
-        mock_check_all_containers_healthy.assert_called_once()
+        mock_check_all_containers_healthy.assert_called_once_with(
+            mock.ANY,
+            ["container1", "container2"],
+        )
 
         captured = capsys.readouterr()
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
