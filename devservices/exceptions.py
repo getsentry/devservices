@@ -70,7 +70,8 @@ class DockerError(Exception):
 class DockerComposeError(DockerError):
     """Base class for Docker Compose related errors."""
 
-    pass
+    def __str__(self) -> str:
+        return f"DockerComposeError: {self.command} returned {self.returncode} error: {self.stderr}"
 
 
 class ModeDoesNotExistError(Exception):
