@@ -38,6 +38,7 @@ from devservices.utils.file_lock import lock
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
 from devservices.utils.state import State
+from devservices.utils.state import StateTables
 
 RELEVANT_GIT_CONFIG_KEYS = [
     "init.defaultbranch",
@@ -261,7 +262,7 @@ def get_non_shared_remote_dependencies(
     service_to_stop: Service, remote_dependencies: set[InstalledRemoteDependency]
 ) -> set[InstalledRemoteDependency]:
     state = State()
-    started_services = state.get_started_services()
+    started_services = state.get_service_entries(StateTables.STARTED_SERVICES_TABLE)
     # We don't care about the remote dependencies of the service we are stopping
     started_services.remove(service_to_stop.name)
     other_running_remote_dependencies: set[InstalledRemoteDependency] = set()

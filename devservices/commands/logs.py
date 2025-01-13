@@ -28,6 +28,7 @@ from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
 from devservices.utils.state import State
+from devservices.utils.state import StateTables
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -67,7 +68,7 @@ def logs(args: Namespace) -> None:
     mode_dependencies = modes[mode_to_use]
 
     state = State()
-    running_services = state.get_started_services()
+    running_services = state.get_service_entries(StateTables.STARTED_SERVICES_TABLE)
     if service.name not in running_services:
         console.warning(f"Service {service.name} is not running")
         return

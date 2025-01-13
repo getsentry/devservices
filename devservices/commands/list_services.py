@@ -8,6 +8,7 @@ from devservices.utils.console import Console
 from devservices.utils.devenv import get_coderoot
 from devservices.utils.services import get_local_services
 from devservices.utils.state import State
+from devservices.utils.state import StateTables
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -30,7 +31,7 @@ def list_services(args: Namespace) -> None:
     coderoot = get_coderoot()
     services = get_local_services(coderoot)
     state = State()
-    running_services = state.get_started_services()
+    running_services = state.get_service_entries(StateTables.STARTED_SERVICES_TABLE)
 
     if not services:
         console.warning("No services found")
@@ -47,7 +48,9 @@ def list_services(args: Namespace) -> None:
 
     for service in services_to_show:
         status = "running" if service.name in running_services else "stopped"
-        active_modes = state.get_active_modes_for_service(service.name)
+        active_modes = state.get_active_modes_for_service(
+            service.name, StateTables.STARTED_SERVICES_TABLE
+        )
         console.info(f"- {service.name}")
         console.info(f"  modes: {active_modes}")
         console.info(f"  status: {status}")

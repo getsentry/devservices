@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from enum import StrEnum
 
 from devservices.constants import DEVSERVICES_LOCAL_DIR
 from devservices.constants import STATE_DB_FILE
+
+
+class StateTables(StrEnum):
+    STARTED_SERVICES_TABLE = "started_services"
+    STARTING_SERVICES_TABLE = "starting_services"
 
 
 class State:
@@ -25,8 +31,18 @@ class State:
     def initialize_database(self) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS started_services (
+            f"""
+            CREATE TABLE IF NOT EXISTS {StateTables.STARTED_SERVICES_TABLE.value} (
+                service_name TEXT PRIMARY KEY,
+                mode TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+        )
+
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {StateTables.STARTING_SERVICES_TABLE.value} (
                 service_name TEXT PRIMARY KEY,
                 mode TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -35,52 +51,56 @@ class State:
         )
         self.conn.commit()
 
-    def update_started_service(self, service_name: str, mode: str) -> None:
+    def update_service_entry(
+        self, service_name: str, mode: str, table: StateTables
+    ) -> None:
         cursor = self.conn.cursor()
-        started_services = self.get_started_services()
-        active_modes = self.get_active_modes_for_service(service_name)
-        if service_name in started_services and mode in active_modes:
+        service_entries = self.get_service_entries(table)
+        active_modes = self.get_active_modes_for_service(service_name, table)
+        if service_name in service_entries and mode in active_modes:
             return
-        if service_name in started_services:
+        if service_name in service_entries:
             cursor.execute(
-                """
-                UPDATE started_services SET mode = ? WHERE service_name = ?
+                f"""
+                UPDATE {table.value} SET mode = ? WHERE service_name = ?
             """,
                 (",".join(active_modes + [mode]), service_name),
             )
         else:
             cursor.execute(
-                """
-                INSERT INTO started_services (service_name, mode) VALUES (?, ?)
+                f"""
+                INSERT INTO {table.value} (service_name, mode) VALUES (?, ?)
             """,
                 (service_name, ",".join(active_modes + [mode])),
             )
         self.conn.commit()
 
-    def remove_started_service(self, service_name: str) -> None:
+    def remove_service_entry(self, service_name: str, table: StateTables) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
-            """
-            DELETE FROM started_services WHERE service_name = ?
+            f"""
+            DELETE FROM {table.value} WHERE service_name = ?
         """,
             (service_name,),
         )
         self.conn.commit()
 
-    def get_started_services(self) -> list[str]:
+    def get_service_entries(self, table: StateTables) -> list[str]:
         cursor = self.conn.cursor()
         cursor.execute(
-            """
-            SELECT service_name FROM started_services
+            f"""
+            SELECT service_name FROM {table.value}
         """
         )
         return [row[0] for row in cursor.fetchall()]
 
-    def get_active_modes_for_service(self, service_name: str) -> list[str]:
+    def get_active_modes_for_service(
+        self, service_name: str, table: StateTables
+    ) -> list[str]:
         cursor = self.conn.cursor()
         cursor.execute(
-            """
-            SELECT mode FROM started_services WHERE service_name = ?
+            f"""
+            SELECT mode FROM {table.value} WHERE service_name = ?
         """,
             (service_name,),
         )
@@ -92,8 +112,13 @@ class State:
     def clear_state(self) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
-            """
-            DELETE FROM started_services
+            f"""
+            DELETE FROM {StateTables.STARTED_SERVICES_TABLE.value}
+        """
+        )
+        cursor.execute(
+            f"""
+            DELETE FROM {StateTables.STARTING_SERVICES_TABLE.value}
         """
         )
         self.conn.commit()

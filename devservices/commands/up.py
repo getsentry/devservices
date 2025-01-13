@@ -34,6 +34,7 @@ from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
 from devservices.utils.state import State
+from devservices.utils.state import StateTables
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -108,7 +109,7 @@ def up(args: Namespace) -> None:
             exit(1)
     # TODO: We should factor in healthchecks here before marking service as running
     state = State()
-    state.update_started_service(service.name, mode)
+    state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES_TABLE)
 
 
 def _bring_up_dependency(

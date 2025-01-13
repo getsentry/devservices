@@ -8,6 +8,7 @@ import pytest
 
 from devservices.commands.list_services import list_services
 from devservices.utils.state import State
+from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 
 
@@ -19,7 +20,9 @@ def test_list_running_services(
         return_value=str(tmp_path / "code"),
     ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.update_started_service("example-service", "default")
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+        )
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -57,7 +60,9 @@ def test_list_all_services(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         return_value=str(tmp_path / "code"),
     ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.update_started_service("example-service", "default")
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+        )
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
