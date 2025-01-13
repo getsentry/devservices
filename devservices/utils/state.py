@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from enum import StrEnum
+from enum import Enum
 
 from devservices.constants import DEVSERVICES_LOCAL_DIR
 from devservices.constants import STATE_DB_FILE
 
 
-class StateTables(StrEnum):
+class StateTables(Enum):
     STARTED_SERVICES_TABLE = "started_services"
     STARTING_SERVICES_TABLE = "starting_services"
 
