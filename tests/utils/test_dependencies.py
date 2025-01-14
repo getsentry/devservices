@@ -30,6 +30,7 @@ from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
 from devservices.utils.services import Service
 from devservices.utils.state import State
+from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
@@ -1435,8 +1436,8 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.update_started_service("service-1", "default")
-        state.update_started_service("service-2", "default")
+        state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
+        state.update_service_entry("service-2", "default", StateTables.STARTED_SERVICES)
     service_to_stop = Service(
         name="service-1",
         repo_path="/path/to/service-1",
@@ -1510,8 +1511,8 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.update_started_service("service-1", "default")
-        state.update_started_service("service-2", "default")
+        state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
+        state.update_service_entry("service-2", "default", StateTables.STARTED_SERVICES)
     service_to_stop = Service(
         name="service-1",
         repo_path="/path/to/service-1",
@@ -1578,8 +1579,8 @@ def test_get_non_shared_remote_dependencies_complex(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.update_started_service("service-1", "default")
-        state.update_started_service("service-2", "default")
+        state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
+        state.update_service_entry("service-2", "default", StateTables.STARTED_SERVICES)
     service_to_stop = Service(
         name="service-1",
         repo_path="/path/to/service-1",

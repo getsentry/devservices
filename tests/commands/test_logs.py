@@ -20,11 +20,11 @@ from devservices.utils.services import Service
 
 @mock.patch("devservices.commands.logs.get_docker_compose_commands_to_run")
 @mock.patch("devservices.commands.logs.find_matching_service")
-@mock.patch("devservices.utils.state.State.get_started_services")
+@mock.patch("devservices.utils.state.State.get_service_entries")
 @mock.patch("devservices.commands.logs.install_and_verify_dependencies")
 def test_logs_no_specified_service_not_running(
     mock_install_and_verify_dependencies: mock.Mock,
-    mock_get_started_services: mock.Mock,
+    mock_get_service_entries: mock.Mock,
     mock_find_matching_service: mock.Mock,
     mock_get_docker_compose_commands_to_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -48,13 +48,13 @@ def test_logs_no_specified_service_not_running(
             ),
             repo_path=str(tmp_path / "example-service"),
         )
-        mock_get_started_services.return_value = []
+        mock_get_service_entries.return_value = []
         mock_find_matching_service.return_value = mock_service
 
         logs(args)
 
         mock_find_matching_service.assert_called_once_with(None)
-        mock_get_started_services.assert_called_once()
+        mock_get_service_entries.assert_called_once()
         mock_install_and_verify_dependencies.assert_not_called()
         mock_get_docker_compose_commands_to_run.assert_not_called()
 
@@ -65,13 +65,13 @@ def test_logs_no_specified_service_not_running(
 # TODO: Ideally we should also have tests that don't mock the intermediate functions
 @mock.patch("devservices.commands.logs.run_cmd")
 @mock.patch("devservices.commands.logs.find_matching_service")
-@mock.patch("devservices.utils.state.State.get_started_services")
+@mock.patch("devservices.utils.state.State.get_service_entries")
 @mock.patch("devservices.commands.logs.install_and_verify_dependencies")
 @mock.patch("devservices.utils.docker_compose.get_non_remote_services")
 def test_logs_no_specified_service_success(
     mock_get_non_remote_services: mock.Mock,
     mock_install_and_verify_dependencies: mock.Mock,
-    mock_get_started_services: mock.Mock,
+    mock_get_service_entries: mock.Mock,
     mock_find_matching_service: mock.Mock,
     mock_run_cmd: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -96,7 +96,7 @@ def test_logs_no_specified_service_success(
             repo_path=str(tmp_path / "example-service"),
         )
         mock_install_and_verify_dependencies.return_value = {}
-        mock_get_started_services.return_value = ["example-service"]
+        mock_get_service_entries.return_value = ["example-service"]
         mock_find_matching_service.return_value = mock_service
         mock_get_non_remote_services.return_value = {"redis", "clickhouse"}
         mock_run_cmd.return_value = subprocess.CompletedProcess(
@@ -125,7 +125,7 @@ def test_logs_no_specified_service_success(
         logs(args)
 
         mock_find_matching_service.assert_called_once_with(None)
-        mock_get_started_services.assert_called_once()
+        mock_get_service_entries.assert_called_once()
         mock_install_and_verify_dependencies.assert_called_once()
         mock_run_cmd.assert_called_once_with(
             [

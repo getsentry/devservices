@@ -22,6 +22,7 @@ from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.services import Service
 from devservices.utils.state import State
+from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
@@ -35,9 +36,9 @@ from testing.utils import run_git_command
         stdout="clickhouse\nredis\n",
     ),
 )
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_simple(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -74,7 +75,9 @@ def test_down_simple(
             "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
         ):
             state = State()
-            state.update_started_service("example-service", "default")
+            state.update_service_entry(
+                "example-service", "default", StateTables.STARTED_SERVICES
+            )
             down(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
@@ -102,16 +105,18 @@ def test_down_simple(
             env=mock.ANY,
         )
 
-        mock_remove_started_service.assert_called_with("example-service")
+        mock_remove_service_entry.assert_called_with(
+            "example-service", StateTables.STARTED_SERVICES
+        )
 
         captured = capsys.readouterr()
         assert "Stopping clickhouse" in captured.out.strip()
         assert "Stopping redis" in captured.out.strip()
 
 
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_no_config_file(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
@@ -130,13 +135,13 @@ def test_down_no_config_file(
         in captured.out.strip()
     )
 
-    mock_remove_started_service.assert_not_called()
+    mock_remove_service_entry.assert_not_called()
 
 
 @mock.patch("devservices.utils.docker_compose.subprocess.run")
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_error(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     mock_run: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -169,7 +174,9 @@ def test_down_error(
 
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.update_started_service("example-service", "default")
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES
+        )
         with pytest.raises(SystemExit):
             down(args)
 
@@ -180,7 +187,7 @@ def test_down_error(
         "Failed to stop example-service: Docker Compose error" in captured.out.strip()
     )
 
-    mock_remove_started_service.assert_not_called()
+    mock_remove_service_entry.assert_not_called()
 
     assert "Stopping clickhouse" not in captured.out.strip()
     assert "Stopping redis" not in captured.out.strip()
@@ -194,9 +201,9 @@ def test_down_error(
         stdout="clickhouse\nredis\n",
     ),
 )
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_mode_simple(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -233,7 +240,9 @@ def test_down_mode_simple(
             "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
         ):
             state = State()
-            state.update_started_service("example-service", "test")
+            state.update_service_entry(
+                "example-service", "test", StateTables.STARTED_SERVICES
+            )
             down(args)
 
         # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
@@ -260,7 +269,9 @@ def test_down_mode_simple(
             env=mock.ANY,
         )
 
-        mock_remove_started_service.assert_called_with("example-service")
+        mock_remove_service_entry.assert_called_with(
+            "example-service", StateTables.STARTED_SERVICES
+        )
 
         captured = capsys.readouterr()
         assert "Stopping redis" in captured.out.strip()
@@ -296,9 +307,9 @@ def test_down_service_not_found_error(
     assert "Service not found" in captured.out.strip()
 
 
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_overlapping_services(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     tmp_path: Path,
 ) -> None:
     """
@@ -389,8 +400,12 @@ def test_down_overlapping_services(
         os.chdir(example_service_path)
 
         state = State()
-        state.update_started_service("example-service", "default")
-        state.update_started_service("other-service", "default")
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_entry(
+            "other-service", "default", StateTables.STARTED_SERVICES
+        )
 
         args = Namespace(service_name=None, debug=False)
 
@@ -425,12 +440,14 @@ def test_down_overlapping_services(
             )
 
         # example-service should be stopped
-        mock_remove_started_service.assert_called_with("example-service")
+        mock_remove_service_entry.assert_called_with(
+            "example-service", StateTables.STARTED_SERVICES
+        )
 
 
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_does_not_stop_service_being_used_by_another_service(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     tmp_path: Path,
 ) -> None:
     """
@@ -568,8 +585,12 @@ def test_down_does_not_stop_service_being_used_by_another_service(
         os.chdir(example_service_path)
 
         state = State()
-        state.update_started_service("example-service", "default")
-        state.update_started_service("other-service", "default")
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_entry(
+            "other-service", "default", StateTables.STARTED_SERVICES
+        )
 
         args = Namespace(service_name=None, debug=False)
 
@@ -582,12 +603,14 @@ def test_down_does_not_stop_service_being_used_by_another_service(
             mock_bring_down_dependency.assert_not_called()
 
         # example-service should be stopped
-        mock_remove_started_service.assert_called_with("example-service")
+        mock_remove_service_entry.assert_called_with(
+            "example-service", StateTables.STARTED_SERVICES
+        )
 
 
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_does_not_stop_nested_service_being_used_by_another_service(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     tmp_path: Path,
 ) -> None:
     """
@@ -732,8 +755,12 @@ def test_down_does_not_stop_nested_service_being_used_by_another_service(
         os.chdir(child_service_path)
 
         state = State()
-        state.update_started_service("child-service", "default")
-        state.update_started_service("grandparent-service", "default")
+        state.update_service_entry(
+            "child-service", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_entry(
+            "grandparent-service", "default", StateTables.STARTED_SERVICES
+        )
 
         args = Namespace(service_name=None, debug=False)
 
@@ -746,12 +773,14 @@ def test_down_does_not_stop_nested_service_being_used_by_another_service(
             mock_bring_down_dependency.assert_not_called()
 
         # child-service should be stopped
-        mock_remove_started_service.assert_called_with("child-service")
+        mock_remove_service_entry.assert_called_with(
+            "child-service", StateTables.STARTED_SERVICES
+        )
 
 
-@mock.patch("devservices.utils.state.State.remove_started_service")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_overlapping_non_remote_services(
-    mock_remove_started_service: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
     tmp_path: Path,
 ) -> None:
     """
@@ -826,8 +855,10 @@ def test_down_overlapping_non_remote_services(
         os.chdir(example_service_path)
 
         state = State()
-        state.update_started_service("example-service", "default")
-        state.update_started_service("redis", "default")
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_entry("redis", "default", StateTables.STARTED_SERVICES)
 
         args = Namespace(service_name=None, debug=False)
 
@@ -858,4 +889,6 @@ def test_down_overlapping_non_remote_services(
             )
 
         # example-service should be stopped
-        mock_remove_started_service.assert_called_with("example-service")
+        mock_remove_service_entry.assert_called_with(
+            "example-service", StateTables.STARTED_SERVICES
+        )
