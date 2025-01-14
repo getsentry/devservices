@@ -270,7 +270,7 @@ def get_docker_compose_commands_to_run(
 def run_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     logger = logging.getLogger(LOGGER_NAME)
     try:
-        logger.debug(f"Running command: {' '.join(cmd)}")
+        logger.debug("Running command: %s", " ".join(cmd))
         return subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
     except subprocess.CalledProcessError as e:
         raise DockerComposeError(
