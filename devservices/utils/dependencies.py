@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import TextIO
 from typing import TypeGuard
 
+from sentry_sdk import capture_message
 from sentry_sdk import set_context
 
 from devservices.configs.service_config import Dependency
@@ -601,7 +602,10 @@ def _run_command_with_retries(
             break
         except subprocess.CalledProcessError as e:
             logger = logging.getLogger(LOGGER_NAME)
-            logger.exception("Attempt %s of %s failed: %s", i + 1, retries, e)
+            logger.debug("Attempt %s of %s failed: %s", i + 1, retries, e)
+            capture_message(
+                f"Attempt {i + 1} of {retries} for {cmd} failed: {e}", level="warning"
+            )
             if i == retries - 1:
                 raise e
             time.sleep(backoff**i)
