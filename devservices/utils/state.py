@@ -9,8 +9,8 @@ from devservices.constants import STATE_DB_FILE
 
 
 class StateTables(Enum):
-    STARTED_SERVICES_TABLE = "started_services"
-    STARTING_SERVICES_TABLE = "starting_services"
+    STARTED_SERVICES = "started_services"
+    STARTING_SERVICES = "starting_services"
 
 
 class State:
@@ -30,9 +30,10 @@ class State:
 
     def initialize_database(self) -> None:
         cursor = self.conn.cursor()
+        # Formatted strings here and throughout the fileshould be extremely low risk given these are constants
         cursor.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS {StateTables.STARTED_SERVICES_TABLE.value} (
+            CREATE TABLE IF NOT EXISTS {StateTables.STARTED_SERVICES.value} (
                 service_name TEXT PRIMARY KEY,
                 mode TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -42,7 +43,7 @@ class State:
 
         cursor.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS {StateTables.STARTING_SERVICES_TABLE.value} (
+            CREATE TABLE IF NOT EXISTS {StateTables.STARTING_SERVICES.value} (
                 service_name TEXT PRIMARY KEY,
                 mode TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -113,12 +114,12 @@ class State:
         cursor = self.conn.cursor()
         cursor.execute(
             f"""
-            DELETE FROM {StateTables.STARTED_SERVICES_TABLE.value}
+            DELETE FROM {StateTables.STARTED_SERVICES.value}
         """
         )
         cursor.execute(
             f"""
-            DELETE FROM {StateTables.STARTING_SERVICES_TABLE.value}
+            DELETE FROM {StateTables.STARTING_SERVICES.value}
         """
         )
         self.conn.commit()

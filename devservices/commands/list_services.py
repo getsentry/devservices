@@ -31,7 +31,7 @@ def list_services(args: Namespace) -> None:
     coderoot = get_coderoot()
     services = get_local_services(coderoot)
     state = State()
-    running_services = state.get_service_entries(StateTables.STARTED_SERVICES_TABLE)
+    running_services = state.get_service_entries(StateTables.STARTED_SERVICES)
 
     if not services:
         console.warning("No services found")
@@ -49,7 +49,7 @@ def list_services(args: Namespace) -> None:
     for service in services_to_show:
         status = "running" if service.name in running_services else "stopped"
         active_modes = state.get_active_modes_for_service(
-            service.name, StateTables.STARTED_SERVICES_TABLE
+            service.name, StateTables.STARTED_SERVICES
         )
         console.info(f"- {service.name}")
         console.info(f"  modes: {active_modes}")

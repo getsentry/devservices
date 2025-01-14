@@ -76,7 +76,7 @@ def test_down_simple(
         ):
             state = State()
             state.update_service_entry(
-                "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+                "example-service", "default", StateTables.STARTED_SERVICES
             )
             down(args)
 
@@ -106,7 +106,7 @@ def test_down_simple(
         )
 
         mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES_TABLE
+            "example-service", StateTables.STARTED_SERVICES
         )
 
         captured = capsys.readouterr()
@@ -175,7 +175,7 @@ def test_down_error(
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
         with pytest.raises(SystemExit):
             down(args)
@@ -241,7 +241,7 @@ def test_down_mode_simple(
         ):
             state = State()
             state.update_service_entry(
-                "example-service", "test", StateTables.STARTED_SERVICES_TABLE
+                "example-service", "test", StateTables.STARTED_SERVICES
             )
             down(args)
 
@@ -270,7 +270,7 @@ def test_down_mode_simple(
         )
 
         mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES_TABLE
+            "example-service", StateTables.STARTED_SERVICES
         )
 
         captured = capsys.readouterr()
@@ -401,10 +401,10 @@ def test_down_overlapping_services(
 
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
         state.update_service_entry(
-            "other-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "other-service", "default", StateTables.STARTED_SERVICES
         )
 
         args = Namespace(service_name=None, debug=False)
@@ -441,7 +441,7 @@ def test_down_overlapping_services(
 
         # example-service should be stopped
         mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES_TABLE
+            "example-service", StateTables.STARTED_SERVICES
         )
 
 
@@ -586,10 +586,10 @@ def test_down_does_not_stop_service_being_used_by_another_service(
 
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
         state.update_service_entry(
-            "other-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "other-service", "default", StateTables.STARTED_SERVICES
         )
 
         args = Namespace(service_name=None, debug=False)
@@ -604,7 +604,7 @@ def test_down_does_not_stop_service_being_used_by_another_service(
 
         # example-service should be stopped
         mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES_TABLE
+            "example-service", StateTables.STARTED_SERVICES
         )
 
 
@@ -756,10 +756,10 @@ def test_down_does_not_stop_nested_service_being_used_by_another_service(
 
         state = State()
         state.update_service_entry(
-            "child-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "child-service", "default", StateTables.STARTED_SERVICES
         )
         state.update_service_entry(
-            "grandparent-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "grandparent-service", "default", StateTables.STARTED_SERVICES
         )
 
         args = Namespace(service_name=None, debug=False)
@@ -774,7 +774,7 @@ def test_down_does_not_stop_nested_service_being_used_by_another_service(
 
         # child-service should be stopped
         mock_remove_service_entry.assert_called_with(
-            "child-service", StateTables.STARTED_SERVICES_TABLE
+            "child-service", StateTables.STARTED_SERVICES
         )
 
 
@@ -856,11 +856,9 @@ def test_down_overlapping_non_remote_services(
 
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
-        state.update_service_entry(
-            "redis", "default", StateTables.STARTED_SERVICES_TABLE
-        )
+        state.update_service_entry("redis", "default", StateTables.STARTED_SERVICES)
 
         args = Namespace(service_name=None, debug=False)
 
@@ -892,5 +890,5 @@ def test_down_overlapping_non_remote_services(
 
         # example-service should be stopped
         mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES_TABLE
+            "example-service", StateTables.STARTED_SERVICES
         )

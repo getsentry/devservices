@@ -68,7 +68,7 @@ def logs(args: Namespace) -> None:
     mode_dependencies = modes[mode_to_use]
 
     state = State()
-    running_services = state.get_service_entries(StateTables.STARTED_SERVICES_TABLE)
+    running_services = state.get_service_entries(StateTables.STARTED_SERVICES)
     if service.name not in running_services:
         console.warning(f"Service {service.name} is not running")
         return

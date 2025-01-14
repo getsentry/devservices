@@ -109,7 +109,7 @@ def up(args: Namespace) -> None:
             exit(1)
     # TODO: We should factor in healthchecks here before marking service as running
     state = State()
-    state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES_TABLE)
+    state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES)
 
 
 def _bring_up_dependency(

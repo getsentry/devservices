@@ -43,11 +43,11 @@ def test_purge_docker_daemon_not_running(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -55,7 +55,7 @@ def test_purge_docker_daemon_not_running(
         purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
             DEVSERVICES_ORCHESTRATOR_LABEL
@@ -101,11 +101,11 @@ def test_purge_docker_error_get_matching_containers(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -114,7 +114,7 @@ def test_purge_docker_error_get_matching_containers(
             purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
             DEVSERVICES_ORCHESTRATOR_LABEL
@@ -158,11 +158,11 @@ def test_purge_docker_error_get_volumes_for_containers(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -171,7 +171,7 @@ def test_purge_docker_error_get_volumes_for_containers(
             purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
             DEVSERVICES_ORCHESTRATOR_LABEL
@@ -218,11 +218,11 @@ def test_purge_docker_error_get_matching_networks(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -231,7 +231,7 @@ def test_purge_docker_error_get_matching_networks(
             purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
             DEVSERVICES_ORCHESTRATOR_LABEL
@@ -277,11 +277,11 @@ def test_purge_docker_error_stop_containers(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -290,7 +290,7 @@ def test_purge_docker_error_stop_containers(
             purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
             DEVSERVICES_ORCHESTRATOR_LABEL
@@ -340,11 +340,11 @@ def test_purge_docker_error_remove_volumes_continues_to_remove_networks(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -352,7 +352,7 @@ def test_purge_docker_error_remove_volumes_continues_to_remove_networks(
         purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
             DEVSERVICES_ORCHESTRATOR_LABEL
@@ -409,11 +409,11 @@ def test_purge_docker_error_remove_networks(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -422,7 +422,7 @@ def test_purge_docker_error_remove_networks(
             purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
             DEVSERVICES_ORCHESTRATOR_LABEL
@@ -477,11 +477,11 @@ def test_purge_with_cache_and_state_and_no_containers(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -489,7 +489,7 @@ def test_purge_with_cache_and_state_and_no_containers(
         purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_stop_containers.assert_called_once_with([], should_remove=True)
         mock_remove_docker_resources.assert_not_called()
@@ -529,11 +529,11 @@ def test_purge_with_cache_and_state_and_containers_with_networks_and_volumes(
 
         state = State()
         state.update_service_entry(
-            "test-service", "test-mode", StateTables.STARTED_SERVICES_TABLE
+            "test-service", "test-mode", StateTables.STARTED_SERVICES
         )
 
         assert cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == [
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
             "test-service"
         ]
 
@@ -541,7 +541,7 @@ def test_purge_with_cache_and_state_and_containers_with_networks_and_volumes(
         purge(args)
 
         assert not cache_file.exists()
-        assert state.get_service_entries(StateTables.STARTED_SERVICES_TABLE) == []
+        assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_stop_containers.assert_called_once_with(
             ["abc", "def", "ghe"], should_remove=True

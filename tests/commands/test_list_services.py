@@ -21,7 +21,7 @@ def test_list_running_services(
     ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
         config = {
             "x-sentry-service-config": {
@@ -61,7 +61,7 @@ def test_list_all_services(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     ), mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
         config = {
             "x-sentry-service-config": {

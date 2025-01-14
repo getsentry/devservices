@@ -122,7 +122,7 @@ def test_up_simple(
         )
 
         mock_update_service_entry.assert_called_with(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
         mock_check_all_containers_healthy.assert_called_once()
         captured = capsys.readouterr()
@@ -630,7 +630,7 @@ def test_up_mode_simple(
         )
 
         mock_update_service_entry.assert_called_with(
-            "example-service", "test", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "test", StateTables.STARTED_SERVICES
         )
         mock_check_all_containers_healthy.assert_called_once()
         captured = capsys.readouterr()
@@ -749,7 +749,7 @@ def test_up_mutliple_modes(
 
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
 
         args = Namespace(service_name=None, debug=False, mode="test")
@@ -883,10 +883,10 @@ def test_up_multiple_modes_overlapping_running_service(
 
         state = State()
         state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "example-service", "default", StateTables.STARTED_SERVICES
         )
         state.update_service_entry(
-            "other-service", "default", StateTables.STARTED_SERVICES_TABLE
+            "other-service", "default", StateTables.STARTED_SERVICES
         )
 
         args = Namespace(service_name="example-service", debug=False, mode="test")
