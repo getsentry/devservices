@@ -602,7 +602,7 @@ def _run_command_with_retries(
             break
         except subprocess.CalledProcessError as e:
             logger = logging.getLogger(LOGGER_NAME)
-            logger.debug("Attempt %s of %s failed: %s", i + 1, retries, e)
+            logger.debug("Attempt %s of %s for %s failed: %s", i + 1, retries, cmd, e)
             capture_message(
                 f"Attempt {i + 1} of {retries} for {cmd} failed: {e}", level="warning"
             )
