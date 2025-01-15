@@ -79,6 +79,8 @@ def up(args: Namespace) -> None:
     modes = service.config.modes
     mode = args.mode
 
+    state = State()
+
     with Status(
         lambda: console.warning(f"Starting '{service.name}' in mode: '{mode}'"),
         lambda: console.success(f"{service.name} started"),
@@ -100,6 +102,8 @@ def up(args: Namespace) -> None:
         except subprocess.CalledProcessError:
             # Network already exists, ignore the error
             pass
+        # Add the service to the starting services table
+        state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
         try:
             mode_dependencies = modes[mode]
             _up(service, [mode], remote_dependencies, mode_dependencies, status)
@@ -108,7 +112,7 @@ def up(args: Namespace) -> None:
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
     # TODO: We should factor in healthchecks here before marking service as running
-    state = State()
+    state.remove_service_entry(service.name, StateTables.STARTING_SERVICES)
     state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES)
 
 

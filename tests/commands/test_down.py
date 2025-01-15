@@ -37,7 +37,96 @@ from testing.utils import run_git_command
     ),
 )
 @mock.patch("devservices.utils.state.State.remove_service_entry")
-def test_down_simple(
+def test_down_starting(
+    mock_remove_service_entry: mock.Mock,
+    mock_run: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with mock.patch(
+        "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        args = Namespace(service_name=None, debug=False)
+
+        with mock.patch(
+            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+        ):
+            state = State()
+            state.update_service_entry(
+                "example-service", "default", StateTables.STARTING_SERVICES
+            )
+            down(args)
+
+        # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
+        env_vars = mock_run.call_args[1]["env"]
+        assert (
+            env_vars[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY]
+            == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
+        )
+
+        mock_run.assert_called_with(
+            [
+                "docker",
+                "compose",
+                "-p",
+                "example-service",
+                "-f",
+                f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                "stop",
+                "clickhouse",
+                "redis",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=mock.ANY,
+        )
+
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", StateTables.STARTING_SERVICES),
+                mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
+        )
+
+        captured = capsys.readouterr()
+        assert "Stopping clickhouse" in captured.out.strip()
+        assert "Stopping redis" in captured.out.strip()
+
+
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    return_value=subprocess.CompletedProcess(
+        args=["docker", "compose", "config", "--services"],
+        returncode=0,
+        stdout="clickhouse\nredis\n",
+    ),
+)
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+def test_down_started(
     mock_remove_service_entry: mock.Mock,
     mock_run: mock.Mock,
     tmp_path: Path,
@@ -105,8 +194,11 @@ def test_down_simple(
             env=mock.ANY,
         )
 
-        mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", StateTables.STARTING_SERVICES),
+                mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
         )
 
         captured = capsys.readouterr()
@@ -269,8 +361,11 @@ def test_down_mode_simple(
             env=mock.ANY,
         )
 
-        mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", StateTables.STARTING_SERVICES),
+                mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
         )
 
         captured = capsys.readouterr()
@@ -440,8 +535,11 @@ def test_down_overlapping_services(
             )
 
         # example-service should be stopped
-        mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", StateTables.STARTING_SERVICES),
+                mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
         )
 
 
@@ -603,8 +701,11 @@ def test_down_does_not_stop_service_being_used_by_another_service(
             mock_bring_down_dependency.assert_not_called()
 
         # example-service should be stopped
-        mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", StateTables.STARTING_SERVICES),
+                mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
         )
 
 
@@ -773,8 +874,11 @@ def test_down_does_not_stop_nested_service_being_used_by_another_service(
             mock_bring_down_dependency.assert_not_called()
 
         # child-service should be stopped
-        mock_remove_service_entry.assert_called_with(
-            "child-service", StateTables.STARTED_SERVICES
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("child-service", StateTables.STARTING_SERVICES),
+                mock.call("child-service", StateTables.STARTED_SERVICES),
+            ]
         )
 
 
@@ -889,6 +993,9 @@ def test_down_overlapping_non_remote_services(
             )
 
         # example-service should be stopped
-        mock_remove_service_entry.assert_called_with(
-            "example-service", StateTables.STARTED_SERVICES
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", StateTables.STARTING_SERVICES),
+                mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
         )

@@ -263,12 +263,14 @@ def get_non_shared_remote_dependencies(
     service_to_stop: Service, remote_dependencies: set[InstalledRemoteDependency]
 ) -> set[InstalledRemoteDependency]:
     state = State()
-    started_services = state.get_service_entries(StateTables.STARTED_SERVICES)
+    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
+    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
+    active_services = starting_services.union(started_services)
     # We don't care about the remote dependencies of the service we are stopping
-    started_services.remove(service_to_stop.name)
+    active_services.remove(service_to_stop.name)
     other_running_remote_dependencies: set[InstalledRemoteDependency] = set()
     base_running_service_names: set[str] = set()
-    for started_service_name in started_services:
+    for started_service_name in active_services:
         started_service = find_matching_service(started_service_name)
         for dependency_name in service_to_stop.config.dependencies.keys():
             if dependency_name == started_service.config.service_name:
