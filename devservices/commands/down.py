@@ -76,14 +76,20 @@ def down(args: Namespace) -> None:
     modes = service.config.modes
 
     state = State()
-    started_services = state.get_service_entries(StateTables.STARTED_SERVICES)
-    if service.name not in started_services:
+    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
+    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
+    active_services = starting_services.union(started_services)
+    if service.name not in active_services:
         console.warning(f"{service.name} is not running")
         exit(0)
 
-    active_modes = state.get_active_modes_for_service(
+    active_starting_modes = state.get_active_modes_for_service(
+        service.name, StateTables.STARTING_SERVICES
+    )
+    active_started_modes = state.get_active_modes_for_service(
         service.name, StateTables.STARTED_SERVICES
     )
+    active_modes = active_starting_modes or active_started_modes
     mode_dependencies = set()
     for active_mode in active_modes:
         active_mode_dependencies = modes.get(active_mode, [])
@@ -111,12 +117,19 @@ def down(args: Namespace) -> None:
 
         # Check if any service depends on the service we are trying to bring down
         # TODO: We should also take into account the active modes of the other services (this is not trivial to do)
-        other_started_services = set(started_services).difference({service.name})
+        other_started_services = active_services.difference({service.name})
         dependent_service_name = None
         for other_started_service in other_started_services:
             other_service = find_matching_service(other_started_service)
-            other_service_active_modes = state.get_active_modes_for_service(
+            other_service_active_starting_modes = state.get_active_modes_for_service(
+                other_service.name, StateTables.STARTING_SERVICES
+            )
+            other_service_active_started_modes = state.get_active_modes_for_service(
                 other_service.name, StateTables.STARTED_SERVICES
+            )
+            other_service_active_modes = (
+                other_service_active_starting_modes
+                or other_service_active_started_modes
             )
             dependency_graph = construct_dependency_graph(
                 other_service, other_service_active_modes
@@ -140,7 +153,7 @@ def down(args: Namespace) -> None:
             )
 
     # TODO: We should factor in healthchecks here before marking service as not running
-    state = State()
+    state.remove_service_entry(service.name, StateTables.STARTING_SERVICES)
     state.remove_service_entry(service.name, StateTables.STARTED_SERVICES)
     if dependent_service_name is None:
         console.success(f"{service.name} stopped")
