@@ -16,6 +16,7 @@ from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import Service
+from devservices.utils.state import StateTables
 
 
 @mock.patch("devservices.commands.logs.get_docker_compose_commands_to_run")
@@ -54,7 +55,16 @@ def test_logs_no_specified_service_not_running(
         logs(args)
 
         mock_find_matching_service.assert_called_once_with(None)
-        mock_get_service_entries.assert_called_once()
+        mock_get_service_entries.assert_has_calls(
+            [
+                mock.call(
+                    StateTables.STARTING_SERVICES,
+                ),
+                mock.call(
+                    StateTables.STARTED_SERVICES,
+                ),
+            ]
+        )
         mock_install_and_verify_dependencies.assert_not_called()
         mock_get_docker_compose_commands_to_run.assert_not_called()
 
@@ -125,7 +135,16 @@ def test_logs_no_specified_service_success(
         logs(args)
 
         mock_find_matching_service.assert_called_once_with(None)
-        mock_get_service_entries.assert_called_once()
+        mock_get_service_entries.assert_has_calls(
+            [
+                mock.call(
+                    StateTables.STARTING_SERVICES,
+                ),
+                mock.call(
+                    StateTables.STARTED_SERVICES,
+                ),
+            ]
+        )
         mock_install_and_verify_dependencies.assert_called_once()
         mock_run_cmd.assert_called_once_with(
             [
