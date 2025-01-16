@@ -117,7 +117,7 @@ def test_list_running_services_started(
 
         assert (
             captured.out
-            == f"Running services:\n- example-service\n  modes: ['default']\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
+            == f"Running services:\n- example-service\n  modes: ['default']\n  status: started\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )
 
 
@@ -172,5 +172,5 @@ def test_list_all_services(
 
         assert (
             captured.out
-            == f"Services installed locally:\n- example-service\n  modes: ['default']\n  status: running\n  location: {tmp_path / 'code' / 'example-service'}\n"
+            == f"Services installed locally:\n- example-service\n  modes: ['default']\n  status: started\n  location: {tmp_path / 'code' / 'example-service'}\n"
         )

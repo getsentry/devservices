@@ -53,7 +53,7 @@ def list_services(args: Namespace) -> None:
         if service.name in starting_services:
             status = "starting"
         elif service.name in started_services:
-            status = "Started"
+            status = "started"
         active_starting_modes = state.get_active_modes_for_service(
             service.name, StateTables.STARTING_SERVICES
         )
