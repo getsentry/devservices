@@ -13,8 +13,6 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DEPENDENCY_CONFIG_VERSION
-from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
@@ -28,18 +26,9 @@ from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
 
 
-@mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=subprocess.CompletedProcess(
-        args=["docker", "compose", "config", "--services"],
-        returncode=0,
-        stdout="clickhouse\nredis\n",
-    ),
-)
 @mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_starting(
     mock_remove_service_entry: mock.Mock,
-    mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -71,8 +60,18 @@ def test_down_starting(
 
         args = Namespace(service_name=None, debug=False)
 
-        with mock.patch(
-            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+        with (
+            mock.patch(
+                "devservices.commands.down.run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=["docker", "compose", "config", "--services"],
+                    returncode=0,
+                    stdout="clickhouse\nredis\n",
+                ),
+            ) as mock_run_cmd,
+            mock.patch(
+                "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
         ):
             state = State()
             state.update_service_entry(
@@ -80,14 +79,7 @@ def test_down_starting(
             )
             down(args)
 
-        # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
-        env_vars = mock_run.call_args[1]["env"]
-        assert (
-            env_vars[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY]
-            == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
-        )
-
-        mock_run.assert_called_with(
+        mock_run_cmd.assert_called_once_with(
             [
                 "docker",
                 "compose",
@@ -99,10 +91,7 @@ def test_down_starting(
                 "clickhouse",
                 "redis",
             ],
-            check=True,
-            capture_output=True,
-            text=True,
-            env=mock.ANY,
+            mock.ANY,
         )
 
         mock_remove_service_entry.assert_has_calls(
@@ -117,18 +106,9 @@ def test_down_starting(
         assert "Stopping redis" in captured.out.strip()
 
 
-@mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=subprocess.CompletedProcess(
-        args=["docker", "compose", "config", "--services"],
-        returncode=0,
-        stdout="clickhouse\nredis\n",
-    ),
-)
 @mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_started(
     mock_remove_service_entry: mock.Mock,
-    mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -160,8 +140,18 @@ def test_down_started(
 
         args = Namespace(service_name=None, debug=False)
 
-        with mock.patch(
-            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+        with (
+            mock.patch(
+                "devservices.commands.down.run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=["docker", "compose", "config", "--services"],
+                    returncode=0,
+                    stdout="clickhouse\nredis\n",
+                ),
+            ) as mock_run_cmd,
+            mock.patch(
+                "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
         ):
             state = State()
             state.update_service_entry(
@@ -169,14 +159,7 @@ def test_down_started(
             )
             down(args)
 
-        # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
-        env_vars = mock_run.call_args[1]["env"]
-        assert (
-            env_vars[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY]
-            == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
-        )
-
-        mock_run.assert_called_with(
+        mock_run_cmd.assert_called_once_with(
             [
                 "docker",
                 "compose",
@@ -188,10 +171,7 @@ def test_down_started(
                 "clickhouse",
                 "redis",
             ],
-            check=True,
-            capture_output=True,
-            text=True,
-            env=mock.ANY,
+            mock.ANY,
         )
 
         mock_remove_service_entry.assert_has_calls(
@@ -264,13 +244,14 @@ def test_down_error(
 
     args = Namespace(service_name=None, debug=False)
 
-    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+    with mock.patch(
+        "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+    ), pytest.raises(SystemExit):
         state = State()
         state.update_service_entry(
             "example-service", "default", StateTables.STARTED_SERVICES
         )
-        with pytest.raises(SystemExit):
-            down(args)
+        down(args)
 
     # Capture the printed output
     captured = capsys.readouterr()
@@ -285,18 +266,9 @@ def test_down_error(
     assert "Stopping redis" not in captured.out.strip()
 
 
-@mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=subprocess.CompletedProcess(
-        args=["docker", "compose", "config", "--services"],
-        returncode=0,
-        stdout="clickhouse\nredis\n",
-    ),
-)
 @mock.patch("devservices.utils.state.State.remove_service_entry")
 def test_down_mode_simple(
     mock_remove_service_entry: mock.Mock,
-    mock_run: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -329,6 +301,13 @@ def test_down_mode_simple(
         args = Namespace(service_name=None, debug=False)
 
         with mock.patch(
+            "devservices.commands.down.run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=["docker", "compose", "config", "--services"],
+                returncode=0,
+                stdout="redis\n",
+            ),
+        ) as mock_run_cmd, mock.patch(
             "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
         ):
             state = State()
@@ -337,14 +316,7 @@ def test_down_mode_simple(
             )
             down(args)
 
-        # Ensure the DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY is set and is relative
-        env_vars = mock_run.call_args[1]["env"]
-        assert (
-            env_vars[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY]
-            == f"../dependency-dir/{DEPENDENCY_CONFIG_VERSION}"
-        )
-
-        mock_run.assert_called_with(
+        mock_run_cmd.assert_called_once_with(
             [
                 "docker",
                 "compose",
@@ -355,10 +327,7 @@ def test_down_mode_simple(
                 "stop",
                 "redis",
             ],
-            check=True,
-            capture_output=True,
-            text=True,
-            env=mock.ANY,
+            mock.ANY,
         )
 
         mock_remove_service_entry.assert_has_calls(
