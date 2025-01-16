@@ -740,7 +740,7 @@ def test_up_mode_does_not_exist(
         captured = capsys.readouterr()
 
         assert (
-            "ModeDoesNotExistError: Mode 'test' does not exist for service 'example-service'"
+            "ModeDoesNotExistError: Mode 'test' does not exist for service 'example-service'.\nAvailable modes: default"
             in captured.out.strip()
         )
 

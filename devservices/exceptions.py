@@ -77,12 +77,14 @@ class DockerComposeError(DockerError):
 class ModeDoesNotExistError(Exception):
     """Raised when a mode does not exist."""
 
-    def __init__(self, service_name: str, mode: str):
+    def __init__(self, service_name: str, mode: str, available_modes: list[str]):
         self.service_name = service_name
         self.mode = mode
+        self.available_modes = available_modes
 
     def __str__(self) -> str:
-        return f"ModeDoesNotExistError: Mode '{self.mode}' does not exist for service '{self.service_name}'"
+        # All valid services should have at least one mode, so we don't check for an empty list
+        return f"ModeDoesNotExistError: Mode '{self.mode}' does not exist for service '{self.service_name}'.\nAvailable modes: {', '.join(self.available_modes)}"
 
 
 class DependencyError(Exception):
