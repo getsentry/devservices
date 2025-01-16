@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from datetime import timedelta
 from pathlib import Path
 from unittest import mock
 
 import pytest
+from freezegun import freeze_time
 
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
@@ -332,6 +334,372 @@ def test_install_dependency_git_config_failure(
             / DEVSERVICES_DIR_NAME
             / CONFIG_FILE_NAME
         ).exists()
+
+
+@mock.patch("devservices.utils.dependencies._run_command")
+def test_install_dependency_git_clone_failure(
+    mock_run_command: mock.Mock, tmp_path: Path
+) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+
+        # Sanity check that the config file is not in the dependency directory (yet)
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        mock_run_command.side_effect = subprocess.CalledProcessError(
+            returncode=1, cmd="test"
+        )
+
+        with pytest.raises(DependencyError):
+            install_dependency(mock_dependency)
+
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        mock_run_command.assert_called_once_with(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                f"file://{tmp_path / 'test-repo'}",
+                mock.ANY,
+            ],
+            cwd=mock.ANY,
+        )
+
+
+@mock.patch("devservices.utils.dependencies._run_command")
+@mock.patch("devservices.utils.dependencies.GitConfigManager.ensure_config")
+def test_install_dependency_git_checkout_failure(
+    mock_ensure_config: mock.Mock, mock_run_command: mock.Mock, tmp_path: Path
+) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+
+        # Sanity check that the config file is not in the dependency directory (yet)
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        mock_run_command.side_effect = [
+            subprocess.CompletedProcess(args="", returncode=0, stdout=""),
+            subprocess.CalledProcessError(returncode=1, cmd="test"),
+        ]
+
+        with pytest.raises(DependencyError):
+            install_dependency(mock_dependency)
+
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        mock_ensure_config.assert_called_once()
+
+        mock_run_command.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "git",
+                        "clone",
+                        "--filter=blob:none",
+                        "--no-checkout",
+                        f"file://{tmp_path / 'test-repo'}",
+                        mock.ANY,
+                    ],
+                    cwd=mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "git",
+                        "checkout",
+                        "main",
+                    ],
+                    cwd=mock.ANY,
+                ),
+            ]
+        )
+
+
+def test_install_dependency_git_fetch_transient_failure(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        mock_git_repo = create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+
+        # Sanity check that the config file is not in the dependency directory (yet)
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        install_dependency(mock_dependency)
+
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        # Append a new line to the config file in the mock repo and commit the change
+        with open(
+            mock_git_repo / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME,
+            mode="a",
+            encoding="utf-8",
+        ) as f:
+            f.write("\nedited: true")
+
+        run_git_command(["add", "."], cwd=mock_git_repo)
+        run_git_command(["commit", "-m", "Edit config file"], cwd=mock_git_repo)
+
+        with (
+            freeze_time("2024-05-14 00:00:00") as frozen_time,
+            mock.patch("devservices.utils.dependencies.time.sleep") as mock_sleep,
+            mock.patch(
+                "devservices.utils.dependencies._rev_parse",
+                return_value="123456",
+            ),
+            mock.patch(
+                "devservices.utils.dependencies._run_command"
+            ) as mock_run_command,
+            mock.patch(
+                "devservices.utils.dependencies._is_valid_repo",
+                return_value=True,
+            ),
+            mock.patch("devservices.utils.dependencies.GitConfigManager.ensure_config"),
+        ):
+            mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
+            mock_run_command.side_effect = [
+                subprocess.CalledProcessError(returncode=1, cmd="test"),
+                subprocess.CalledProcessError(returncode=1, cmd="test"),
+                subprocess.CompletedProcess(args="", returncode=0, stdout=""),
+                subprocess.CompletedProcess(args="", returncode=0, stdout=""),
+            ]
+            install_dependency(mock_dependency)
+
+        mock_run_command.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "git",
+                        "fetch",
+                        "origin",
+                        "main",
+                        "--filter=blob:none",
+                    ],
+                    cwd=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                    stdout=subprocess.DEVNULL,
+                ),
+                mock.call(
+                    [
+                        "git",
+                        "fetch",
+                        "origin",
+                        "main",
+                        "--filter=blob:none",
+                    ],
+                    cwd=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                    stdout=subprocess.DEVNULL,
+                ),
+                mock.call(
+                    [
+                        "git",
+                        "fetch",
+                        "origin",
+                        "main",
+                        "--filter=blob:none",
+                    ],
+                    cwd=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                    stdout=subprocess.DEVNULL,
+                ),
+            ]
+        )
+
+
+def test_install_dependency_git_fetch_failure_with_retries(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        mock_git_repo = create_mock_git_repo("basic_repo", tmp_path / "test-repo")
+        mock_dependency = RemoteConfig(
+            repo_name="test-repo",
+            branch="main",
+            repo_link=f"file://{tmp_path / 'test-repo'}",
+        )
+
+        # Sanity check that the config file is not in the dependency directory (yet)
+        assert not (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        install_dependency(mock_dependency)
+
+        assert (
+            tmp_path
+            / "dependency-dir"
+            / DEPENDENCY_CONFIG_VERSION
+            / "test-repo"
+            / DEVSERVICES_DIR_NAME
+            / CONFIG_FILE_NAME
+        ).exists()
+
+        # Append a new line to the config file in the mock repo and commit the change
+        with open(
+            mock_git_repo / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME,
+            mode="a",
+            encoding="utf-8",
+        ) as f:
+            f.write("\nedited: true")
+
+        run_git_command(["add", "."], cwd=mock_git_repo)
+        run_git_command(["commit", "-m", "Edit config file"], cwd=mock_git_repo)
+
+        with (
+            freeze_time("2024-05-14 00:00:00") as frozen_time,
+            mock.patch("devservices.utils.dependencies.time.sleep") as mock_sleep,
+            mock.patch(
+                "devservices.utils.dependencies._run_command"
+            ) as mock_run_command,
+            mock.patch(
+                "devservices.utils.dependencies._is_valid_repo",
+                return_value=True,
+            ),
+            mock.patch("devservices.utils.dependencies.GitConfigManager.ensure_config"),
+            pytest.raises(DependencyError),
+        ):
+            mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
+            mock_run_command.side_effect = [
+                subprocess.CalledProcessError(returncode=1, cmd="test"),
+                subprocess.CalledProcessError(returncode=1, cmd="test"),
+                subprocess.CalledProcessError(returncode=1, cmd="test"),
+            ]
+            install_dependency(mock_dependency)
+
+        mock_run_command.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        "git",
+                        "fetch",
+                        "origin",
+                        "main",
+                        "--filter=blob:none",
+                    ],
+                    cwd=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                    stdout=subprocess.DEVNULL,
+                ),
+                mock.call(
+                    [
+                        "git",
+                        "fetch",
+                        "origin",
+                        "main",
+                        "--filter=blob:none",
+                    ],
+                    cwd=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                    stdout=subprocess.DEVNULL,
+                ),
+                mock.call(
+                    [
+                        "git",
+                        "fetch",
+                        "origin",
+                        "main",
+                        "--filter=blob:none",
+                    ],
+                    cwd=str(
+                        tmp_path
+                        / "dependency-dir"
+                        / DEPENDENCY_CONFIG_VERSION
+                        / "test-repo"
+                    ),
+                    stdout=subprocess.DEVNULL,
+                ),
+            ]
+        )
 
 
 def test_install_dependency_basic(tmp_path: Path) -> None:

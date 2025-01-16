@@ -486,11 +486,7 @@ def _update_dependency(
 
     # Check if the local repo is up-to-date
     try:
-        local_commit = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],
-            cwd=dependency_repo_dir,
-            stderr=subprocess.PIPE,
-        ).strip()
+        local_commit = _rev_parse(dependency_repo_dir, "HEAD")
     except subprocess.CalledProcessError as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
@@ -499,11 +495,7 @@ def _update_dependency(
         ) from e
 
     try:
-        remote_commit = subprocess.check_output(
-            ["git", "rev-parse", "FETCH_HEAD"],
-            cwd=dependency_repo_dir,
-            stderr=subprocess.PIPE,
-        ).strip()
+        remote_commit = _rev_parse(dependency_repo_dir, "FETCH_HEAD")
     except subprocess.CalledProcessError as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
@@ -620,6 +612,16 @@ def _get_remote_configs(dependencies: list[Dependency]) -> list[RemoteConfig]:
 
 def _has_remote_config(remote_config: RemoteConfig | None) -> TypeGuard[RemoteConfig]:
     return remote_config is not None
+
+
+def _rev_parse(repo_dir: str, ref: str) -> str:
+    return (
+        subprocess.check_output(
+            ["git", "rev-parse", ref], cwd=repo_dir, stderr=subprocess.PIPE
+        )
+        .strip()
+        .decode()
+    )
 
 
 def _run_command(
