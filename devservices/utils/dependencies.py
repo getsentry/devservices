@@ -485,24 +485,50 @@ def _update_dependency(
         ) from e
 
     # Check if the local repo is up-to-date
-    local_commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"],
-        cwd=dependency_repo_dir,
-        stderr=subprocess.PIPE,
-    ).strip()
+    try:
+        local_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=dependency_repo_dir,
+            stderr=subprocess.PIPE,
+        ).strip()
+    except subprocess.CalledProcessError as e:
+        raise DependencyError(
+            repo_name=dependency.repo_name,
+            repo_link=dependency.repo_link,
+            branch=dependency.branch,
+        ) from e
 
-    remote_commit = subprocess.check_output(
-        ["git", "rev-parse", "FETCH_HEAD"],
-        cwd=dependency_repo_dir,
-        stderr=subprocess.PIPE,
-    ).strip()
+    try:
+        remote_commit = subprocess.check_output(
+            ["git", "rev-parse", "FETCH_HEAD"],
+            cwd=dependency_repo_dir,
+            stderr=subprocess.PIPE,
+        ).strip()
+    except subprocess.CalledProcessError as e:
+        raise DependencyError(
+            repo_name=dependency.repo_name,
+            repo_link=dependency.repo_link,
+            branch=dependency.branch,
+        ) from e
 
     if local_commit == remote_commit:
         # Already up-to-date, don't pull anything
+        logger = logging.getLogger(LOGGER_NAME)
+        logger.debug(
+            "Dependency %s is already up-to-date, not pulling anything",
+            dependency.repo_name,
+        )
         return
 
     # If it's not up-to-date, checkout the latest changes (forcibly)
-    _run_command(["git", "checkout", "-f", "FETCH_HEAD"], cwd=dependency_repo_dir)
+    try:
+        _run_command(["git", "checkout", "-f", "FETCH_HEAD"], cwd=dependency_repo_dir)
+    except subprocess.CalledProcessError as e:
+        raise DependencyError(
+            repo_name=dependency.repo_name,
+            repo_link=dependency.repo_link,
+            branch=dependency.branch,
+        ) from e
 
 
 def _checkout_dependency(
@@ -544,10 +570,17 @@ def _checkout_dependency(
                 branch=dependency.branch,
             ) from e
 
-        _run_command(
-            ["git", "checkout", dependency.branch],
-            cwd=temp_dir,
-        )
+        try:
+            _run_command(
+                ["git", "checkout", dependency.branch],
+                cwd=temp_dir,
+            )
+        except subprocess.CalledProcessError as e:
+            raise DependencyError(
+                repo_name=dependency.repo_name,
+                repo_link=dependency.repo_link,
+                branch=dependency.branch,
+            ) from e
 
         # Clean up the existing directory if it exists
         if os.path.exists(dependency_repo_dir):
@@ -594,7 +627,7 @@ def _run_command(
 ) -> None:
     logger = logging.getLogger(LOGGER_NAME)
     logger.debug("Running command: %s in %s", " ".join(cmd), cwd)
-    subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.DEVNULL)
+    subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.PIPE)
 
 
 def _run_command_with_retries(
@@ -610,9 +643,12 @@ def _run_command_with_retries(
             break
         except subprocess.CalledProcessError as e:
             logger = logging.getLogger(LOGGER_NAME)
-            logger.debug("Attempt %s of %s for %s failed: %s", i + 1, retries, cmd, e)
+            logger.debug(
+                "Attempt %s of %s for %s failed: %s", i + 1, retries, cmd, e.stderr
+            )
             capture_message(
-                f"Attempt {i + 1} of {retries} for {cmd} failed: {e}", level="warning"
+                f"Attempt {i + 1} of {retries} for {cmd} failed: {e.stderr}",
+                level="warning",
             )
             if i == retries - 1:
                 raise e
