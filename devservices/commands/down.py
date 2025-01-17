@@ -104,7 +104,9 @@ def down(args: Namespace) -> None:
             )
         except DependencyError as de:
             capture_exception(de)
-            status.failure(str(de))
+            status.failure(
+                f"{str(de)}. If this error persists, try running `devservices purge`"
+            )
             exit(1)
         try:
             remote_dependencies = get_non_shared_remote_dependencies(
@@ -112,7 +114,9 @@ def down(args: Namespace) -> None:
             )
         except DependencyError as de:
             capture_exception(de)
-            status.failure(str(de))
+            status.failure(
+                f"{str(de)}. If this error persists, try running `devservices purge`"
+            )
             exit(1)
 
         # Check if any service depends on the service we are trying to bring down
