@@ -623,7 +623,7 @@ def _rev_parse(repo_dir: str, ref: str) -> str:
         .decode()
     )
     logger = logging.getLogger(LOGGER_NAME)
-    logger.debug("Parsed revision %s for %s", rev, ref)
+    logger.debug("Parsed revision %s for %s (%s)", rev, ref, repo_dir)
     return rev
 
 
