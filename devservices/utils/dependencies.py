@@ -615,13 +615,16 @@ def _has_remote_config(remote_config: RemoteConfig | None) -> TypeGuard[RemoteCo
 
 
 def _rev_parse(repo_dir: str, ref: str) -> str:
-    return (
+    rev = (
         subprocess.check_output(
             ["git", "rev-parse", ref], cwd=repo_dir, stderr=subprocess.PIPE
         )
         .strip()
         .decode()
     )
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.debug("Parsed revision %s for %s", rev, ref)
+    return rev
 
 
 def _run_command(
