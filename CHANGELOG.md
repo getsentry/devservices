@@ -1,3 +1,9 @@
+## 1.0.11
+
+### Various fixes & improvements
+
+- make env variable more clear (#217) by @hubertdeng123
+
 ## 1.0.10
 
 ### Various fixes & improvements
