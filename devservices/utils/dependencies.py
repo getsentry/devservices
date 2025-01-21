@@ -482,6 +482,7 @@ def _update_dependency(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
+            stderr=e.stderr,
         ) from e
 
     # Check if the local repo is up-to-date
@@ -492,6 +493,7 @@ def _update_dependency(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
+            stderr=e.stderr,
         ) from e
 
     try:
@@ -501,6 +503,7 @@ def _update_dependency(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
+            stderr=e.stderr,
         ) from e
 
     if local_commit == remote_commit:
@@ -520,6 +523,7 @@ def _update_dependency(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
+            stderr=e.stderr,
         ) from e
 
 
@@ -545,6 +549,7 @@ def _checkout_dependency(
                 repo_name=dependency.repo_name,
                 repo_link=dependency.repo_link,
                 branch=dependency.branch,
+                stderr=e.stderr,
             ) from e
 
         # Setup config for partial clone and sparse checkout
@@ -572,6 +577,7 @@ def _checkout_dependency(
                 repo_name=dependency.repo_name,
                 repo_link=dependency.repo_link,
                 branch=dependency.branch,
+                stderr=e.stderr,
             ) from e
 
         # Clean up the existing directory if it exists
@@ -615,6 +621,8 @@ def _has_remote_config(remote_config: RemoteConfig | None) -> TypeGuard[RemoteCo
 
 
 def _rev_parse(repo_dir: str, ref: str) -> str:
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.debug("Parsing revision for %s (%s)", ref, repo_dir)
     rev = (
         subprocess.check_output(
             ["git", "rev-parse", ref], cwd=repo_dir, stderr=subprocess.PIPE
@@ -622,7 +630,6 @@ def _rev_parse(repo_dir: str, ref: str) -> str:
         .strip()
         .decode()
     )
-    logger = logging.getLogger(LOGGER_NAME)
     logger.debug("Parsed revision %s for %s (%s)", rev, ref, repo_dir)
     return rev
 

@@ -92,7 +92,9 @@ def up(args: Namespace) -> None:
             )
         except DependencyError as de:
             capture_exception(de)
-            status.failure(str(de))
+            status.failure(
+                f"{str(de)}. If this error persists, try running `devservices purge`"
+            )
             exit(1)
         except ModeDoesNotExistError as mde:
             status.failure(str(mde))

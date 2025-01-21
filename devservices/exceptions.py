@@ -90,10 +90,13 @@ class ModeDoesNotExistError(Exception):
 class DependencyError(Exception):
     """Base class for dependency-related errors."""
 
-    def __init__(self, repo_name: str, repo_link: str, branch: str):
+    def __init__(
+        self, repo_name: str, repo_link: str, branch: str, stderr: str | None = None
+    ):
         self.repo_name = repo_name
         self.repo_link = repo_link
         self.branch = branch
+        self.stderr = stderr
 
     def __str__(self) -> str:
         return f"DependencyError: {self.repo_name} ({self.repo_link}) on {self.branch}"

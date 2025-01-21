@@ -79,7 +79,9 @@ def logs(args: Namespace) -> None:
         remote_dependencies = install_and_verify_dependencies(service)
     except DependencyError as de:
         capture_exception(de)
-        console.failure(str(de))
+        console.failure(
+            f"{str(de)}. If this error persists, try running `devservices purge`"
+        )
         exit(1)
     try:
         logs_output = _logs(service, remote_dependencies, mode_dependencies)
