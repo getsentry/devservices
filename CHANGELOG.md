@@ -1,3 +1,19 @@
+## 1.0.10
+
+### Various fixes & improvements
+
+- ref(dependencies): Improving error messages for dependency errors (#216) by @IanWoodard
+- ref(dependencies): Improving error handling for dependency logic (#215) by @IanWoodard
+- ref(up): Show available modes (#214) by @IanWoodard
+- chore(down): Cleaning up down tests (#213) by @IanWoodard
+- ref(commands): Improving commands to use starting services and started (#212) by @IanWoodard
+- fix(down): Enable bringing down starting services (#211) by @IanWoodard
+- chore(state): Refactor state to support starting services table (#207) by @hubertdeng123
+- ref(dependencies): Switching to debug logs and sentry messages (#209) by @IanWoodard
+- fix(logger): Update logger to no longer use fstrings (#206) by @IanWoodard
+- use more specific error message for docker compose error exception (#208) by @hubertdeng123
+- chore(up): Cleaning up tests (#205) by @IanWoodard
+
 ## 1.0.9
 
 ### Various fixes & improvements
