@@ -1,3 +1,9 @@
+## 1.0.12
+
+### Various fixes & improvements
+
+- chore(sentry): Adding sentry release (#218) by @IanWoodard
+
 ## 1.0.11
 
 ### Various fixes & improvements
