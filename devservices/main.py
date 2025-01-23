@@ -35,6 +35,7 @@ sentry_environment = (
 
 disable_sentry = os.environ.get("DEVSERVICES_DISABLE_SENTRY", default=False)
 logging.basicConfig(level=logging.INFO)
+current_version = metadata.version("devservices")
 
 if not disable_sentry:
     init(
@@ -44,6 +45,7 @@ if not disable_sentry:
         enable_tracing=True,
         integrations=[ArgvIntegration()],
         environment=sentry_environment,
+        release=current_version,
     )
     username = getpass.getuser()
     set_user({"username": username})
@@ -56,7 +58,6 @@ def cleanup() -> None:
 
 def main() -> None:
     console = Console()
-    current_version = metadata.version("devservices")
     set_tag("devservices_version", current_version)
     try:
         check_docker_compose_version()
