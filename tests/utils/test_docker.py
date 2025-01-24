@@ -235,7 +235,7 @@ def test_stop_containers_should_not_remove(
         ["docker", "stop", *containers],
         check=True,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
     )
 
 
@@ -259,13 +259,13 @@ def test_stop_containers_should_remove(
                 ["docker", "stop", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
             mock.call(
                 ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
         ]
     )
@@ -283,7 +283,7 @@ def test_stop_containers_stop_error(
         ["docker", "stop", *containers],
         check=True,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
     )
 
 
@@ -301,13 +301,13 @@ def test_stop_containers_remove_error(
                 ["docker", "stop", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
             mock.call(
                 ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
         ]
     )
