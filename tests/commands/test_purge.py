@@ -58,7 +58,7 @@ def test_purge_docker_daemon_not_running(
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
-            DEVSERVICES_ORCHESTRATOR_LABEL
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
         )
         mock_get_volumes_for_containers.assert_not_called()
         mock_stop_containers.assert_not_called()
@@ -117,7 +117,7 @@ def test_purge_docker_error_get_matching_containers(
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
-            DEVSERVICES_ORCHESTRATOR_LABEL
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
         )
         mock_get_volumes_for_containers.assert_not_called()
         mock_stop_containers.assert_not_called()
@@ -174,7 +174,7 @@ def test_purge_docker_error_get_volumes_for_containers(
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
-            DEVSERVICES_ORCHESTRATOR_LABEL
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
         )
         mock_get_volumes_for_containers.assert_called_once_with(["abc", "def", "ghi"])
         mock_stop_containers.assert_not_called()
@@ -234,7 +234,7 @@ def test_purge_docker_error_get_matching_networks(
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
-            DEVSERVICES_ORCHESTRATOR_LABEL
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
         )
         mock_get_volumes_for_containers.assert_called_once_with(["abc", "def", "ghi"])
         mock_stop_containers.assert_called_once_with(
@@ -293,7 +293,7 @@ def test_purge_docker_error_stop_containers(
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
-            DEVSERVICES_ORCHESTRATOR_LABEL
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
         )
         mock_get_volumes_for_containers.assert_called_once_with(["abc", "def", "ghi"])
         mock_stop_containers.assert_called_once_with(
@@ -355,7 +355,7 @@ def test_purge_docker_error_remove_volumes_continues_to_remove_networks(
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
-            DEVSERVICES_ORCHESTRATOR_LABEL
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
         )
         mock_get_volumes_for_containers.assert_called_once_with(["abc", "def", "ghi"])
         mock_stop_containers.assert_called_once_with(
@@ -425,7 +425,7 @@ def test_purge_docker_error_remove_networks(
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
 
         mock_get_matching_containers.assert_called_once_with(
-            DEVSERVICES_ORCHESTRATOR_LABEL
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
         )
         mock_get_volumes_for_containers.assert_called_once_with(["abc", "def", "ghi"])
         mock_stop_containers.assert_called_once_with(

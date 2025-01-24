@@ -40,7 +40,9 @@ def purge(_args: Namespace) -> None:
     state.clear_state()
 
     try:
-        devservices_containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
+        devservices_containers = get_matching_containers(
+            [DEVSERVICES_ORCHESTRATOR_LABEL]
+        )
     except DockerDaemonNotRunningError as e:
         console.warning(str(e))
         return
