@@ -1,3 +1,9 @@
+## 1.0.13
+
+### Various fixes & improvements
+
+- chore(healthchecks): Bump healthcheck timeout to 2 minutes (#220) by @hubertdeng123
+
 ## 1.0.12
 
 ### Various fixes & improvements
