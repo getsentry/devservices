@@ -96,7 +96,7 @@ def reset(args: Namespace) -> None:
             stop_containers(matching_containers, should_remove=True)
         except DockerError as e:
             console.failure(
-                f"Failed to stop and remove {', '.join(matching_containers)} {service_name} {e.stderr}"
+                f"Failed to stop and remove {', '.join(matching_containers)}\nError: {e.stderr}"
             )
             capture_exception(e)
             exit(1)
@@ -104,7 +104,7 @@ def reset(args: Namespace) -> None:
             remove_docker_resources("volume", list(matching_volumes))
         except DockerError as e:
             console.failure(
-                f"Failed to remove volumes {', '.join(matching_volumes)} for {service_name} {e}"
+                f"Failed to remove volumes {', '.join(matching_volumes)}\nError: {e.stderr}"
             )
             capture_exception(e)
             exit(1)

@@ -188,7 +188,7 @@ def stop_containers(containers: list[str], should_remove: bool = False) -> None:
             ["docker", "stop"] + containers,
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:
         raise DockerError(
@@ -210,7 +210,7 @@ def remove_docker_resources(resource_type: str, resources: list[str]) -> None:
             ["docker", resource_type, "rm", *resources],
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:
         raise DockerError(
