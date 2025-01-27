@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from devservices.commands.reset import reset
+from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.state import State
@@ -26,6 +27,10 @@ def test_reset_docker_daemon_not_running(
     args.service_name = "test-service"
 
     reset(args)
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=test-service"]
+    )
 
     captured = capsys.readouterr()
     assert (
@@ -50,6 +55,10 @@ def test_reset_failed_to_get_matching_containers(
     with pytest.raises(SystemExit):
         reset(args)
 
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=test-service"]
+    )
+
     captured = capsys.readouterr()
     assert "Failed to get matching containers" in captured.out
 
@@ -65,6 +74,10 @@ def test_reset_no_matching_containers(
     with pytest.raises(SystemExit):
         reset(args)
 
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=test-service"]
+    )
+
     captured = capsys.readouterr()
     assert "No containers found for test-service" in captured.out
 
@@ -74,8 +87,8 @@ def test_reset_no_matching_containers(
 )
 @mock.patch("devservices.commands.reset.get_volumes_for_containers", return_value=[])
 def test_reset_no_matching_volumes(
-    mock_get_matching_containers: mock.Mock,
     mock_get_volumes_for_containers: mock.Mock,
+    mock_get_matching_containers: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     args = Namespace()
@@ -83,6 +96,11 @@ def test_reset_no_matching_volumes(
 
     with pytest.raises(SystemExit):
         reset(args)
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=test-service"]
+    )
+    mock_get_volumes_for_containers.assert_called_once_with(["test-service"])
 
     captured = capsys.readouterr()
     assert "No volumes found for test-service" in captured.out
@@ -98,8 +116,8 @@ def test_reset_no_matching_volumes(
     ),
 )
 def test_reset_failed_to_get_matching_volumes(
-    mock_get_matching_containers: mock.Mock,
     mock_get_volumes_for_containers: mock.Mock,
+    mock_get_matching_containers: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     args = Namespace()
@@ -107,6 +125,11 @@ def test_reset_failed_to_get_matching_volumes(
 
     with pytest.raises(SystemExit):
         reset(args)
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=test-service"]
+    )
+    mock_get_volumes_for_containers.assert_called_once_with(["test-service"])
 
     captured = capsys.readouterr()
     assert "Failed to get matching volumes" in captured.out
@@ -170,12 +193,19 @@ def test_reset_with_service_name_container_removal_error(
         )
         with pytest.raises(SystemExit):
             reset(args)
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=redis"]
+    )
+    mock_get_volumes_for_containers.assert_called_once_with(["redis"])
+    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
+    mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
+    mock_remove_docker_resources.assert_not_called()
+
     captured = capsys.readouterr()
     assert "Resetting docker volumes for redis" in captured.out
     assert "Bringing down test-service in order to safely reset redis" in captured.out
     assert "Failed to stop and remove redis\nError: test error" in captured.out
-    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
-    mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
 
 
 @mock.patch(
@@ -236,12 +266,19 @@ def test_reset_with_service_name_volume_removal_error(
         )
         with pytest.raises(SystemExit):
             reset(args)
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=redis"]
+    )
+    mock_get_volumes_for_containers.assert_called_once_with(["redis"])
+    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
+    mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
+    mock_remove_docker_resources.assert_called_once_with("volume", ["redis-volume"])
+
     captured = capsys.readouterr()
     assert "Resetting docker volumes for redis" in captured.out
     assert "Bringing down test-service in order to safely reset redis" in captured.out
     assert "Failed to remove volumes redis-volume\nError: test error" in captured.out
-    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
-    mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
 
 
 @mock.patch(
@@ -296,13 +333,19 @@ def test_reset_with_service_name(
             "test-service", "default", StateTables.STARTED_SERVICES
         )
         reset(args)
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=redis"]
+    )
+    mock_get_volumes_for_containers.assert_called_once_with(["redis"])
+    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
+    mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
+    mock_remove_docker_resources.assert_called_once_with("volume", ["redis-volume"])
+
     captured = capsys.readouterr()
     assert "Resetting docker volumes for redis" in captured.out
     assert "Docker volumes have been reset for redis" in captured.out
     assert "Bringing down test-service in order to safely reset redis" in captured.out
-    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
-    mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
-    mock_remove_docker_resources.assert_called_once_with("volume", ["redis-volume"])
 
 
 @mock.patch(
@@ -375,11 +418,11 @@ def test_reset_with_multiple_services_depending_on_same_service(
             "test-service-2", "default", StateTables.STARTED_SERVICES
         )
         reset(args)
-    captured = capsys.readouterr()
-    assert "Resetting docker volumes for redis" in captured.out
-    assert "Docker volumes have been reset for redis" in captured.out
-    assert "Bringing down test-service-1 in order to safely reset redis" in captured.out
-    assert "Bringing down test-service-2 in order to safely reset redis" in captured.out
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=redis"]
+    )
+    mock_get_volumes_for_containers.assert_called_once_with(["redis"])
     mock_down.assert_has_calls(
         [
             mock.call(Namespace(service_name="test-service-1")),
@@ -389,6 +432,12 @@ def test_reset_with_multiple_services_depending_on_same_service(
     )
     mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
     mock_remove_docker_resources.assert_called_once_with("volume", ["redis-volume"])
+
+    captured = capsys.readouterr()
+    assert "Resetting docker volumes for redis" in captured.out
+    assert "Docker volumes have been reset for redis" in captured.out
+    assert "Bringing down test-service-1 in order to safely reset redis" in captured.out
+    assert "Bringing down test-service-2 in order to safely reset redis" in captured.out
 
 
 @mock.patch(
@@ -461,15 +510,21 @@ def test_reset_with_multiple_services_depending_on_different_service(
             "test-service-2", "default", StateTables.STARTED_SERVICES
         )
         reset(args)
+
+    mock_get_matching_containers.assert_called_once_with(
+        [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=clickhouse"]
+    )
+    mock_get_volumes_for_containers.assert_called_once_with(["clickhouse"])
+    mock_down.assert_called_once_with(Namespace(service_name="test-service-1"))
+    mock_stop_containers.assert_called_once_with(["clickhouse"], should_remove=True)
+    mock_remove_docker_resources.assert_called_once_with(
+        "volume", ["clickhouse-volume"]
+    )
+
     captured = capsys.readouterr()
     assert "Resetting docker volumes for clickhouse" in captured.out
     assert "Docker volumes have been reset for clickhouse" in captured.out
     assert (
         "Bringing down test-service-1 in order to safely reset clickhouse"
         in captured.out
-    )
-    mock_down.assert_called_once_with(Namespace(service_name="test-service-1"))
-    mock_stop_containers.assert_called_once_with(["clickhouse"], should_remove=True)
-    mock_remove_docker_resources.assert_called_once_with(
-        "volume", ["clickhouse-volume"]
     )
