@@ -7,10 +7,51 @@ from unittest import mock
 import pytest
 
 from devservices.commands.reset import reset
+from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
+
+
+@mock.patch(
+    "devservices.commands.reset.get_matching_containers",
+    side_effect=DockerDaemonNotRunningError(),
+)
+def test_reset_docker_daemon_not_running(
+    mock_get_matching_containers: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = Namespace()
+    args.service_name = "test-service"
+
+    reset(args)
+
+    captured = capsys.readouterr()
+    assert (
+        "Unable to connect to the docker daemon. Is the docker daemon running?"
+        in captured.out.strip()
+    )
+
+
+@mock.patch(
+    "devservices.commands.reset.get_matching_containers",
+    side_effect=DockerError(
+        command="test-command", returncode=1, stdout="", stderr="test error"
+    ),
+)
+def test_reset_failed_to_get_matching_containers(
+    mock_get_matching_containers: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = Namespace()
+    args.service_name = "test-service"
+
+    with pytest.raises(SystemExit):
+        reset(args)
+
+    captured = capsys.readouterr()
+    assert "Failed to get matching containers" in captured.out
 
 
 @mock.patch("devservices.commands.reset.get_matching_containers", return_value=[])
@@ -45,6 +86,30 @@ def test_reset_no_matching_volumes(
 
     captured = capsys.readouterr()
     assert "No volumes found for test-service" in captured.out
+
+
+@mock.patch(
+    "devservices.commands.reset.get_matching_containers", return_value=["test-service"]
+)
+@mock.patch(
+    "devservices.commands.reset.get_volumes_for_containers",
+    side_effect=DockerError(
+        command="test-command", returncode=1, stdout="", stderr="test error"
+    ),
+)
+def test_reset_failed_to_get_matching_volumes(
+    mock_get_matching_containers: mock.Mock,
+    mock_get_volumes_for_containers: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = Namespace()
+    args.service_name = "test-service"
+
+    with pytest.raises(SystemExit):
+        reset(args)
+
+    captured = capsys.readouterr()
+    assert "Failed to get matching volumes" in captured.out
 
 
 @mock.patch(
