@@ -472,7 +472,14 @@ def _update_dependency(
 
     try:
         _run_command_with_retries(
-            ["git", "fetch", "origin", dependency.branch, "--filter=blob:none"],
+            [
+                "git",
+                "fetch",
+                "origin",
+                dependency.branch,
+                "--filter=blob:none",
+                "--no-recurse-submodules",  # Avoid fetching submodules
+            ],
             cwd=dependency_repo_dir,
         )
     except subprocess.CalledProcessError as e:

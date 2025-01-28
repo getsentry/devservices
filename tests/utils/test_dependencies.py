@@ -681,6 +681,7 @@ def test_install_dependency_git_fetch_transient_failure(tmp_path: Path) -> None:
                         "origin",
                         "main",
                         "--filter=blob:none",
+                        "--no-recurse-submodules",
                     ],
                     cwd=str(
                         tmp_path
@@ -697,6 +698,7 @@ def test_install_dependency_git_fetch_transient_failure(tmp_path: Path) -> None:
                         "origin",
                         "main",
                         "--filter=blob:none",
+                        "--no-recurse-submodules",
                     ],
                     cwd=str(
                         tmp_path
@@ -713,6 +715,7 @@ def test_install_dependency_git_fetch_transient_failure(tmp_path: Path) -> None:
                         "origin",
                         "main",
                         "--filter=blob:none",
+                        "--no-recurse-submodules",
                     ],
                     cwd=str(
                         tmp_path
@@ -800,6 +803,7 @@ def test_install_dependency_git_fetch_failure_with_retries(tmp_path: Path) -> No
                         "origin",
                         "main",
                         "--filter=blob:none",
+                        "--no-recurse-submodules",
                     ],
                     cwd=str(
                         tmp_path
@@ -816,6 +820,7 @@ def test_install_dependency_git_fetch_failure_with_retries(tmp_path: Path) -> No
                         "origin",
                         "main",
                         "--filter=blob:none",
+                        "--no-recurse-submodules",
                     ],
                     cwd=str(
                         tmp_path
@@ -832,6 +837,7 @@ def test_install_dependency_git_fetch_failure_with_retries(tmp_path: Path) -> No
                         "origin",
                         "main",
                         "--filter=blob:none",
+                        "--no-recurse-submodules",
                     ],
                     cwd=str(
                         tmp_path
@@ -919,6 +925,7 @@ def test_install_dependency_update_git_checkout_failure(tmp_path: Path) -> None:
                         "origin",
                         "main",
                         "--filter=blob:none",
+                        "--no-recurse-submodules",
                     ],
                     cwd=str(
                         tmp_path
