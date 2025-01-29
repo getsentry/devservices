@@ -123,6 +123,15 @@ class DependencyNotInstalledError(DependencyError):
         return f"Dependency not installed correctly: {self.repo_name} ({self.repo_link}) on {self.branch}"
 
 
+class GitError(Exception):
+    """Base class for git related errors."""
+
+    def __init__(self, command: str, returncode: int, stderr: str):
+        self.command = command
+        self.returncode = returncode
+        self.stderr = stderr
+
+
 class GitConfigError(Exception):
     """Base class for git config related errors."""
 
