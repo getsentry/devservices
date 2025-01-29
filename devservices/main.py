@@ -32,9 +32,11 @@ from devservices.utils.console import Console
 from devservices.utils.docker_compose import check_docker_compose_version
 from devservices.utils.git import get_git_version
 
-sentry_environment = os.environ.get(
-    "DEVSERVICES_SENTRY_ENVIRONMENT", default="production"
+sentry_environment = (
+    "development" if os.environ.get("IS_DEV", default="0") == "1" else "production"
 )
+if os.environ.get("CI", default="false") == "true":
+    sentry_environment = "CI"
 
 disable_sentry = os.environ.get("DEVSERVICES_DISABLE_SENTRY", default=False)
 logging.basicConfig(level=logging.INFO)
