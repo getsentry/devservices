@@ -36,7 +36,7 @@ sentry_environment = (
     "development" if os.environ.get("IS_DEV", default=False) else "production"
 )
 
-disable_sentry = os.environ.get("DEVSERVICES_DISABLE_SENTRY", default=False)
+disable_sentry = os.environ.get("DEVSERVICES_DISABLE_SENTRY", default="0") == "1"
 logging.basicConfig(level=logging.INFO)
 current_version = metadata.version("devservices")
 
