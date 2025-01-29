@@ -84,7 +84,10 @@ def install_docker_compose() -> None:
     # Verify the installation
     try:
         version = subprocess.run(
-            ["docker", "compose", "version", "--short"], capture_output=True, text=True
+            ["docker", "compose", "version", "--short"],
+            capture_output=True,
+            check=True,
+            text=True,
         ).stdout
     except Exception as e:
         raise DockerComposeInstallationError(
