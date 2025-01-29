@@ -5,6 +5,7 @@ import atexit
 import getpass
 import logging
 import os
+import platform
 from importlib import metadata
 
 from sentry_sdk import capture_exception
@@ -26,8 +27,10 @@ from devservices.commands import update
 from devservices.constants import LOGGER_NAME
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
+from devservices.exceptions import GitError
 from devservices.utils.console import Console
 from devservices.utils.docker_compose import check_docker_compose_version
+from devservices.utils.git import get_git_version
 
 sentry_environment = (
     "development" if os.environ.get("IS_DEV", default=False) else "production"
@@ -49,6 +52,14 @@ if not disable_sentry:
     )
     username = getpass.getuser()
     set_user({"username": username})
+    set_tag("platform", platform.platform())
+    try:
+        git_version = get_git_version()
+        set_tag("git_version", git_version)
+    except GitError as e:
+        capture_exception(e)
+        logging.debug("Failed to get git version: %s", e)
+        set_tag("git_version", "unknown")
 
 
 @atexit.register
