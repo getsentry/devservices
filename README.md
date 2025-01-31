@@ -11,7 +11,7 @@ A standalone cli tool used to manage dependencies for services. It simplifies th
 The recommended way to install devservices is through a virtualenv in the requirements.txt.
 
 ```
-devservices==1.0.13
+devservices==1.0.14
 ```
 
 
