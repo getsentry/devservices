@@ -272,6 +272,17 @@ def get_non_shared_remote_dependencies(
     active_services = starting_services.union(started_services)
     # We don't care about the remote dependencies of the service we are stopping
     active_services.remove(service_to_stop.name)
+
+    active_modes: dict[str, list[str]] = dict()
+    for active_service in active_services:
+        starting_modes = state.get_active_modes_for_service(
+            active_service, StateTables.STARTING_SERVICES
+        )
+        started_modes = state.get_active_modes_for_service(
+            active_service, StateTables.STARTED_SERVICES
+        )
+        active_modes[active_service] = starting_modes or started_modes
+
     other_running_remote_dependencies: set[InstalledRemoteDependency] = set()
     base_running_service_names: set[str] = set()
     for started_service_name in active_services:
@@ -279,8 +290,18 @@ def get_non_shared_remote_dependencies(
         for dependency_name in service_to_stop.config.dependencies.keys():
             if dependency_name == started_service.config.service_name:
                 base_running_service_names.add(started_service_name)
+
+        started_service_modes = active_modes[started_service_name]
+        # Only consider the dependencies of the modes that are running
+        started_service_dependencies: dict[str, Dependency] = dict()
+        for started_service_mode in started_service_modes:
+            for dependency_name in started_service.config.modes[started_service_mode]:
+                started_service_dependencies[
+                    dependency_name
+                ] = started_service.config.dependencies[dependency_name]
+
         installed_remote_dependencies = get_installed_remote_dependencies(
-            list(started_service.config.dependencies.values())
+            list(started_service_dependencies.values())
         )
         # TODO: There is an edge case here where there is a shared remote dependency with different modes
         other_running_remote_dependencies = other_running_remote_dependencies.union(
