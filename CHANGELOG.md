@@ -1,3 +1,13 @@
+## 1.0.14
+
+### Various fixes & improvements
+
+- ref(sentry): Tweak devservices environment env variable (#224) by @hubertdeng123
+- fix(docker-compose): Allow docker compose verification logic to properly throw (#225) by @hubertdeng123
+- fix(sentry): Fixing disable sentry env var logic (#223) by @IanWoodard
+- ref(sentry): adding more context to sentry (#222) by @IanWoodard
+- fix(dependencies): Exclude submodules from fetch (#221) by @IanWoodard
+
 ## 1.0.13
 
 ### Various fixes & improvements
