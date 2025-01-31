@@ -192,7 +192,10 @@ def test_install_docker_compose_macos_arm64(
         os.path.expanduser("~/.docker/cli-plugins/docker-compose"),
     )
     mock_subprocess_run.assert_called_once_with(
-        ["docker", "compose", "version", "--short"], capture_output=True, text=True
+        ["docker", "compose", "version", "--short"],
+        capture_output=True,
+        check=True,
+        text=True,
     )
 
 
@@ -231,7 +234,10 @@ def test_install_docker_compose_linux_x86(
         os.path.expanduser("~/.docker/cli-plugins/docker-compose"),
     )
     mock_subprocess_run.assert_called_once_with(
-        ["docker", "compose", "version", "--short"], capture_output=True, text=True
+        ["docker", "compose", "version", "--short"],
+        capture_output=True,
+        check=True,
+        text=True,
     )
 
 
