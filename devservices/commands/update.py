@@ -36,7 +36,7 @@ def update_version(exec_path: str, latest_version: str) -> None:
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser = subparsers.add_parser(
-        "update", help="update devservices to the latest version"
+        "update", help="Update devservices to the latest version"
     )
     parser.set_defaults(func=update)
 
