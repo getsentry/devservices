@@ -2164,6 +2164,8 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
         ),
     )
     assert len(shared_remote_dependencies) == 0
+    mock_find_matching_service.assert_called_once_with("service-2")
+    mock_get_installed_remote_dependencies.assert_called_once_with([])
 
 
 @mock.patch(
@@ -2186,8 +2188,25 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
         config=ServiceConfig(
             version=0.1,
             service_name="service-2",
-            dependencies={},
-            modes={"default": []},
+            dependencies={
+                "dependency-3": Dependency(
+                    description="dependency-3",
+                    remote=RemoteConfig(
+                        repo_name="dependency-3",
+                        repo_link="file://path/to/dependency-3",
+                        branch="main",
+                    ),
+                ),
+                "dependency-4": Dependency(
+                    description="dependency-4",
+                    remote=RemoteConfig(
+                        repo_name="dependency-4",
+                        repo_link="file://path/to/dependency-4",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={"default": ["dependency-3"], "other": ["dependency-4"]},
         ),
     ),
 )
@@ -2252,6 +2271,20 @@ def test_get_non_shared_remote_dependencies_complex(
             mode="default",
         )
     }
+    mock_find_matching_service.assert_called_once_with("service-2")
+    # dependency-4 is not installed, so it should not be passed to get_installed_remote_dependencies
+    mock_get_installed_remote_dependencies.assert_called_once_with(
+        [
+            Dependency(
+                description="dependency-3",
+                remote=RemoteConfig(
+                    repo_name="dependency-3",
+                    repo_link="file://path/to/dependency-3",
+                    branch="main",
+                ),
+            )
+        ]
+    )
 
 
 @mock.patch("devservices.utils.dependencies.install_dependencies", return_value=[])
