@@ -1,3 +1,11 @@
+## 1.0.15
+
+### Various fixes & improvements
+
+- bump the sentry sdk version (#228) by @hubertdeng123
+- fix(dependencies): Only get dependencies that should be running based on modes (#226) by @IanWoodard
+- chore(devservices): Fixing capitalization in update help message (#227) by @IanWoodard
+
 ## 1.0.14
 
 ### Various fixes & improvements
