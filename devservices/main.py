@@ -54,7 +54,7 @@ if not disable_sentry:
     )
     username = getpass.getuser()
     set_user({"username": username})
-    set_tag("platform", platform.platform())
+    set_tag("user_platform", platform.platform())
     try:
         git_version = get_git_version()
         set_tag("git_version", git_version)
