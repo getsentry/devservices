@@ -81,7 +81,7 @@ def down(args: Namespace) -> None:
     active_services = starting_services.union(started_services)
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
-        exit(0)
+        return  # Since exit(0) is captured as an internal_error by sentry
 
     active_starting_modes = state.get_active_modes_for_service(
         service.name, StateTables.STARTING_SERVICES
