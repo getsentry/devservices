@@ -6,7 +6,8 @@ from datetime import timedelta
 MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
 DEVSERVICES_DIR_NAME = "devservices"
 CONFIG_FILE_NAME = "config.yml"
-DOCKER_USER_PLUGIN_DIR = os.path.expanduser("~/.docker/cli-plugins/")
+DOCKER_CONFIG_DIR = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
+DOCKER_USER_PLUGIN_DIR = os.path.join(DOCKER_CONFIG_DIR, "cli-plugins/")
 
 DEVSERVICES_CACHE_DIR = os.path.expanduser("~/.cache/sentry-devservices")
 DEVSERVICES_LOCAL_DIR = os.path.expanduser("~/.local/share/sentry-devservices")

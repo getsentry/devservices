@@ -241,6 +241,52 @@ def test_install_docker_compose_linux_x86(
     )
 
 
+@mock.patch("tempfile.TemporaryDirectory")
+@mock.patch("platform.system", return_value="Darwin")
+@mock.patch("platform.machine", return_value="arm64")
+@mock.patch("devservices.utils.install_binary.urlretrieve")
+@mock.patch("devservices.utils.install_binary.os.chmod")
+@mock.patch("devservices.utils.install_binary.shutil.move")
+@mock.patch(
+    "devservices.utils.docker_compose.subprocess.run",
+    return_value=subprocess.CompletedProcess(
+        args=["docker", "compose", "version", "--short"],
+        returncode=0,
+        stdout="2.29.7\n",
+    ),
+)
+def test_install_docker_compose_custom_docker_config_dir(
+    mock_subprocess_run: mock.Mock,
+    mock_shutil_move: mock.Mock,
+    mock_chmod: mock.Mock,
+    mock_urlretrieve: mock.Mock,
+    _mock_machine: mock.Mock,
+    _mock_system: mock.Mock,
+    mock_tempdir: mock.Mock,
+) -> None:
+    mock_tempdir.return_value.__enter__.return_value = "tempdir"
+    with mock.patch(
+        "devservices.utils.docker_compose.DOCKER_USER_PLUGIN_DIR",
+        "tempdir/docker/config/cli-plugins",
+    ):
+        install_docker_compose()
+    mock_urlretrieve.assert_called_once_with(
+        "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-darwin-aarch64",
+        "tempdir/docker-compose",
+    )
+    mock_chmod.assert_called_once_with("tempdir/docker-compose", 0o755)
+    mock_shutil_move.assert_called_once_with(
+        "tempdir/docker-compose",
+        "tempdir/docker/config/cli-plugins/docker-compose",
+    )
+    mock_subprocess_run.assert_called_once_with(
+        ["docker", "compose", "version", "--short"],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+
 @mock.patch(
     "devservices.utils.docker_compose.subprocess.run",
     return_value=subprocess.CompletedProcess(
