@@ -18,6 +18,7 @@ from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import check_docker_compose_version
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
+from devservices.utils.docker_compose import get_docker_compose_version
 from devservices.utils.docker_compose import get_non_remote_services
 from devservices.utils.docker_compose import install_docker_compose
 from devservices.utils.services import Service
@@ -28,6 +29,26 @@ from testing.utils import create_mock_git_repo
 def test_check_docker_compose_version_success(mock_run: mock.Mock) -> None:
     mock_run.return_value.stdout = "2.29.7\n"
     check_docker_compose_version()  # Should not raise any exception
+
+
+@mock.patch("subprocess.run")
+def test_get_docker_compose_version(mock_run: mock.Mock) -> None:
+    mock_run.return_value.stdout = "2.29.7\n"
+    assert get_docker_compose_version() == "2.29.7"
+
+
+@mock.patch(
+    "subprocess.run",
+    side_effect=subprocess.CalledProcessError(
+        returncode=1,
+        cmd="docker compose version --short",
+        stderr="Docker Compose failed",
+    ),
+)
+def test_get_docker_compose_version_error(mock_run: mock.Mock) -> None:
+    with pytest.raises(DockerComposeError) as e:
+        get_docker_compose_version()
+        assert e.value.stderr == "Docker Compose failed"
 
 
 @mock.patch("subprocess.run")
