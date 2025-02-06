@@ -157,7 +157,7 @@ def test_install_docker_compose_compose_verification_error(
         install_docker_compose()
 
 
-@mock.patch("tempfile.TemporaryDirectory")
+@mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Darwin")
 @mock.patch("platform.machine", return_value="arm64")
 @mock.patch("devservices.utils.install_binary.urlretrieve")
@@ -199,7 +199,7 @@ def test_install_docker_compose_macos_arm64(
     )
 
 
-@mock.patch("tempfile.TemporaryDirectory")
+@mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Linux")
 @mock.patch("platform.machine", return_value="x86_64")
 @mock.patch("devservices.utils.install_binary.urlretrieve")
@@ -241,7 +241,7 @@ def test_install_docker_compose_linux_x86(
     )
 
 
-@mock.patch("tempfile.TemporaryDirectory")
+@mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
 @mock.patch("platform.system", return_value="Darwin")
 @mock.patch("platform.machine", return_value="arm64")
 @mock.patch("devservices.utils.install_binary.urlretrieve")
