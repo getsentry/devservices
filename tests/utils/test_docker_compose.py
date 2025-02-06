@@ -76,18 +76,27 @@ def test_check_docker_compose_docker_daemon_not_running(
     "subprocess.run",
     side_effect=[
         0,  # First call is to check if docker daemon is running
-        subprocess.CalledProcessError(
-            returncode=1, cmd="docker compose version --short"
-        ),
     ],
+)
+@mock.patch(
+    "devservices.utils.docker_compose.get_docker_compose_version",
+    side_effect=DockerComposeError(
+        command="docker compose version --short",
+        returncode=1,
+        stdout="",
+        stderr="",
+    ),
 )
 @mock.patch(
     "devservices.utils.docker_compose.install_docker_compose", side_effect=lambda: None
 )
 def test_check_docker_compose_command_failure(
-    mock_install_docker_compose: mock.Mock, _mock_run: mock.Mock
+    mock_install_docker_compose: mock.Mock,
+    mock_get_docker_compose_version: mock.Mock,
+    _mock_run: mock.Mock,
 ) -> None:
     check_docker_compose_version()
+    mock_get_docker_compose_version.assert_called_once()
     mock_install_docker_compose.assert_called_once()
 
 
@@ -139,11 +148,16 @@ def test_install_docker_compose_binary_install_error(
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    side_effect=Exception("Docker Compose failed"),
+    "devservices.utils.docker_compose.get_docker_compose_version",
+    side_effect=DockerComposeError(
+        command="docker compose version --short",
+        returncode=1,
+        stdout="",
+        stderr="Docker Compose failed",
+    ),
 )
 def test_install_docker_compose_compose_verification_error(
-    _mock_subprocess_run: mock.Mock,
+    _mock_get_docker_compose_version: mock.Mock,
     _mock_shutil_move: mock.Mock,
     _mock_chmod: mock.Mock,
     _mock_urlretrieve: mock.Mock,
@@ -164,15 +178,11 @@ def test_install_docker_compose_compose_verification_error(
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=subprocess.CompletedProcess(
-        args=["docker", "compose", "version", "--short"],
-        returncode=0,
-        stdout="2.29.7\n",
-    ),
+    "devservices.utils.docker_compose.get_docker_compose_version",
+    return_value="2.29.7\n",
 )
 def test_install_docker_compose_macos_arm64(
-    mock_subprocess_run: mock.Mock,
+    mock_get_docker_compose_version: mock.Mock,
     mock_shutil_move: mock.Mock,
     mock_chmod: mock.Mock,
     mock_urlretrieve: mock.Mock,
@@ -191,12 +201,7 @@ def test_install_docker_compose_macos_arm64(
         "tempdir/docker-compose",
         os.path.expanduser("~/.docker/cli-plugins/docker-compose"),
     )
-    mock_subprocess_run.assert_called_once_with(
-        ["docker", "compose", "version", "--short"],
-        capture_output=True,
-        check=True,
-        text=True,
-    )
+    mock_get_docker_compose_version.assert_called_once()
 
 
 @mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
@@ -206,15 +211,11 @@ def test_install_docker_compose_macos_arm64(
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=subprocess.CompletedProcess(
-        args=["docker", "compose", "version", "--short"],
-        returncode=0,
-        stdout="2.29.7\n",
-    ),
+    "devservices.utils.docker_compose.get_docker_compose_version",
+    return_value="2.29.7\n",
 )
 def test_install_docker_compose_linux_x86(
-    mock_subprocess_run: mock.Mock,
+    mock_get_docker_compose_version: mock.Mock,
     mock_shutil_move: mock.Mock,
     mock_chmod: mock.Mock,
     mock_urlretrieve: mock.Mock,
@@ -233,12 +234,7 @@ def test_install_docker_compose_linux_x86(
         "tempdir/docker-compose",
         os.path.expanduser("~/.docker/cli-plugins/docker-compose"),
     )
-    mock_subprocess_run.assert_called_once_with(
-        ["docker", "compose", "version", "--short"],
-        capture_output=True,
-        check=True,
-        text=True,
-    )
+    mock_get_docker_compose_version.assert_called_once()
 
 
 @mock.patch("devservices.utils.install_binary.tempfile.TemporaryDirectory")
@@ -248,15 +244,11 @@ def test_install_docker_compose_linux_x86(
 @mock.patch("devservices.utils.install_binary.os.chmod")
 @mock.patch("devservices.utils.install_binary.shutil.move")
 @mock.patch(
-    "devservices.utils.docker_compose.subprocess.run",
-    return_value=subprocess.CompletedProcess(
-        args=["docker", "compose", "version", "--short"],
-        returncode=0,
-        stdout="2.29.7\n",
-    ),
+    "devservices.utils.docker_compose.get_docker_compose_version",
+    return_value="2.29.7\n",
 )
 def test_install_docker_compose_custom_docker_config_dir(
-    mock_subprocess_run: mock.Mock,
+    mock_get_docker_compose_version: mock.Mock,
     mock_shutil_move: mock.Mock,
     mock_chmod: mock.Mock,
     mock_urlretrieve: mock.Mock,
@@ -279,12 +271,7 @@ def test_install_docker_compose_custom_docker_config_dir(
         "tempdir/docker-compose",
         "tempdir/docker/config/cli-plugins/docker-compose",
     )
-    mock_subprocess_run.assert_called_once_with(
-        ["docker", "compose", "version", "--short"],
-        capture_output=True,
-        check=True,
-        text=True,
-    )
+    mock_get_docker_compose_version.assert_called_once()
 
 
 @mock.patch(

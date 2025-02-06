@@ -83,15 +83,10 @@ def install_docker_compose() -> None:
 
     # Verify the installation
     try:
-        version = subprocess.run(
-            ["docker", "compose", "version", "--short"],
-            capture_output=True,
-            check=True,
-            text=True,
-        ).stdout
-    except Exception as e:
+        version = get_docker_compose_version()
+    except DockerComposeError as e:
         raise DockerComposeInstallationError(
-            f"Failed to verify Docker Compose installation: {e}"
+            f"Failed to verify Docker Compose installation: {e.stderr}"
         )
 
     console.success(f"Verified Docker Compose installation: v{version}")
@@ -129,20 +124,17 @@ def check_docker_compose_version() -> None:
     check_docker_daemon_running()
     try:
         # Run the docker compose version command
-        result = subprocess.run(
-            ["docker", "compose", "version", "--short"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except subprocess.CalledProcessError:
-        result = None
+        docker_compose_version = get_docker_compose_version()
+    except DockerComposeError:
+        docker_compose_version = None
         console.warning(
             f"Docker Compose is not installed, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
         )
 
     # Extract the version number from the output
-    version_output = result.stdout.strip() if result is not None else ""
+    version_output = (
+        docker_compose_version if docker_compose_version is not None else ""
+    )
 
     # Use regex to find the version number
     pattern = r"^(\d+\.\d+\.\d+)"
@@ -171,7 +163,24 @@ def check_docker_compose_version() -> None:
     install_docker_compose()
 
 
-# TODO: Consider removing this in favor of in house logic for determining non-remote services
+def get_docker_compose_version() -> str:
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "version", "--short"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise DockerComposeError(
+            command="docker compose versions --short",
+            returncode=e.returncode,
+            stdout=e.stdout,
+            stderr=e.stderr,
+        )
+    return result.stdout.strip()
+
+
 def get_non_remote_services(
     service_config_path: str, current_env: dict[str, str]
 ) -> set[str]:
