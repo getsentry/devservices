@@ -48,7 +48,7 @@ def test_get_docker_compose_version(mock_run: mock.Mock) -> None:
 def test_get_docker_compose_version_error(mock_run: mock.Mock) -> None:
     with pytest.raises(DockerComposeError) as e:
         get_docker_compose_version()
-        assert e.value.stderr == "Docker Compose failed"
+    assert e.value.stderr == "Docker Compose failed"
 
 
 @mock.patch("subprocess.run")
