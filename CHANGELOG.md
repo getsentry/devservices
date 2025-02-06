@@ -1,3 +1,12 @@
+## 1.0.16
+
+### Various fixes & improvements
+
+- chore(docker-compose): Move `docker compose version` command to separate function (#232) by @hubertdeng123
+- fix(docker-compose): Smarter detection of docker config dir (#231) by @hubertdeng123
+- chore(sentry): updating platform tag name (#230) by @IanWoodard
+- chore(sentry): Fixing status for down when not running (#229) by @IanWoodard
+
 ## 1.0.15
 
 ### Various fixes & improvements
