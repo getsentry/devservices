@@ -78,11 +78,14 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
     raise ContainerHealthcheckFailedError(container_name, HEALTHCHECK_TIMEOUT)
 
 
-def get_matching_containers(label: str) -> list[str]:
+def get_matching_containers(labels: list[str]) -> list[str]:
     """
     Returns a list of container names with the given label
     """
     check_docker_daemon_running()
+    filters = []
+    for label in labels:
+        filters.extend(["--filter", f"label={label}"])
     try:
         return (
             subprocess.check_output(
@@ -91,9 +94,8 @@ def get_matching_containers(label: str) -> list[str]:
                     "ps",
                     "-a",
                     "-q",
-                    "--filter",
-                    f"label={label}",
-                ],
+                ]
+                + filters,
                 text=True,
                 stderr=subprocess.DEVNULL,
             )
@@ -102,7 +104,7 @@ def get_matching_containers(label: str) -> list[str]:
         )
     except subprocess.CalledProcessError as e:
         raise DockerError(
-            command=f"docker ps -q --filter label={label}",
+            command=f"docker ps -a -q {' '.join(filters)}",
             returncode=e.returncode,
             stdout=e.stdout,
             stderr=e.stderr,
@@ -186,7 +188,7 @@ def stop_containers(containers: list[str], should_remove: bool = False) -> None:
             ["docker", "stop"] + containers,
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:
         raise DockerError(
@@ -208,7 +210,7 @@ def remove_docker_resources(resource_type: str, resources: list[str]) -> None:
             ["docker", resource_type, "rm", *resources],
             check=True,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
     except subprocess.CalledProcessError as e:
         raise DockerError(
