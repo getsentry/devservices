@@ -6,15 +6,6 @@ A standalone cli tool used to manage dependencies for services. It simplifies th
 
 `devservices` reads configuration files located in the `devservices` directory of your repository. These configurations define services, their dependencies, and various modes of operation.
 
-## Installation
-
-The recommended way to install devservices is through a virtualenv in the requirements.txt.
-
-```
-devservices==1.0.16
-```
-
-
 ## Usage
 
 devservices provides several commands to manage your services:
@@ -32,9 +23,17 @@ NOTE: service-name is an optional parameter. If not provided, devservices will a
 - `devservices update` Update devservices to the latest version.
 - `devservices purge`: Purge the local devservices cache.
 
-## Configuration
+## Installation
 
-devservices uses a configuration file to define services, dependencies, and modes. The configuration file is located in the `devservices` directory of your repository.
+The recommended way to install devservices is through a virtualenv in the requirements.txt.
+
+```
+devservices==1.0.16
+```
+
+### Devservices Config File
+
+Each repo should have a `devservices` directory with a `config.yml` file. This file is used to define services, dependencies, and modes.
 
 The configuration file is a yaml file that looks like this:
 
