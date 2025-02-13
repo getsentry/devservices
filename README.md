@@ -44,7 +44,7 @@ The configuration file is a yaml file that looks like this:
 # - service_name: The name of the service. This is used to identify the service in the config file.
 # - dependencies: A list of dependencies for the service. Each dependency is a yaml block that holds the dependency configuration. There are two types of dependencies:
 #   - local: A dependency that is defined in the config file. These dependencies do not have a remote field.
-#   - remote: A dependency that is defined in the devservices directory in a remote repository. These configs are automatically fetched from the remote repository and installed. Take a look at [snuba](https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L8) for an example of defining remote dependencies. Any dependency with a remote field will be treated as a remote dependency.
+#   - remote: A dependency that is defined in the devservices directory in a remote repository. These configs are automatically fetched from the remote repository and installed. Any dependency with a remote field will be treated as a remote dependency. Example: https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L8
 # - modes: A list of modes for the service. Each mode includes a list of dependencies that are enabled in that mode.
 x-sentry-service-config:
   version: 0.1
@@ -79,9 +79,9 @@ x-sentry-service-config:
 #
 # These fields are optional:
 # - ulimits: The ulimits to set for the dependency. This is useful for setting resource constraints for the dependency.
-# - volumes: The volumes to mount for the dependency. This is useful for mounting data volumes for the dependency if data should be persisted between runs. It can also be useful to use a bind mount to mount a local directory into a container. See [snuba](https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L44) for an example of mounting clickhouse configs from a local directory.
+# - volumes: The volumes to mount for the dependency. This is useful for mounting data volumes for the dependency if data should be persisted between runs. It can also be useful to use a bind mount to mount a local directory into a container. Example of bind mounting clickhouse configs from a local directory https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L44
 # - command: The command to run for the dependency. This can override the default command for the docker image.
-# For more information on the docker compose file services block, see the [docker compose file reference]https://docs.docker.com/reference/compose-file/services/).
+# For more information on the docker compose file services block, see the docker compose file reference: https://docs.docker.com/reference/compose-file/services/
 services:
   example-dependency-1:
     image: ghcr.io/getsentry/example-dependency-1:1.0.0
@@ -131,12 +131,12 @@ services:
     restart: unless-stopped
 
 # This is a standard block used by docker compose to define volumes.
-# See the [docker compose file reference](https://docs.docker.com/reference/compose-file/volumes/) for more information.
+# For more information, see the docker compose file reference: https://docs.docker.com/reference/compose-file/volumes/
 volumes:
   example-dependency-1-data:
 
 # This is a standard block used by docker compose to define networks. Defining the devservices network is required for devservices to work properly. By default, devservices will create an external network called `devservices` that is used to connect all dependencies.
-# See the [docker compose file reference](https://docs.docker.com/reference/compose-file/networks/) for more information.
+# For more information, see the docker compose file reference: https://docs.docker.com/reference/compose-file/networks/
 networks:
   devservices:
     name: devservices
