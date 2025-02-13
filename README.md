@@ -33,7 +33,7 @@ The recommended way to install devservices is through a virtualenv in the requir
 devservices==1.0.16
 ```
 
-### 2. Add Devservices Config Files
+### 2. Add devservices config files
 
 Each repo should have a `devservices` directory with a `config.yml` file. This file is used to define services, dependencies, and modes. Other files and subdirectories in the `devservices` directory are optional and can be most commonly used for volume mounts.
 
