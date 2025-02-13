@@ -79,7 +79,7 @@ x-sentry-service-config:
 #
 # These fields are optional:
 # - ulimits: The ulimits to set for the dependency. This is useful for setting resource constraints for the dependency.
-# - volumes: The volumes to mount for the dependency. This is useful for mounting data volumes for the dependency if data should be persisted between runs.
+# - volumes: The volumes to mount for the dependency. This is useful for mounting data volumes for the dependency if data should be persisted between runs. It can also be useful to use a bind mount to mount a local directory into a container. See [snuba](https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L44) for an example of mounting clickhouse configs from a local directory.
 # - command: The command to run for the dependency. This can override the default command for the docker image.
 # For more information on the docker compose file services block, see the [docker compose file reference]https://docs.docker.com/reference/compose-file/services/).
 services:
