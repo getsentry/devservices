@@ -131,7 +131,7 @@ services:
     restart: unless-stopped
 
 # This is a standard block used by docker compose to define volumes.
-#See the [docker compose file reference](https://docs.docker.com/reference/compose-file/volumes/) for more information.
+# See the [docker compose file reference](https://docs.docker.com/reference/compose-file/volumes/) for more information.
 volumes:
   example-dependency-1-data:
 
