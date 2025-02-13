@@ -112,9 +112,7 @@ services:
     image: ghcr.io/getsentry/example-dependency-2:1.0.0
     ports:
       - 127.0.0.1:2345:2345
-    command:
-      - devserver
-      - --${SNUBA_NO_WORKERS:+no-workers}
+    command: ["devserver"]
     healthcheck:
       test: curl -f http://localhost:2345/health
       interval: 5s
