@@ -56,11 +56,11 @@ x-sentry-service-config:
       description: Example dependency defined in the config file
     example-remote-dependency:
       description: Remote dependency defined in the `devservices` directory in the example-repository repo
-      mode: default # Optional field, mode to run remote dependency in that defaults to `default`
       remote:
         repo_name: example-repository
         branch: main
         repo_link: https://github.com/getsentry/example-repository.git
+        mode: default # Optional field, mode to run remote dependency in that defaults to `default`
   modes:
     default: [example-dependency-1, example-remote-dependency]
     containerized: [example-dependency-1, example-dependency-2, example-remote-dependency]
