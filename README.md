@@ -25,15 +25,17 @@ NOTE: service-name is an optional parameter. If not provided, devservices will a
 
 ## Installation
 
+### 1. Add devservices to your requirements.txt
+
 The recommended way to install devservices is through a virtualenv in the requirements.txt. Once that is installed and a devservices config file is added, you should be able to run `devservices up` to begin local development.
 
 ```
 devservices==1.0.16
 ```
 
-### Devservices Config File
+### 2. Add Devservices Config Files
 
-Each repo should have a `devservices` directory with a `config.yml` file. This file is used to define services, dependencies, and modes.
+Each repo should have a `devservices` directory with a `config.yml` file. This file is used to define services, dependencies, and modes. Other files and subdirectories in the `devservices` directory are optional and can be most commonly used for volume mounts.
 
 The configuration file is a yaml file that looks like this:
 
