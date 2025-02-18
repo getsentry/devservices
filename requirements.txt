@@ -1,5 +1,0 @@
---index-url https://pypi.devinfra.sentry.io/simple
-pyyaml==6.0.1
-packaging==24.0
-sentry-devenv==1.8.0
-sentry-sdk==2.20.0
