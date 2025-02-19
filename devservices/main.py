@@ -47,27 +47,23 @@ current_version = metadata.version("devservices")
 error_trace_ids = set()
 
 
-"""Gets the trace_id from the errors we care about.
-
-This function is used as a before_send callback for Sentry to track error trace IDs.
-It adds the trace_id to error_trace_ids set for non-info level events.
-"""
-
-
 def before_send_error(event: Event, hint: Hint) -> Event:
+    """Gets the trace_id from the errors we care about.
+
+    This function is used as a before_send callback for Sentry to track error trace IDs.
+    It adds the trace_id to error_trace_ids set for non-info level events.
+    """
     if event["level"] != "info":
         error_trace_ids.add(event["contexts"]["trace"]["trace_id"])
     return event
 
 
-"""Manually sets the status of a transaction.
-
-This function is used as a before_send_transaction callback for Sentry to mark transaction status
-as unknown if they don't correspond to errors we care about.
-"""
-
-
 def before_send_transaction(event: Event, hint: Hint) -> Event:
+    """Manually sets the status of a transaction.
+
+    This function is used as a before_send_transaction callback for Sentry to mark transaction status
+    as unknown if they don't correspond to errors we care about.
+    """
     if event["contexts"]["trace"]["trace_id"] not in error_trace_ids:
         event["contexts"]["trace"]["status"] = "unknown"
     return event
