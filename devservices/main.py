@@ -47,15 +47,27 @@ current_version = metadata.version("devservices")
 error_trace_ids = set()
 
 
-# This is a hack to get the trace_id from the errors we care about
-def set_error_status(event: Event, hint: Hint) -> Event:
+"""Gets the trace_id from the errors we care about.
+
+This function is used as a before_send callback for Sentry to track error trace IDs.
+It adds the trace_id to error_trace_ids set for non-info level events.
+"""
+
+
+def before_send_error(event: Event, hint: Hint) -> Event:
     if event["level"] != "info":
         error_trace_ids.add(event["contexts"]["trace"]["trace_id"])
     return event
 
 
-# This sets the status of a transaction to unknown if it's not an error we care about
-def set_transaction_status(event: Event, hint: Hint) -> Event:
+"""Manually sets the status of a transaction.
+
+This function is used as a before_send_transaction callback for Sentry to mark transaction status
+as unknown if they don't correspond to errors we care about.
+"""
+
+
+def before_send_transaction(event: Event, hint: Hint) -> Event:
     if event["contexts"]["trace"]["trace_id"] not in error_trace_ids:
         event["contexts"]["trace"]["status"] = "unknown"
     return event
@@ -69,8 +81,8 @@ if not disable_sentry:
         enable_tracing=True,
         integrations=[ArgvIntegration()],
         environment=sentry_environment,
-        before_send=set_error_status,
-        before_send_transaction=set_transaction_status,
+        before_send=before_send_error,
+        before_send_transaction=before_send_transaction,
         release=current_version,
     )
     username = getpass.getuser()

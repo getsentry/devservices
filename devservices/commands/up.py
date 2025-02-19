@@ -154,7 +154,7 @@ def _up(
         service=service,
         remote_dependencies=sorted_remote_dependencies,
         current_env=current_env,
-        command="upd",
+        command="up",
         options=["-d", "--pull", "always"],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
