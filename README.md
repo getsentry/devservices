@@ -44,9 +44,9 @@ The configuration file is a yaml file that looks like this:
 # - version: The version of the devservices config file. This is used to ensure compatibility between devservices and the config file.
 # - service_name: The name of the service. This is used to identify the service in the config file.
 # - dependencies: A list of dependencies for the service. Each dependency is a yaml block that holds the dependency configuration. There are two types of dependencies:
-#   - local: A dependency that is defined in the config file. These dependencies do not have a remote field.
+#   - local: A dependency that is defined in the config file. These dependencies do not have a remote field. These dependency definitions are specific to the service and are not defined elsewhere.
 #   - remote: A dependency that is defined in the devservices directory in a remote repository. These configs are automatically fetched from the remote repository and installed. Any dependency with a remote field will be treated as a remote dependency. Example: https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L8
-# - modes: A list of modes for the service. Each mode includes a list of dependencies that are enabled in that mode.
+# - modes: A list of modes for the service. Each mode includes a list of dependencies that are used in that mode.
 x-sentry-service-config:
   version: 0.1
   service_name: example-service
@@ -90,8 +90,6 @@ services:
       nofile:
         soft: 262144
         hard: 262144
-    ports:
-      - 127.0.0.1:1234:1234
     healthcheck:
       test: wget -q -O - http://localhost:1234/health
       interval: 5s
@@ -101,18 +99,19 @@ services:
       EXAMPLE_ENV_VAR: example-value
     volumes:
       - example-dependency-1-data:/var/lib/example-dependency-1
+    restart: unless-stopped
+    # Everything below this line is required for devservices to work properly.
+    ports:
+      - 127.0.0.1:1234:1234
     extra_hosts:
       host.docker.internal: host-gateway
     networks:
       - devservices
     labels:
       - orchestrator=devservices
-    restart: unless-stopped
 
   example-dependency-2:
     image: ghcr.io/getsentry/example-dependency-2:1.0.0
-    ports:
-      - 127.0.0.1:2345:2345
     command: ["devserver"]
     healthcheck:
       test: curl -f http://localhost:2345/health
@@ -121,13 +120,16 @@ services:
       retries: 3
     environment:
       EXAMPLE_ENV_VAR: example-value
+    restart: unless-stopped
+    # Everything below this line is required for devservices to work properly.
+    ports:
+      - 127.0.0.1:2345:2345
     extra_hosts:
       host.docker.internal: host-gateway
     networks:
       - devservices
     labels:
       - orchestrator=devservices
-    restart: unless-stopped
 
 # This is a standard block used by docker compose to define volumes.
 # For more information, see the docker compose file reference: https://docs.docker.com/reference/compose-file/volumes/
