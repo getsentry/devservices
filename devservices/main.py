@@ -15,6 +15,8 @@ from sentry_sdk import set_tag
 from sentry_sdk import set_user
 from sentry_sdk import start_transaction
 from sentry_sdk.integrations.argv import ArgvIntegration
+from sentry_sdk.types import Event
+from sentry_sdk.types import Hint
 
 from devservices.commands import down
 from devservices.commands import list_dependencies
@@ -42,6 +44,31 @@ disable_sentry = os.environ.get("DEVSERVICES_DISABLE_SENTRY", default="0") == "1
 logging.basicConfig(level=logging.INFO)
 current_version = metadata.version("devservices")
 
+error_trace_ids = set()
+
+
+def before_send_error(event: Event, hint: Hint) -> Event:
+    """Gets the trace_id from the errors we care about.
+
+    This function is used as a before_send callback for Sentry to track error trace IDs.
+    It adds the trace_id to error_trace_ids set for non-info level events.
+    """
+    if event["level"] != "info":
+        error_trace_ids.add(event["contexts"]["trace"]["trace_id"])
+    return event
+
+
+def before_send_transaction(event: Event, hint: Hint) -> Event:
+    """Manually sets the status of a transaction.
+
+    This function is used as a before_send_transaction callback for Sentry to mark transaction status
+    as unknown if they don't correspond to errors we care about.
+    """
+    if event["contexts"]["trace"]["trace_id"] not in error_trace_ids:
+        event["contexts"]["trace"]["status"] = "unknown"
+    return event
+
+
 if not disable_sentry:
     init(
         dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
@@ -50,6 +77,8 @@ if not disable_sentry:
         enable_tracing=True,
         integrations=[ArgvIntegration()],
         environment=sentry_environment,
+        before_send=before_send_error,
+        before_send_transaction=before_send_transaction,
         release=current_version,
     )
     username = getpass.getuser()
@@ -59,7 +88,7 @@ if not disable_sentry:
         git_version = get_git_version()
         set_tag("git_version", git_version)
     except GitError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         logging.debug("Failed to get git version: %s", e)
         set_tag("git_version", "unknown")
 
@@ -75,11 +104,11 @@ def main() -> None:
     try:
         check_docker_compose_version()
     except DockerDaemonNotRunningError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(str(e))
         exit(1)
     except DockerComposeInstallationError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure("Failed to ensure docker compose is installed and up-to-date")
         exit(1)
     parser = argparse.ArgumentParser(

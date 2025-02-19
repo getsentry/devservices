@@ -49,7 +49,7 @@ def logs(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except ConfigNotFoundError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(
             f"{str(e)}. Please specify a service (i.e. `devservices logs sentry`) or run the command from a directory with a devservices configuration."
         )
@@ -86,7 +86,7 @@ def logs(args: Namespace) -> None:
     try:
         logs_output = _logs(service, remote_dependencies, mode_dependencies)
     except DockerComposeError as dce:
-        capture_exception(dce)
+        capture_exception(dce, level="info")
         console.failure(f"Failed to get logs for {service.name}: {dce.stderr}")
         exit(1)
     for log in logs_output:
