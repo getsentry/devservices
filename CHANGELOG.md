@@ -1,3 +1,9 @@
+## 1.0.17
+
+### Various fixes & improvements
+
+- feat(sentry): Manually set status of transactions (#237) by @hubertdeng123
+
 ## 1.0.16
 
 ### Various fixes & improvements

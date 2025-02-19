@@ -60,7 +60,7 @@ def down(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except ConfigNotFoundError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(
             f"{str(e)}. Please specify a service (i.e. `devservices down sentry`) or run the command from a directory with a devservices configuration."
         )
@@ -148,7 +148,7 @@ def down(args: Namespace) -> None:
             try:
                 _down(service, remote_dependencies, list(mode_dependencies), status)
             except DockerComposeError as dce:
-                capture_exception(dce)
+                capture_exception(dce, level="info")
                 status.failure(f"Failed to stop {service.name}: {dce.stderr}")
                 exit(1)
         else:
