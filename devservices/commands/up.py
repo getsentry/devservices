@@ -63,7 +63,7 @@ def up(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except ConfigNotFoundError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(
             f"{str(e)}. Please specify a service (i.e. `devservices up sentry`) or run the command from a directory with a devservices configuration."
         )
@@ -110,7 +110,7 @@ def up(args: Namespace) -> None:
             mode_dependencies = modes[mode]
             _up(service, [mode], remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
-            capture_exception(dce)
+            capture_exception(dce, level="info")
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
     # TODO: We should factor in healthchecks here before marking service as running
@@ -154,7 +154,7 @@ def _up(
         service=service,
         remote_dependencies=sorted_remote_dependencies,
         current_env=current_env,
-        command="up",
+        command="upd",
         options=["-d", "--pull", "always"],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,

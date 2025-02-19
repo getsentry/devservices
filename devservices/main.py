@@ -15,6 +15,8 @@ from sentry_sdk import set_tag
 from sentry_sdk import set_user
 from sentry_sdk import start_transaction
 from sentry_sdk.integrations.argv import ArgvIntegration
+from sentry_sdk.types import Event
+from sentry_sdk.types import Hint
 
 from devservices.commands import down
 from devservices.commands import list_dependencies
@@ -42,6 +44,23 @@ disable_sentry = os.environ.get("DEVSERVICES_DISABLE_SENTRY", default="0") == "1
 logging.basicConfig(level=logging.INFO)
 current_version = metadata.version("devservices")
 
+error_trace_ids = set()
+
+
+# This is a hack to get the trace_id from the errors we care about
+def set_error_status(event: Event, hint: Hint) -> Event:
+    if event["level"] != "info":
+        error_trace_ids.add(event["contexts"]["trace"]["trace_id"])
+    return event
+
+
+# This sets the status of a transaction to unknown if it's not an error we care about
+def set_transaction_status(event: Event, hint: Hint) -> Event:
+    if event["contexts"]["trace"]["trace_id"] not in error_trace_ids:
+        event["contexts"]["trace"]["status"] = "unknown"
+    return event
+
+
 if not disable_sentry:
     init(
         dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
@@ -50,6 +69,8 @@ if not disable_sentry:
         enable_tracing=True,
         integrations=[ArgvIntegration()],
         environment=sentry_environment,
+        before_send=set_error_status,
+        before_send_transaction=set_transaction_status,
         release=current_version,
     )
     username = getpass.getuser()
@@ -59,7 +80,7 @@ if not disable_sentry:
         git_version = get_git_version()
         set_tag("git_version", git_version)
     except GitError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         logging.debug("Failed to get git version: %s", e)
         set_tag("git_version", "unknown")
 
@@ -75,11 +96,11 @@ def main() -> None:
     try:
         check_docker_compose_version()
     except DockerDaemonNotRunningError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(str(e))
         exit(1)
     except DockerComposeInstallationError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure("Failed to ensure docker compose is installed and up-to-date")
         exit(1)
     parser = argparse.ArgumentParser(
