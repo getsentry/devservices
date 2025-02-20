@@ -10,9 +10,36 @@ import pytest
 from devservices.commands.list_dependencies import list_dependencies
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
+from devservices.exceptions import CoderootNotFoundError
 from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import Service
+
+
+def test_list_dependencies_no_coderoot(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    os.chdir(tmp_path)
+
+    args = Namespace(service_name="example-service", debug=False)
+
+    with (
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            side_effect=CoderootNotFoundError(),
+        ),
+        pytest.raises(SystemExit),
+    ):
+        list_dependencies(args)
+
+    # Capture the printed output
+    captured = capsys.readouterr()
+
+    assert (
+        "Coderoot not found. Please ensure you have devenv installed and configured."
+        in captured.out.strip()
+    )
 
 
 def test_list_dependencies_no_config_file(

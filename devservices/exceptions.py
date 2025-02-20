@@ -7,6 +7,19 @@ class ServiceNotFoundError(Exception):
     pass
 
 
+class CoderootNotFoundError(Exception):
+    """Raised when the coderoot is not found."""
+
+    def __str__(self) -> str:
+        return "Coderoot not found. Please ensure you have devenv installed and configured."
+
+
+class InvalidCoderootError(Exception):
+    """Raised when the coderoot is invalid."""
+
+    pass
+
+
 class ConfigError(Exception):
     """Base class for configuration-related errors."""
 

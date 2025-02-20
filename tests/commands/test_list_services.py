@@ -7,8 +7,39 @@ from unittest import mock
 import pytest
 
 from devservices.commands.list_services import list_services
+from devservices.exceptions import CoderootNotFoundError
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
+
+
+@mock.patch("devservices.utils.state.State.get_service_entries")
+def test_list_running_services_no_coderoot(
+    mock_get_service_entries: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        args = Namespace(service_name="example-service", all=False)
+        with (
+            mock.patch(
+                "devservices.commands.list_services.get_coderoot",
+                side_effect=CoderootNotFoundError(),
+            ),
+            pytest.raises(SystemExit),
+        ):
+            list_services(args)
+
+        mock_get_service_entries.assert_not_called()
+
+        # Capture the printed output
+        captured = capsys.readouterr()
+
+        assert (
+            "Coderoot not found. Please ensure you have devenv installed and configured."
+            in captured.out
+        )
 
 
 @mock.patch("devservices.utils.state.State.get_service_entries")

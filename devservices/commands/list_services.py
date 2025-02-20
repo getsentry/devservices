@@ -4,6 +4,9 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.exceptions import CoderootNotFoundError
+from devservices.exceptions import ConfigError
+from devservices.exceptions import InvalidCoderootError
 from devservices.utils.console import Console
 from devservices.utils.devenv import get_coderoot
 from devservices.utils.services import get_local_services
@@ -28,8 +31,17 @@ def list_services(args: Namespace) -> None:
     """List the services installed locally."""
     console = Console()
     # Get all of the services installed locally
-    coderoot = get_coderoot()
-    services = get_local_services(coderoot)
+    try:
+        coderoot = get_coderoot()
+    except (CoderootNotFoundError, ConfigError) as e:
+        console.failure(str(e))
+        exit(1)
+    try:
+        services = get_local_services(coderoot)
+    except InvalidCoderootError as e:
+        console.failure(str(e))
+        exit(1)
+
     state = State()
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))

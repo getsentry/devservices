@@ -10,16 +10,19 @@ from argparse import Namespace
 from collections import namedtuple
 
 from sentry_sdk import capture_exception
+from sentry_sdk import capture_message
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import CoderootNotFoundError
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
+from devservices.exceptions import InvalidCoderootError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import install_and_verify_dependencies
@@ -98,6 +101,10 @@ def status(args: Namespace) -> None:
         console.failure(str(e))
         exit(1)
     except ServiceNotFoundError as e:
+        console.failure(str(e))
+        exit(1)
+    except (CoderootNotFoundError, InvalidCoderootError) as e:
+        capture_message(str(e))
         console.failure(str(e))
         exit(1)
 

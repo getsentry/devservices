@@ -12,6 +12,7 @@ from devservices.commands.up import up
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import HEALTHCHECK_TIMEOUT
+from devservices.exceptions import CoderootNotFoundError
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DependencyError
@@ -22,6 +23,53 @@ from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch("devservices.utils.state.State.update_service_entry")
+@mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
+@mock.patch(
+    "devservices.commands.up.subprocess.check_output",
+    return_value="clickhouse\nredis\n",
+)
+def test_up_no_coderoot(
+    mock_subprocess_check_output: mock.Mock,
+    mock_check_all_containers_healthy: mock.Mock,
+    mock_create_devservices_network: mock.Mock,
+    mock_update_service_entry: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with mock.patch(
+        "devservices.commands.up.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        args = Namespace(service_name="example-service", debug=False, mode="default")
+
+        with (
+            mock.patch(
+                "devservices.utils.services.get_coderoot",
+                side_effect=CoderootNotFoundError(),
+            ),
+            pytest.raises(SystemExit),
+        ):
+            up(args)
+
+        mock_create_devservices_network.assert_not_called()
+
+        mock_subprocess_check_output.assert_not_called()
+
+        mock_update_service_entry.assert_not_called()
+        mock_remove_service_entry.assert_not_called()
+
+        mock_check_all_containers_healthy.assert_not_called()
+        captured = capsys.readouterr()
+        assert (
+            "Coderoot not found. Please ensure you have devenv installed and configured."
+            in captured.out
+        )
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")

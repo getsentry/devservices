@@ -5,9 +5,12 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import capture_message
 
+from devservices.exceptions import CoderootNotFoundError
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
+from devservices.exceptions import InvalidCoderootError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.services import find_matching_service
@@ -44,6 +47,10 @@ def list_dependencies(args: Namespace) -> None:
         console.failure(str(e))
         exit(1)
     except ServiceNotFoundError as e:
+        console.failure(str(e))
+        exit(1)
+    except (CoderootNotFoundError, InvalidCoderootError) as e:
+        capture_message(str(e))
         console.failure(str(e))
         exit(1)
 

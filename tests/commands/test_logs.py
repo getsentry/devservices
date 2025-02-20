@@ -13,10 +13,47 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import CoderootNotFoundError
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import Service
 from devservices.utils.state import StateTables
+
+
+@mock.patch("devservices.commands.logs.get_docker_compose_commands_to_run")
+@mock.patch("devservices.utils.state.State.get_service_entries")
+@mock.patch("devservices.commands.logs.install_and_verify_dependencies")
+def test_logs_no_coderoot(
+    mock_install_and_verify_dependencies: mock.Mock,
+    mock_get_service_entries: mock.Mock,
+    mock_get_docker_compose_commands_to_run: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch(
+        "devservices.commands.logs.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        args = Namespace(service_name="example-service")
+
+        with (
+            mock.patch(
+                "devservices.utils.services.get_coderoot",
+                side_effect=CoderootNotFoundError(),
+            ),
+            pytest.raises(SystemExit),
+        ):
+            logs(args)
+
+        mock_get_service_entries.assert_not_called()
+        mock_install_and_verify_dependencies.assert_not_called()
+        mock_get_docker_compose_commands_to_run.assert_not_called()
+
+        captured = capsys.readouterr()
+        assert (
+            "Coderoot not found. Please ensure you have devenv installed and configured."
+            in captured.out
+        )
 
 
 @mock.patch("devservices.commands.logs.get_docker_compose_commands_to_run")

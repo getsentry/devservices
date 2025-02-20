@@ -7,6 +7,7 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
+from devservices.exceptions import InvalidCoderootError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.devenv import get_coderoot
@@ -24,6 +25,9 @@ def get_local_services(coderoot: str) -> list[Service]:
     from devservices.configs.service_config import load_service_config_from_file
 
     console = Console()
+
+    if not os.path.exists(coderoot):
+        raise InvalidCoderootError(f"Coderoot {coderoot} does not exist")
 
     services = []
     for repo in os.listdir(coderoot):

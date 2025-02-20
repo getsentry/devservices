@@ -14,6 +14,7 @@ from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import CoderootNotFoundError
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import install_and_verify_dependencies
@@ -24,6 +25,77 @@ from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+def test_down_no_coderoot(
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        mock.patch(
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        args = Namespace(service_name="example-service", debug=False)
+
+        with (
+            mock.patch(
+                "devservices.utils.services.get_coderoot",
+                side_effect=CoderootNotFoundError(),
+            ),
+            mock.patch(
+                "devservices.commands.down.run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=["docker", "compose", "config", "--services"],
+                    returncode=0,
+                    stdout="clickhouse\nredis\n",
+                ),
+            ) as mock_run_cmd,
+            mock.patch(
+                "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
+            pytest.raises(SystemExit),
+        ):
+            state = State()
+            state.update_service_entry(
+                "example-service", "default", StateTables.STARTING_SERVICES
+            )
+            down(args)
+
+        mock_run_cmd.assert_not_called()
+
+        mock_remove_service_entry.assert_not_called()
+
+        captured = capsys.readouterr()
+        assert (
+            "Coderoot not found. Please ensure you have devenv installed and configured."
+            in captured.out.strip()
+        )
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")
@@ -244,9 +316,10 @@ def test_down_error(
 
     args = Namespace(service_name=None, debug=False)
 
-    with mock.patch(
-        "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
-    ), pytest.raises(SystemExit):
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        pytest.raises(SystemExit),
+    ):
         state = State()
         state.update_service_entry(
             "example-service", "default", StateTables.STARTED_SERVICES
@@ -300,15 +373,18 @@ def test_down_mode_simple(
 
         args = Namespace(service_name=None, debug=False)
 
-        with mock.patch(
-            "devservices.commands.down.run_cmd",
-            return_value=subprocess.CompletedProcess(
-                args=["docker", "compose", "config", "--services"],
-                returncode=0,
-                stdout="redis\n",
+        with (
+            mock.patch(
+                "devservices.commands.down.run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=["docker", "compose", "config", "--services"],
+                    returncode=0,
+                    stdout="redis\n",
+                ),
+            ) as mock_run_cmd,
+            mock.patch(
+                "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
             ),
-        ) as mock_run_cmd, mock.patch(
-            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
         ):
             state = State()
             state.update_service_entry(

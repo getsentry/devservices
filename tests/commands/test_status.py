@@ -11,6 +11,7 @@ import pytest
 from devservices.commands.status import status
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
+from devservices.exceptions import CoderootNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import Service
@@ -33,6 +34,36 @@ def test_status_no_config_file(
     assert (
         f"No devservices configuration found in {tmp_path}/devservices/config.yml. Please specify a service (i.e. `devservices status sentry`) or run the command from a directory with a devservices configuration."
         in captured.out.strip()
+    )
+
+
+@mock.patch("devservices.commands.status._status")
+@mock.patch("devservices.commands.status.install_and_verify_dependencies")
+def test_status_no_coderoot(
+    mock_install_and_verify_dependencies: mock.Mock,
+    mock_status: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = Namespace(service_name="example-service")
+
+    with (
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            side_effect=CoderootNotFoundError(),
+        ),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        status(args)
+
+    assert exc_info.value.code == 1
+
+    mock_install_and_verify_dependencies.assert_not_called()
+    mock_status.assert_not_called()
+
+    captured = capsys.readouterr()
+    assert (
+        "Coderoot not found. Please ensure you have devenv installed and configured."
+        in captured.out
     )
 
 
