@@ -3,14 +3,21 @@ from __future__ import annotations
 import os
 import sqlite3
 from enum import Enum
+from typing import Literal
 
 from devservices.constants import DEVSERVICES_LOCAL_DIR
 from devservices.constants import STATE_DB_FILE
 
 
+class ServiceRuntime(Enum):
+    LOCAL = "local"
+    CONTAINERIZED = "containerized"
+
+
 class StateTables(Enum):
     STARTED_SERVICES = "started_services"
     STARTING_SERVICES = "starting_services"
+    SERVICE_RUNTIME = "service_runtime"
 
 
 class State:
@@ -30,7 +37,7 @@ class State:
 
     def initialize_database(self) -> None:
         cursor = self.conn.cursor()
-        # Formatted strings here and throughout the fileshould be extremely low risk given these are constants
+        # Formatted strings here and throughout the file should be extremely low risk given these are constants
         cursor.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {StateTables.STARTED_SERVICES.value} (
@@ -50,10 +57,26 @@ class State:
             )
         """
         )
+
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {StateTables.SERVICE_RUNTIME.value} (
+                service_name TEXT PRIMARY KEY,
+                runtime TEXT
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+        )
         self.conn.commit()
 
     def update_service_entry(
-        self, service_name: str, mode: str, table: StateTables
+        self,
+        service_name: str,
+        mode: str,
+        table: (
+            Literal[StateTables.STARTED_SERVICES]
+            | Literal[StateTables.STARTING_SERVICES]
+        ),
     ) -> None:
         cursor = self.conn.cursor()
         service_entries = self.get_service_entries(table)
@@ -96,7 +119,12 @@ class State:
         return [row[0] for row in cursor.fetchall()]
 
     def get_active_modes_for_service(
-        self, service_name: str, table: StateTables
+        self,
+        service_name: str,
+        table: (
+            Literal[StateTables.STARTED_SERVICES]
+            | Literal[StateTables.STARTING_SERVICES]
+        ),
     ) -> list[str]:
         cursor = self.conn.cursor()
         cursor.execute(
@@ -110,6 +138,41 @@ class State:
             return []
         return str(result[0]).split(",")
 
+    def get_service_runtime(self, service_name: str) -> ServiceRuntime:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT runtime FROM {StateTables.SERVICE_RUNTIME.value} WHERE service_name = ?
+        """,
+            (service_name,),
+        )
+        result = cursor.fetchone()
+        if result is None:
+            return ServiceRuntime.CONTAINERIZED
+        return ServiceRuntime(result[0])
+
+    def update_service_runtime(
+        self, service_name: str, runtime: ServiceRuntime
+    ) -> None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            INSERT OR REPLACE INTO {StateTables.SERVICE_RUNTIME.value} (service_name, runtime) VALUES (?, ?)
+        """,
+            (service_name, runtime.value),
+        )
+        self.conn.commit()
+
+    def get_services_by_runtime(self, runtime: ServiceRuntime) -> list[str]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT service_name FROM {StateTables.SERVICE_RUNTIME.value} WHERE runtime = ?
+        """,
+            (runtime.value,),
+        )
+        return [row[0] for row in cursor.fetchall()]
+
     def clear_state(self) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
@@ -120,6 +183,11 @@ class State:
         cursor.execute(
             f"""
             DELETE FROM {StateTables.STARTING_SERVICES.value}
+        """
+        )
+        cursor.execute(
+            f"""
+            DELETE FROM {StateTables.SERVICE_RUNTIME.value}
         """
         )
         self.conn.commit()
