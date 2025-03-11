@@ -84,6 +84,20 @@ if not disable_sentry:
     username = getpass.getuser()
     set_user({"username": username})
     set_tag("user_platform", platform.platform())
+    if sentry_environment == "CI":
+        set_tag("github_action", os.environ.get("GITHUB_ACTION"))
+        set_tag("github_action_path", os.environ.get("GITHUB_ACTION_PATH"))
+        set_tag("github_repository", os.environ.get("GITHUB_REPOSITORY"))
+        set_tag("github_ref_name", os.environ.get("GITHUB_REF_NAME"))
+        set_tag("github_run_id", os.environ.get("GITHUB_RUN_ID"))
+        set_tag(
+            "github_url",
+            f"{os.environ.get('GITHUB_SERVER_URL')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}",
+        )
+        set_tag("github_run_attempt", os.environ.get("GITHUB_RUN_ATTEMPT"))
+        set_tag("github_workflow", os.environ.get("GITHUB_WORKFLOW"))
+        set_tag("github_workflow_run_id", os.environ.get("GITHUB_WORKFLOW_RUN_ID"))
+        set_tag("github_sha", os.environ.get("GITHUB_SHA"))
     try:
         git_version = get_git_version()
         set_tag("git_version", git_version)
