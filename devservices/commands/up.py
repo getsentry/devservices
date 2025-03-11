@@ -33,6 +33,7 @@ from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 
@@ -106,8 +107,18 @@ def up(args: Namespace) -> None:
             pass
         # Add the service to the starting services table
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
+        mode_dependencies = modes[mode]
+        # We want to ignore any dependencies that are set to run locally
+        locally_running_services = state.get_services_by_runtime(ServiceRuntime.LOCAL)
+        mode_dependencies = [
+            dep for dep in mode_dependencies if dep not in locally_running_services
+        ]
+        remote_dependencies = {
+            dep
+            for dep in remote_dependencies
+            if dep.service_name not in locally_running_services
+        }
         try:
-            mode_dependencies = modes[mode]
             _up(service, [mode], remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce, level="info")
