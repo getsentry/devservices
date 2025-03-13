@@ -1063,13 +1063,13 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
         run_git_command(["add", "."], cwd=redis_repo_path)
         run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
 
-        example_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "example-service"
+        local_runtime_repo_path = create_mock_git_repo(
+            "blank_repo", tmp_path / "local-runtime-service"
         )
-        example_config = {
+        local_runtime_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
-                "service_name": "example-service",
+                "service_name": "local-runtime-service",
                 "dependencies": {
                     "redis": {
                         "description": "Redis",
@@ -1089,14 +1089,14 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
                 },
             },
         }
-        create_config_file(example_repo_path, example_config)
-        run_git_command(["add", "."], cwd=example_repo_path)
+        create_config_file(local_runtime_repo_path, local_runtime_config)
+        run_git_command(["add", "."], cwd=local_runtime_repo_path)
         run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=example_repo_path
+            ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
         )
 
-        example_service_path = tmp_path / "code" / "example-service"
-        create_config_file(example_service_path, example_config)
+        local_runtime_service_path = tmp_path / "code" / "local-runtime-service"
+        create_config_file(local_runtime_service_path, local_runtime_config)
 
         other_config = {
             "x-sentry-service-config": {
@@ -1111,16 +1111,16 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
                             "repo_link": f"file://{redis_repo_path}",
                         },
                     },
-                    "example-service": {
-                        "description": "Example service",
+                    "local-runtime-service": {
+                        "description": "Local runtime service",
                         "remote": {
-                            "repo_name": "example-service",
+                            "repo_name": "local-runtime-service",
                             "branch": "main",
-                            "repo_link": f"file://{example_repo_path}",
+                            "repo_link": f"file://{local_runtime_repo_path}",
                         },
                     },
                 },
-                "modes": {"default": ["redis", "example-service"]},
+                "modes": {"default": ["redis", "local-runtime-service"]},
             },
         }
         other_service_path = tmp_path / "code" / "other-service"
@@ -1129,7 +1129,7 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
         os.chdir(other_service_path)
 
         state = State()
-        state.update_service_runtime("example-service", ServiceRuntime.LOCAL)
+        state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
         args = Namespace(service_name=None, debug=False, mode="default")
 
