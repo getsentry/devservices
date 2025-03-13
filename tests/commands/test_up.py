@@ -1140,7 +1140,7 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
         ):
             up(args)
 
-        # example-service is not started since it is set to runtime LOCAL
+        # local-runtime-service is not started since it is set to runtime LOCAL
         # this means it should be brought up separately by the user
         mock_bring_up_dependency.assert_called_once_with(
             DockerComposeCommand(
