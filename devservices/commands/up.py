@@ -118,12 +118,20 @@ def up(args: Namespace) -> None:
     state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES)
 
 
+def _pull_dependency_images(
+    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
+) -> None:
+    run_cmd(cmd.full_command, current_env)
+    for dependency in cmd.services:
+        status.info(f"Pulled image for {dependency}")
+
+
 def _bring_up_dependency(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
-) -> subprocess.CompletedProcess[str]:
+) -> None:
     for dependency in cmd.services:
         status.info(f"Starting {dependency}")
-    return run_cmd(cmd.full_command, current_env)
+    run_cmd(cmd.full_command, current_env)
 
 
 def _up(
@@ -150,12 +158,35 @@ def _up(
     sorted_remote_dependencies = sorted(
         remote_dependencies, key=lambda dep: starting_order.index(dep.service_name)
     )
-    docker_compose_commands = get_docker_compose_commands_to_run(
+    # Pull all images in parallel
+    status.info("Pulling images")
+    pull_commands = get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=sorted_remote_dependencies,
+        current_env=current_env,
+        command="pull",
+        options=[],
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+
+    with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
+        futures = [
+            dependency_executor.submit(
+                _pull_dependency_images, cmd, current_env, status
+            )
+            for cmd in pull_commands
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            _ = future.result()
+
+    # Bring up all necessary containers
+    up_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=sorted_remote_dependencies,
         current_env=current_env,
         command="up",
-        options=["-d", "--pull", "always"],
+        options=["-d"],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
@@ -164,12 +195,12 @@ def _up(
     with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
         futures = [
             dependency_executor.submit(_bring_up_dependency, cmd, current_env, status)
-            for cmd in docker_compose_commands
+            for cmd in up_commands
         ]
         for future in concurrent.futures.as_completed(futures):
             _ = future.result()
 
-    for cmd in docker_compose_commands:
+    for cmd in up_commands:
         try:
             container_names = get_container_names_for_project(
                 cmd.project_name, cmd.config_path
