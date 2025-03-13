@@ -170,9 +170,9 @@ def _up(
         mode_dependencies=mode_dependencies,
     )
 
-    with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
+    with concurrent.futures.ThreadPoolExecutor() as pull_dependency_executor:
         futures = [
-            dependency_executor.submit(
+            pull_dependency_executor.submit(
                 _pull_dependency_images, cmd, current_env, status
             )
             for cmd in pull_commands
@@ -192,9 +192,11 @@ def _up(
     )
 
     containers_to_check = []
-    with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
+    with concurrent.futures.ThreadPoolExecutor() as up_dependency_executor:
         futures = [
-            dependency_executor.submit(_bring_up_dependency, cmd, current_env, status)
+            up_dependency_executor.submit(
+                _bring_up_dependency, cmd, current_env, status
+            )
             for cmd in up_commands
         ]
         for future in concurrent.futures.as_completed(futures):

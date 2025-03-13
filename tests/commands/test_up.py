@@ -121,7 +121,18 @@ def test_up_simple(
 
         mock_create_devservices_network.assert_called_once()
 
-        mock_get_non_remote_services.assert_called()
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+            ]
+        )
 
         mock_update_service_entry.assert_has_calls(
             [
@@ -419,7 +430,18 @@ def test_up_docker_compose_container_lookup_error(
 
         mock_create_devservices_network.assert_called_once()
 
-        mock_get_non_remote_services.assert_called()
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+            ]
+        )
 
         mock_update_service_entry.assert_called_once_with(
             "example-service", "default", StateTables.STARTING_SERVICES
@@ -540,7 +562,18 @@ def test_up_docker_compose_container_healthcheck_failed(
 
         mock_create_devservices_network.assert_called_once()
 
-        mock_get_non_remote_services.assert_called()
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+            ]
+        )
 
         mock_update_service_entry.assert_called_once_with(
             "example-service", "default", StateTables.STARTING_SERVICES
@@ -655,7 +688,18 @@ def test_up_mode_simple(
 
         mock_create_devservices_network.assert_called_once()
 
-        mock_get_non_remote_services.assert_called()
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+            ]
+        )
 
         mock_update_service_entry.assert_has_calls(
             [
