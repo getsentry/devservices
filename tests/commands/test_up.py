@@ -1214,8 +1214,6 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
                     "up",
                     "redis",
                     "-d",
-                    "--pull",
-                    "always",
                 ],
                 project_name="redis",
                 config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
