@@ -109,14 +109,16 @@ def up(args: Namespace) -> None:
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
         mode_dependencies = modes[mode]
         # We want to ignore any dependencies that are set to run locally
-        locally_running_services = state.get_services_by_runtime(ServiceRuntime.LOCAL)
+        services_with_local_runtime = state.get_services_by_runtime(
+            ServiceRuntime.LOCAL
+        )
         mode_dependencies = [
-            dep for dep in mode_dependencies if dep not in locally_running_services
+            dep for dep in mode_dependencies if dep not in services_with_local_runtime
         ]
         remote_dependencies = {
             dep
             for dep in remote_dependencies
-            if dep.service_name not in locally_running_services
+            if dep.service_name not in services_with_local_runtime
         }
         try:
             _up(service, [mode], remote_dependencies, mode_dependencies, status)
