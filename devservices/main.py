@@ -11,6 +11,7 @@ from importlib import metadata
 from sentry_sdk import capture_exception
 from sentry_sdk import flush
 from sentry_sdk import init
+from sentry_sdk import set_context
 from sentry_sdk import set_tag
 from sentry_sdk import set_user
 from sentry_sdk import start_transaction
@@ -85,19 +86,21 @@ if not disable_sentry:
     set_user({"username": username})
     set_tag("user_platform", platform.platform())
     if sentry_environment == "CI":
-        set_tag("github_action", os.environ.get("GITHUB_ACTION"))
-        set_tag("github_action_path", os.environ.get("GITHUB_ACTION_PATH"))
-        set_tag("github_repository", os.environ.get("GITHUB_REPOSITORY"))
-        set_tag("github_ref_name", os.environ.get("GITHUB_REF_NAME"))
-        set_tag("github_run_id", os.environ.get("GITHUB_RUN_ID"))
-        set_tag(
-            "github_url",
-            f"{os.environ.get('GITHUB_SERVER_URL')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}",
+        set_context(
+            "github",
+            {
+                "github_action": os.environ.get("GITHUB_ACTION"),
+                "github_action_path": os.environ.get("GITHUB_ACTION_PATH"),
+                "github_repository": os.environ.get("GITHUB_REPOSITORY"),
+                "github_ref_name": os.environ.get("GITHUB_REF_NAME"),
+                "github_run_id": os.environ.get("GITHUB_RUN_ID"),
+                "github_url": f"{os.environ.get('GITHUB_SERVER_URL')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}",
+                "github_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+                "github_workflow": os.environ.get("GITHUB_WORKFLOW"),
+                "github_workflow_run_id": os.environ.get("GITHUB_WORKFLOW_RUN_ID"),
+                "github_sha": os.environ.get("GITHUB_SHA"),
+            },
         )
-        set_tag("github_run_attempt", os.environ.get("GITHUB_RUN_ATTEMPT"))
-        set_tag("github_workflow", os.environ.get("GITHUB_WORKFLOW"))
-        set_tag("github_workflow_run_id", os.environ.get("GITHUB_WORKFLOW_RUN_ID"))
-        set_tag("github_sha", os.environ.get("GITHUB_SHA"))
     try:
         git_version = get_git_version()
         set_tag("git_version", git_version)
