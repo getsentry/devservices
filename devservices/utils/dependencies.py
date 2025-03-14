@@ -271,7 +271,8 @@ def get_non_shared_remote_dependencies(
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
     active_services = starting_services.union(started_services)
     # We don't care about the remote dependencies of the service we are stopping
-    active_services.remove(service_to_stop.name)
+    if service_to_stop.name in active_services:
+        active_services.remove(service_to_stop.name)
 
     active_modes: dict[str, list[str]] = dict()
     for active_service in active_services:
