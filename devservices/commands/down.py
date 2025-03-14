@@ -30,6 +30,7 @@ from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 
@@ -122,26 +123,14 @@ def down(args: Namespace) -> None:
         # Check if any service depends on the service we are trying to bring down
         # TODO: We should also take into account the active modes of the other services (this is not trivial to do)
         other_started_services = active_services.difference({service.name})
+        locally_running_services = state.get_services_by_runtime(ServiceRuntime.LOCAL)
         dependent_service_name = None
-        for other_started_service in other_started_services:
-            other_service = find_matching_service(other_started_service)
-            other_service_active_starting_modes = state.get_active_modes_for_service(
-                other_service.name, StateTables.STARTING_SERVICES
+        # We can ignore checking if anything relies on the service
+        # if it is a locally running service
+        if service.name not in locally_running_services:
+            dependent_service_name = _get_dependent_service(
+                service, other_started_services, state
             )
-            other_service_active_started_modes = state.get_active_modes_for_service(
-                other_service.name, StateTables.STARTED_SERVICES
-            )
-            other_service_active_modes = (
-                other_service_active_starting_modes
-                or other_service_active_started_modes
-            )
-            dependency_graph = construct_dependency_graph(
-                other_service, other_service_active_modes
-            )
-            # If the service we are trying to bring down is in the dependency graph of another service, we should not bring it down
-            if service.name in dependency_graph.graph:
-                dependent_service_name = other_started_service
-                break
 
         # If no other service depends on the service we are trying to bring down, we can bring it down
         if dependent_service_name is None:
@@ -190,6 +179,17 @@ def _down(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
+    state = State()
+    # We want to ignore any dependencies that are set to run locally
+    locally_running_services = state.get_services_by_runtime(ServiceRuntime.LOCAL)
+    mode_dependencies = [
+        dep for dep in mode_dependencies if dep not in locally_running_services
+    ]
+    remote_dependencies = {
+        dep
+        for dep in remote_dependencies
+        if dep.service_name not in locally_running_services
+    }
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=list(remote_dependencies),
@@ -209,3 +209,30 @@ def _down(
         ]
         for future in concurrent.futures.as_completed(futures):
             cmd_outputs.append(future.result())
+
+
+def _get_dependent_service(
+    service: Service,
+    other_started_services: set[str],
+    state: State,
+) -> str | None:
+    for other_started_service in other_started_services:
+        other_service = find_matching_service(other_started_service)
+        other_service_active_starting_modes = state.get_active_modes_for_service(
+            other_service.name, StateTables.STARTING_SERVICES
+        )
+        other_service_active_started_modes = state.get_active_modes_for_service(
+            other_service.name, StateTables.STARTED_SERVICES
+        )
+        other_service_active_modes = (
+            other_service_active_starting_modes or other_service_active_started_modes
+        )
+        dependency_graph = construct_dependency_graph(
+            other_service, other_service_active_modes
+        )
+        # If the service we are trying to bring down is in the dependency graph of another service,
+        # we should not bring it down
+        if service.name in dependency_graph.graph:
+            return other_started_service
+
+    return None
