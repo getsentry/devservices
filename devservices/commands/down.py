@@ -123,11 +123,13 @@ def down(args: Namespace) -> None:
         # Check if any service depends on the service we are trying to bring down
         # TODO: We should also take into account the active modes of the other services (this is not trivial to do)
         other_started_services = active_services.difference({service.name})
-        locally_running_services = state.get_services_by_runtime(ServiceRuntime.LOCAL)
+        services_with_local_runtime = state.get_services_by_runtime(
+            ServiceRuntime.LOCAL
+        )
         dependent_service_name = None
         # We can ignore checking if anything relies on the service
         # if it is a locally running service
-        if service.name not in locally_running_services:
+        if service.name not in services_with_local_runtime:
             dependent_service_name = _get_dependent_service(
                 service, other_started_services, state
             )
