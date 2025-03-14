@@ -2076,7 +2076,7 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
             modes={"default": ["dependency-1"]},
         ),
     )
-    shared_remote_dependencies = get_non_shared_remote_dependencies(
+    non_shared_remote_dependencies = get_non_shared_remote_dependencies(
         service_to_stop,
         set(
             [
@@ -2088,8 +2088,8 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
             ]
         ),
     )
-    assert len(shared_remote_dependencies) == 1
-    assert shared_remote_dependencies == {
+    assert len(non_shared_remote_dependencies) == 1
+    assert non_shared_remote_dependencies == {
         InstalledRemoteDependency(
             service_name="dependency-1",
             repo_path="/path/to/dependency-1",
@@ -2151,7 +2151,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
             modes={"default": ["dependency-1"]},
         ),
     )
-    shared_remote_dependencies = get_non_shared_remote_dependencies(
+    non_shared_remote_dependencies = get_non_shared_remote_dependencies(
         service_to_stop,
         set(
             [
@@ -2163,7 +2163,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
             ]
         ),
     )
-    assert len(shared_remote_dependencies) == 0
+    assert len(non_shared_remote_dependencies) == 0
     mock_find_matching_service.assert_called_once_with("service-2")
     mock_get_installed_remote_dependencies.assert_called_once_with([])
 
@@ -2246,7 +2246,7 @@ def test_get_non_shared_remote_dependencies_complex(
             modes={"default": ["dependency-1", "dependency-2"]},
         ),
     )
-    shared_remote_dependencies = get_non_shared_remote_dependencies(
+    non_shared_remote_dependencies = get_non_shared_remote_dependencies(
         service_to_stop,
         set(
             [
@@ -2263,8 +2263,8 @@ def test_get_non_shared_remote_dependencies_complex(
             ]
         ),
     )
-    assert len(shared_remote_dependencies) == 1
-    assert shared_remote_dependencies == {
+    assert len(non_shared_remote_dependencies) == 1
+    assert non_shared_remote_dependencies == {
         InstalledRemoteDependency(
             service_name="dependency-2",
             repo_path="/path/to/dependency-2",
