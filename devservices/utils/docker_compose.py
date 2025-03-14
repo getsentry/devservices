@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import platform
@@ -92,9 +93,11 @@ def install_docker_compose() -> None:
     console.success(f"Verified Docker Compose installation: v{version}")
 
 
-def get_container_names_for_project(project_name: str, config_path: str) -> list[str]:
+def get_container_names_for_project(
+    project_name: str, config_path: str
+) -> list[dict[str, str]]:
     try:
-        container_names = subprocess.check_output(
+        output = subprocess.check_output(
             [
                 "docker",
                 "compose",
@@ -104,10 +107,11 @@ def get_container_names_for_project(project_name: str, config_path: str) -> list
                 config_path,
                 "ps",
                 "--format",
-                "{{.Name}}",
+                '{"name":"{{.Names}}", "short_name":"{{.Service}}"}',
             ],
             text=True,
         ).splitlines()
+        container_names = [json.loads(line) for line in output]
         return container_names
     except subprocess.CalledProcessError as e:
         raise DockerComposeError(
