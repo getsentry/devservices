@@ -31,11 +31,11 @@ from testing.utils import run_git_command
 @mock.patch("devservices.commands.up._create_devservices_network")
 @mock.patch("devservices.commands.up.check_all_containers_healthy")
 @mock.patch(
-    "devservices.commands.up.subprocess.check_output",
-    return_value="clickhouse\nredis\n",
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
 )
 def test_up_simple(
-    mock_subprocess_check_output: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
     mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_service_entry: mock.Mock,
@@ -86,41 +86,52 @@ def test_up_simple(
             ) as mock_get_container_names_for_project,
         ):
             up(args)
-
-        mock_run_cmd.assert_called_once_with(
-            [
-                "docker",
-                "compose",
-                "-p",
-                "example-service",
-                "-f",
-                f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                "up",
-                "clickhouse",
-                "redis",
-                "-d",
-                "--pull",
-                "always",
-            ],
-            mock.ANY,
-        )
-        mock_get_container_names_for_project.assert_called_once()
-
-        mock_create_devservices_network.assert_called_once()
-
-        mock_subprocess_check_output.assert_has_calls(
+        mock_run_cmd.assert_has_calls(
             [
                 mock.call(
                     [
                         "docker",
                         "compose",
+                        "-p",
+                        "example-service",
                         "-f",
                         f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "config",
-                        "--services",
+                        "pull",
+                        "clickhouse",
+                        "redis",
                     ],
-                    text=True,
-                    env=mock.ANY,
+                    mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "clickhouse",
+                        "redis",
+                        "-d",
+                    ],
+                    mock.ANY,
+                ),
+            ]
+        )
+        mock_get_container_names_for_project.assert_called_once()
+
+        mock_create_devservices_network.assert_called_once()
+
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
                 ),
             ]
         )
@@ -147,9 +158,9 @@ def test_up_simple(
 @mock.patch("devservices.utils.state.State.update_service_entry")
 @mock.patch("devservices.commands.up._create_devservices_network")
 @mock.patch("devservices.commands.up.check_all_containers_healthy")
-@mock.patch("devservices.commands.up.subprocess.check_output")
+@mock.patch("devservices.utils.docker_compose.get_non_remote_services")
 def test_up_dependency_error(
-    mock_subprocess_check_output: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
     mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_service_entry: mock.Mock,
@@ -199,7 +210,7 @@ def test_up_dependency_error(
         mock_update_service_entry.assert_not_called()
         mock_remove_service_entry.assert_not_called()
 
-        mock_subprocess_check_output.assert_not_called()
+        mock_get_non_remote_services.assert_not_called()
 
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
@@ -322,11 +333,11 @@ def test_up_error(
 @mock.patch("devservices.commands.up._create_devservices_network")
 @mock.patch("devservices.commands.up.check_all_containers_healthy")
 @mock.patch(
-    "devservices.commands.up.subprocess.check_output",
-    return_value="clickhouse\nredis\n",
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
 )
 def test_up_docker_compose_container_lookup_error(
-    mock_subprocess_check_output: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
     mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_service_entry: mock.Mock,
@@ -384,40 +395,52 @@ def test_up_docker_compose_container_lookup_error(
         ):
             up(args)
 
-        mock_run_cmd.assert_called_once_with(
-            [
-                "docker",
-                "compose",
-                "-p",
-                "example-service",
-                "-f",
-                f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                "up",
-                "clickhouse",
-                "redis",
-                "-d",
-                "--pull",
-                "always",
-            ],
-            mock.ANY,
-        )
-        mock_get_container_names_for_project.assert_called_once()
-
-        mock_create_devservices_network.assert_called_once()
-
-        mock_subprocess_check_output.assert_has_calls(
+        mock_run_cmd.assert_has_calls(
             [
                 mock.call(
                     [
                         "docker",
                         "compose",
+                        "-p",
+                        "example-service",
                         "-f",
                         f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "config",
-                        "--services",
+                        "pull",
+                        "clickhouse",
+                        "redis",
                     ],
-                    text=True,
-                    env=mock.ANY,
+                    mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "clickhouse",
+                        "redis",
+                        "-d",
+                    ],
+                    mock.ANY,
+                ),
+            ]
+        )
+        mock_get_container_names_for_project.assert_called_once()
+
+        mock_create_devservices_network.assert_called_once()
+
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
                 ),
             ]
         )
@@ -447,15 +470,11 @@ def test_up_docker_compose_container_lookup_error(
     side_effect=ContainerHealthcheckFailedError("container1", HEALTHCHECK_TIMEOUT),
 )
 @mock.patch(
-    "devservices.commands.up.subprocess.check_output",
-    side_effect=[
-        "clickhouse\nredis\n",
-        "healthy",
-        "unhealthy",
-    ],
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
 )
 def test_up_docker_compose_container_healthcheck_failed(
-    mock_subprocess_check_output: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
     mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_service_entry: mock.Mock,
@@ -508,40 +527,52 @@ def test_up_docker_compose_container_healthcheck_failed(
         ):
             up(args)
 
-        mock_run_cmd.assert_called_once_with(
-            [
-                "docker",
-                "compose",
-                "-p",
-                "example-service",
-                "-f",
-                f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                "up",
-                "clickhouse",
-                "redis",
-                "-d",
-                "--pull",
-                "always",
-            ],
-            mock.ANY,
-        )
-        mock_get_container_names_for_project.assert_called_once()
-
-        mock_create_devservices_network.assert_called_once()
-
-        mock_subprocess_check_output.assert_has_calls(
+        mock_run_cmd.assert_has_calls(
             [
                 mock.call(
                     [
                         "docker",
                         "compose",
+                        "-p",
+                        "example-service",
                         "-f",
                         f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "config",
-                        "--services",
+                        "pull",
+                        "clickhouse",
+                        "redis",
                     ],
-                    text=True,
-                    env=mock.ANY,
+                    mock.ANY,
+                ),
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "clickhouse",
+                        "redis",
+                        "-d",
+                    ],
+                    mock.ANY,
+                ),
+            ]
+        )
+        mock_get_container_names_for_project.assert_called_once()
+
+        mock_create_devservices_network.assert_called_once()
+
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
                 ),
             ]
         )
@@ -568,11 +599,11 @@ def test_up_docker_compose_container_healthcheck_failed(
 @mock.patch("devservices.commands.up._create_devservices_network")
 @mock.patch("devservices.commands.up.check_all_containers_healthy")
 @mock.patch(
-    "devservices.commands.up.subprocess.check_output",
-    return_value="clickhouse\nredis\n",
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
 )
 def test_up_mode_simple(
-    mock_subprocess_check_output: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
     mock_check_all_containers_healthy: mock.Mock,
     mock_create_devservices_network: mock.Mock,
     mock_update_service_entry: mock.Mock,
@@ -634,33 +665,40 @@ def test_up_mode_simple(
                         "example-service",
                         "-f",
                         f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "up",
+                        "pull",
                         "redis",
-                        "-d",
-                        "--pull",
-                        "always",
                     ],
                     mock.ANY,
                 ),
-            ],
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "redis",
+                        "-d",
+                    ],
+                    mock.ANY,
+                ),
+            ]
         )
         mock_get_container_names_for_project.assert_called_once()
 
         mock_create_devservices_network.assert_called_once()
 
-        mock_subprocess_check_output.assert_has_calls(
+        mock_get_non_remote_services.assert_has_calls(
             [
                 mock.call(
-                    [
-                        "docker",
-                        "compose",
-                        "-f",
-                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "config",
-                        "--services",
-                    ],
-                    text=True,
-                    env=mock.ANY,
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
                 ),
             ]
         )
@@ -825,15 +863,26 @@ def test_up_mutliple_modes(
                         "example-service",
                         "-f",
                         f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "up",
+                        "pull",
                         "redis",
-                        "-d",
-                        "--pull",
-                        "always",
                     ],
                     mock.ANY,
                 ),
-            ],
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "redis",
+                        "-d",
+                    ],
+                    mock.ANY,
+                ),
+            ]
         )
         mock_check_all_containers_healthy.assert_called_once()
 
@@ -963,15 +1012,26 @@ def test_up_multiple_modes_overlapping_running_service(
                         "example-service",
                         "-f",
                         f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                        "up",
+                        "pull",
                         "clickhouse",
-                        "-d",
-                        "--pull",
-                        "always",
                     ],
                     mock.ANY,
                 ),
-            ],
+                mock.call(
+                    [
+                        "docker",
+                        "compose",
+                        "-p",
+                        "example-service",
+                        "-f",
+                        f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "clickhouse",
+                        "-d",
+                    ],
+                    mock.ANY,
+                ),
+            ]
         )
         mock_check_all_containers_healthy.assert_called_once_with(
             mock.ANY,
@@ -1154,8 +1214,6 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
                     "up",
                     "redis",
                     "-d",
-                    "--pull",
-                    "always",
                 ],
                 project_name="redis",
                 config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
