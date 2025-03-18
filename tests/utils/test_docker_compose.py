@@ -17,6 +17,7 @@ from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import check_docker_compose_version
 from devservices.utils.docker_compose import DockerComposeCommand
+from devservices.utils.docker_compose import get_container_names_for_project
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import get_docker_compose_version
 from devservices.utils.docker_compose import get_non_remote_services
@@ -768,3 +769,22 @@ def test_get_all_commands_to_run_complex_shared_dependency(
             services=["grandparent-service"],
         ),
     ]
+
+
+@mock.patch("devservices.utils.docker_compose.subprocess.check_output")
+def test_get_container_names_for_project_success(_mock_check_output: mock.Mock) -> None:
+    _mock_check_output.return_value = '{"name": "devservices-container1", "short_name": "container1"}\n{"name": "devservices-container2", "short_name": "container2"}'
+    assert get_container_names_for_project("project", "config_path") == [
+        {"name": "devservices-container1", "short_name": "container1"},
+        {"name": "devservices-container2", "short_name": "container2"},
+    ]
+
+
+@mock.patch("devservices.utils.docker_compose.subprocess.check_output")
+def test_get_container_names_for_project_error(_mock_check_output: mock.Mock) -> None:
+    _mock_check_output.side_effect = subprocess.CalledProcessError(
+        returncode=1, cmd="docker compose ps --format", stderr="command failed"
+    )
+    with pytest.raises(DockerComposeError) as e:
+        get_container_names_for_project("project", "config_path")
+    assert e.value.stderr == "command failed"
