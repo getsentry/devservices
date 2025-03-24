@@ -15,8 +15,8 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.docker import ContainerNames
 from devservices.utils.docker_compose import check_docker_compose_version
-from devservices.utils.docker_compose import ContainerNames
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_container_names_for_project
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run

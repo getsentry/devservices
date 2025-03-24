@@ -16,12 +16,12 @@ from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker import check_docker_daemon_running
+from devservices.utils.docker import ContainerNames
 from devservices.utils.docker import get_matching_containers
 from devservices.utils.docker import get_matching_networks
 from devservices.utils.docker import get_volumes_for_containers
 from devservices.utils.docker import stop_containers
 from devservices.utils.docker import wait_for_healthy
-from devservices.utils.docker_compose import ContainerNames
 
 
 @mock.patch("subprocess.run")

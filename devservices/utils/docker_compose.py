@@ -24,6 +24,7 @@ from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker import check_docker_daemon_running
+from devservices.utils.docker import ContainerNames
 from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
 
@@ -33,11 +34,6 @@ class DockerComposeCommand(NamedTuple):
     project_name: str
     config_path: str
     services: list[str]
-
-
-class ContainerNames(NamedTuple):
-    name: str
-    short_name: str
 
 
 def install_docker_compose() -> None:

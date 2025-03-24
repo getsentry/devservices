@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import subprocess
 import time
+from typing import NamedTuple
 
 from devservices.constants import HEALTHCHECK_INTERVAL
 from devservices.constants import HEALTHCHECK_TIMEOUT
@@ -10,7 +11,11 @@ from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.console import Status
-from devservices.utils.docker_compose import ContainerNames
+
+
+class ContainerNames(NamedTuple):
+    name: str
+    short_name: str
 
 
 def check_docker_daemon_running() -> None:
