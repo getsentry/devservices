@@ -10,6 +10,7 @@ from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.console import Status
+from devservices.utils.docker_compose import ContainerNames
 
 
 def check_docker_daemon_running() -> None:
@@ -26,7 +27,7 @@ def check_docker_daemon_running() -> None:
 
 
 def check_all_containers_healthy(
-    status: Status, containers: list[dict[str, str]]
+    status: Status, containers: list[ContainerNames]
 ) -> None:
     """Ensures all containers are healthy."""
     status.info("Waiting for all containers to be healthy")
@@ -39,7 +40,7 @@ def check_all_containers_healthy(
             future.result()
 
 
-def wait_for_healthy(container: dict[str, str], status: Status) -> None:
+def wait_for_healthy(container: ContainerNames, status: Status) -> None:
     """
     Polls a Docker container's health status until it becomes healthy or a timeout is reached.
     """
@@ -54,32 +55,32 @@ def wait_for_healthy(container: dict[str, str], status: Status) -> None:
                     "inspect",
                     "-f",
                     "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    container["name"],
+                    container.name,
                 ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ).strip()
         except subprocess.CalledProcessError as e:
             raise DockerError(
-                command=f"docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' {container['name']}",
+                command=f"docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' {container.name}",
                 returncode=e.returncode,
                 stdout=e.stdout,
                 stderr=e.stderr,
             ) from e
 
         if result == "healthy":
-            status.info(f"{container['short_name']} is healthy")
+            status.info(f"{container.short_name} is healthy")
             return
         if result == "unknown":
             status.warning(
-                f"WARNING: Container {container['short_name']} does not have a healthcheck"
+                f"WARNING: Container {container.short_name} does not have a healthcheck"
             )
             return
 
         # If not healthy, wait and try again
         time.sleep(HEALTHCHECK_INTERVAL)
 
-    raise ContainerHealthcheckFailedError(container["short_name"], HEALTHCHECK_TIMEOUT)
+    raise ContainerHealthcheckFailedError(container.short_name, HEALTHCHECK_TIMEOUT)
 
 
 def get_matching_containers(label: str) -> list[str]:

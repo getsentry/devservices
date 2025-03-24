@@ -16,6 +16,7 @@ from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import check_docker_compose_version
+from devservices.utils.docker_compose import ContainerNames
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_container_names_for_project
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
@@ -775,8 +776,8 @@ def test_get_all_commands_to_run_complex_shared_dependency(
 def test_get_container_names_for_project_success(_mock_check_output: mock.Mock) -> None:
     _mock_check_output.return_value = '{"name": "devservices-container1", "short_name": "container1"}\n{"name": "devservices-container2", "short_name": "container2"}'
     assert get_container_names_for_project("project", "config_path") == [
-        {"name": "devservices-container1", "short_name": "container1"},
-        {"name": "devservices-container2", "short_name": "container2"},
+        ContainerNames(name="devservices-container1", short_name="container1"),
+        ContainerNames(name="devservices-container2", short_name="container2"),
     ]
 
 

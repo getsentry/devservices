@@ -35,6 +35,11 @@ class DockerComposeCommand(NamedTuple):
     services: list[str]
 
 
+class ContainerNames(NamedTuple):
+    name: str
+    short_name: str
+
+
 def install_docker_compose() -> None:
     console = Console()
     # Determine the platform
@@ -95,7 +100,7 @@ def install_docker_compose() -> None:
 
 def get_container_names_for_project(
     project_name: str, config_path: str
-) -> list[dict[str, str]]:
+) -> list[ContainerNames]:
     try:
         output = subprocess.check_output(
             [
@@ -111,8 +116,11 @@ def get_container_names_for_project(
             ],
             text=True,
         ).splitlines()
-        container_names = [json.loads(line) for line in output]
-        return container_names
+        return [
+            ContainerNames(name=json_data["name"], short_name=json_data["short_name"])
+            for line in output
+            if (json_data := json.loads(line))
+        ]
     except subprocess.CalledProcessError as e:
         raise DockerComposeError(
             command=f"docker compose -p {project_name} -f {config_path} ps --format {{.Name}}",
