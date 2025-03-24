@@ -16,6 +16,7 @@ from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker import check_docker_daemon_running
+from devservices.utils.docker import ContainerNames
 from devservices.utils.docker import get_matching_containers
 from devservices.utils.docker import get_matching_networks
 from devservices.utils.docker import get_volumes_for_containers
@@ -316,37 +317,53 @@ def test_stop_containers_remove_error(
 @mock.patch("devservices.utils.docker.subprocess.check_output", return_value="healthy")
 def test_wait_for_healthy_success(mock_check_output: mock.Mock) -> None:
     mock_status = mock.Mock()
-    wait_for_healthy("container1", mock_status)
+    wait_for_healthy(
+        ContainerNames(name="devservices-container1", short_name="container1"),
+        mock_status,
+    )
     mock_check_output.assert_called_once_with(
         [
             "docker",
             "inspect",
             "-f",
             "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-            "container1",
+            "devservices-container1",
         ],
         stderr=subprocess.DEVNULL,
         text=True,
     )
     mock_status.failure.assert_not_called()
+    mock_status.info.assert_has_calls(
+        [
+            mock.call("container1 is healthy"),
+        ]
+    )
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output", return_value="unknown")
 def test_wait_for_healthy_no_healthcheck(mock_check_output: mock.Mock) -> None:
     mock_status = mock.Mock()
-    wait_for_healthy("container1", mock_status)
+    wait_for_healthy(
+        ContainerNames(name="devservices-container1", short_name="container1"),
+        mock_status,
+    )
     mock_check_output.assert_called_once_with(
         [
             "docker",
             "inspect",
             "-f",
             "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-            "container1",
+            "devservices-container1",
         ],
         stderr=subprocess.DEVNULL,
         text=True,
     )
     mock_status.failure.assert_not_called()
+    mock_status.warning.assert_has_calls(
+        [
+            mock.call("WARNING: Container container1 does not have a healthcheck"),
+        ]
+    )
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
@@ -360,7 +377,10 @@ def test_wait_for_healthy_initial_check_failed_then_success(
 
     with (freeze_time("2024-05-14 00:00:00") as frozen_time,):
         mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
-        wait_for_healthy("container1", mock_status)
+        wait_for_healthy(
+            ContainerNames(name="devservices-container1", short_name="container1"),
+            mock_status,
+        )
 
     mock_check_output.assert_has_calls(
         [
@@ -370,7 +390,7 @@ def test_wait_for_healthy_initial_check_failed_then_success(
                     "inspect",
                     "-f",
                     "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container1",
+                    "devservices-container1",
                 ],
                 stderr=subprocess.DEVNULL,
                 text=True,
@@ -381,7 +401,7 @@ def test_wait_for_healthy_initial_check_failed_then_success(
                     "inspect",
                     "-f",
                     "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container1",
+                    "devservices-container1",
                 ],
                 stderr=subprocess.DEVNULL,
                 text=True,
@@ -390,6 +410,11 @@ def test_wait_for_healthy_initial_check_failed_then_success(
     )
     mock_sleep.assert_called_once_with(HEALTHCHECK_INTERVAL)
     mock_status.failure.assert_not_called()
+    mock_status.info.assert_has_calls(
+        [
+            mock.call("container1 is healthy"),
+        ]
+    )
 
 
 @mock.patch("devservices.utils.docker.subprocess.check_output")
@@ -403,14 +428,17 @@ def test_wait_for_healthy_docker_error(
     with pytest.raises(DockerError):
         with freeze_time("2024-05-14 00:00:00") as frozen_time:
             mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
-            wait_for_healthy("container1", mock_status)
+            wait_for_healthy(
+                ContainerNames(name="devservices-container1", short_name="container1"),
+                mock_status,
+            )
     mock_check_output.assert_called_once_with(
         [
             "docker",
             "inspect",
             "-f",
             "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-            "container1",
+            "devservices-container1",
         ],
         stderr=subprocess.DEVNULL,
         text=True,
@@ -430,7 +458,10 @@ def test_wait_for_healthy_healthcheck_failed(
             mock_sleep.side_effect = lambda _: frozen_time.tick(
                 timedelta(seconds=HEALTHCHECK_TIMEOUT / 2)
             )
-            wait_for_healthy("container1", mock_status)
+            wait_for_healthy(
+                ContainerNames(name="devservices-container1", short_name="container1"),
+                mock_status,
+            )
     mock_check_output.assert_has_calls(
         [
             mock.call(
@@ -439,7 +470,7 @@ def test_wait_for_healthy_healthcheck_failed(
                     "inspect",
                     "-f",
                     "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container1",
+                    "devservices-container1",
                 ],
                 stderr=subprocess.DEVNULL,
                 text=True,
@@ -450,7 +481,7 @@ def test_wait_for_healthy_healthcheck_failed(
                     "inspect",
                     "-f",
                     "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    "container1",
+                    "devservices-container1",
                 ],
                 stderr=subprocess.DEVNULL,
                 text=True,
@@ -465,11 +496,28 @@ def test_check_all_containers_healthy_success(
 ) -> None:
     mock_status = mock.Mock()
     mock_wait_for_healthy.side_effect = [None, None]
-    check_all_containers_healthy(mock_status, ["container1", "container2"])
+    check_all_containers_healthy(
+        mock_status,
+        [
+            ContainerNames(name="devservices-container1", short_name="container1"),
+            ContainerNames(name="devservices-container2", short_name="container2"),
+        ],
+    )
+    mock_status.info.assert_has_calls(
+        [
+            mock.call("Waiting for all containers to be healthy"),
+        ]
+    )
     mock_wait_for_healthy.assert_has_calls(
         [
-            mock.call("container1", mock_status),
-            mock.call("container2", mock_status),
+            mock.call(
+                ContainerNames(name="devservices-container1", short_name="container1"),
+                mock_status,
+            ),
+            mock.call(
+                ContainerNames(name="devservices-container2", short_name="container2"),
+                mock_status,
+            ),
         ]
     )
 
@@ -484,10 +532,22 @@ def test_check_all_containers_healthy_failure(
         ContainerHealthcheckFailedError("container2", HEALTHCHECK_TIMEOUT),
     ]
     with pytest.raises(ContainerHealthcheckFailedError):
-        check_all_containers_healthy(mock_status, ["container1", "container2"])
+        check_all_containers_healthy(
+            mock_status,
+            [
+                ContainerNames(name="devservices-container1", short_name="container1"),
+                ContainerNames(name="devservices-container2", short_name="container2"),
+            ],
+        )
     mock_wait_for_healthy.assert_has_calls(
         [
-            mock.call("container1", mock_status),
-            mock.call("container2", mock_status),
+            mock.call(
+                ContainerNames(name="devservices-container1", short_name="container1"),
+                mock_status,
+            ),
+            mock.call(
+                ContainerNames(name="devservices-container2", short_name="container2"),
+                mock_status,
+            ),
         ]
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 import subprocess
 import time
+from typing import NamedTuple
 
 from devservices.constants import HEALTHCHECK_INTERVAL
 from devservices.constants import HEALTHCHECK_TIMEOUT
@@ -10,6 +11,11 @@ from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.console import Status
+
+
+class ContainerNames(NamedTuple):
+    name: str
+    short_name: str
 
 
 def check_docker_daemon_running() -> None:
@@ -25,8 +31,11 @@ def check_docker_daemon_running() -> None:
         raise DockerDaemonNotRunningError from e
 
 
-def check_all_containers_healthy(status: Status, containers: list[str]) -> None:
+def check_all_containers_healthy(
+    status: Status, containers: list[ContainerNames]
+) -> None:
     """Ensures all containers are healthy."""
+    status.info("Waiting for all containers to be healthy")
     with concurrent.futures.ThreadPoolExecutor() as healthcheck_executor:
         futures = [
             healthcheck_executor.submit(wait_for_healthy, container, status)
@@ -36,7 +45,7 @@ def check_all_containers_healthy(status: Status, containers: list[str]) -> None:
             future.result()
 
 
-def wait_for_healthy(container_name: str, status: Status) -> None:
+def wait_for_healthy(container: ContainerNames, status: Status) -> None:
     """
     Polls a Docker container's health status until it becomes healthy or a timeout is reached.
     """
@@ -51,31 +60,32 @@ def wait_for_healthy(container_name: str, status: Status) -> None:
                     "inspect",
                     "-f",
                     "{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}",
-                    container_name,
+                    container.name,
                 ],
                 stderr=subprocess.DEVNULL,
                 text=True,
             ).strip()
         except subprocess.CalledProcessError as e:
             raise DockerError(
-                command=f"docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' {container_name}",
+                command=f"docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' {container.name}",
                 returncode=e.returncode,
                 stdout=e.stdout,
                 stderr=e.stderr,
             ) from e
 
         if result == "healthy":
+            status.info(f"{container.short_name} is healthy")
             return
         if result == "unknown":
             status.warning(
-                f"WARNING: Container {container_name} does not have a healthcheck"
+                f"WARNING: Container {container.short_name} does not have a healthcheck"
             )
             return
 
         # If not healthy, wait and try again
         time.sleep(HEALTHCHECK_INTERVAL)
 
-    raise ContainerHealthcheckFailedError(container_name, HEALTHCHECK_TIMEOUT)
+    raise ContainerHealthcheckFailedError(container.short_name, HEALTHCHECK_TIMEOUT)
 
 
 def get_matching_containers(label: str) -> list[str]:
