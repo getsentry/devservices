@@ -30,7 +30,7 @@ NOTE: service-name is an optional parameter. If not provided, devservices will a
 The recommended way to install devservices is through a virtualenv in the requirements.txt. Once that is installed and a devservices config file is added, you should be able to run `devservices up` to begin local development.
 
 ```
-devservices==1.0.17
+devservices==1.0.18
 ```
 
 ### 2. Add devservices config files

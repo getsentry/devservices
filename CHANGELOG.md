@@ -1,3 +1,17 @@
+## 1.0.18
+
+### Various fixes & improvements
+
+- feat(up): Add text verbosity for healthchecks (#245) by @hubertdeng123
+- ref(down): Updating down to work with local runtime (#243) by @IanWoodard
+- feat(up): Add better UX when pulling images (#242) by @hubertdeng123
+- fix(tests): Fixing test variable naming (#244) by @IanWoodard
+- feat(runtime): Updating up to handle local runtime (#240) by @IanWoodard
+- feat(ci): Add tags for ci runs (#241) by @hubertdeng123
+- feat(runtime): Adding state to track runtime (#238) by @IanWoodard
+- fix(gha): Updating actions/cache to 4.2.0 (#239) by @IanWoodard
+- feat(readme): Add config section to readme (#234) by @hubertdeng123
+
 ## 1.0.17
 
 ### Various fixes & improvements
