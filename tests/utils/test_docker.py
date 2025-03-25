@@ -56,7 +56,7 @@ def test_get_matching_containers(
 ) -> None:
     mock_check_docker_daemon_running.return_value = None
     mock_check_output.return_value = "container1\ncontainer2"
-    matching_containers = get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
+    matching_containers = get_matching_containers([DEVSERVICES_ORCHESTRATOR_LABEL])
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
         [
@@ -107,7 +107,7 @@ def test_get_matching_containers_docker_daemon_not_running(
 ) -> None:
     mock_check_docker_daemon_running.side_effect = DockerDaemonNotRunningError()
     with pytest.raises(DockerDaemonNotRunningError):
-        get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
+        get_matching_containers([DEVSERVICES_ORCHESTRATOR_LABEL])
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_not_called()
 
@@ -134,7 +134,7 @@ def test_get_matching_containers_error(
     mock_check_docker_daemon_running.return_value = None
     mock_check_output.side_effect = subprocess.CalledProcessError(1, "cmd")
     with pytest.raises(DockerError):
-        get_matching_containers(DEVSERVICES_ORCHESTRATOR_LABEL)
+        get_matching_containers([DEVSERVICES_ORCHESTRATOR_LABEL])
     mock_check_docker_daemon_running.assert_called_once()
     mock_check_output.assert_called_once_with(
         [
@@ -236,7 +236,7 @@ def test_stop_containers_should_not_remove(
         ["docker", "stop", *containers],
         check=True,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
     )
 
 
@@ -260,13 +260,13 @@ def test_stop_containers_should_remove(
                 ["docker", "stop", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
             mock.call(
                 ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
         ]
     )
@@ -284,7 +284,7 @@ def test_stop_containers_stop_error(
         ["docker", "stop", *containers],
         check=True,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
     )
 
 
@@ -302,13 +302,13 @@ def test_stop_containers_remove_error(
                 ["docker", "stop", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
             mock.call(
                 ["docker", "container", "rm", *containers],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             ),
         ]
     )
