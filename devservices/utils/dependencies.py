@@ -86,7 +86,6 @@ class DependencyGraph:
             self.graph[node] = set()
 
     def add_edge(self, from_node: DependencyNode, to_node: DependencyNode) -> None:
-        # TODO: We should rename services that depend on themselves
         if from_node == to_node:
             if from_node.dependency_type == to_node.dependency_type:
                 return
