@@ -24,6 +24,8 @@ from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
+from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker import check_all_containers_healthy
@@ -169,7 +171,12 @@ def _up(
     dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
-        remote_dependencies, key=lambda dep: starting_order.index(dep.service_name)
+        remote_dependencies,
+        key=lambda dep: starting_order.index(
+            DependencyNode(
+                name=dep.service_name, dependency_type=DependencyType.SERVICE
+            )
+        ),
     )
     # Pull all images in parallel
     status.info("Pulling images")

@@ -22,6 +22,8 @@ from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
 from devservices.utils.dependencies import construct_dependency_graph
+from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import GitConfigManager
@@ -2409,7 +2411,7 @@ def test_construct_dependency_graph_simple(
     dependency_service_repo_config = {
         "x-sentry-service-config": {
             "version": 0.1,
-            "service_name": "test-service",
+            "service_name": "dependency-1",
             "dependencies": {
                 "dependency-1": {
                     "description": "dependency-1",
@@ -2457,11 +2459,30 @@ def test_construct_dependency_graph_simple(
         install_and_verify_dependencies(service)
         dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
-            "dependency-1": set(),
-            "test-service": {"dependency-1"},
+            DependencyNode(
+                name="dependency-1", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="dependency-1", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="dependency-1", dependency_type=DependencyType.COMPOSE
+                )
+            },
+            DependencyNode(
+                name="test-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="dependency-1", dependency_type=DependencyType.SERVICE
+                )
+            },
         }
 
-        assert dependency_graph.get_starting_order() == ["dependency-1", "test-service"]
+        assert dependency_graph.get_starting_order() == [
+            DependencyNode(name="dependency-1", dependency_type=DependencyType.COMPOSE),
+            DependencyNode(name="dependency-1", dependency_type=DependencyType.SERVICE),
+            DependencyNode(name="test-service", dependency_type=DependencyType.SERVICE),
+        ]
 
 
 def test_construct_dependency_graph_one_nested_dependency(
@@ -2555,16 +2576,61 @@ def test_construct_dependency_graph_one_nested_dependency(
         install_and_verify_dependencies(service)
         dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
-            "child-service": set(),
-            "parent-service": {"child-service"},
-            "grandparent-service": {"parent-service"},
+            DependencyNode(
+                name="child-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="child-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.COMPOSE
+                )
+            },
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="parent-service", dependency_type=DependencyType.COMPOSE
+                ),
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="parent-service", dependency_type=DependencyType.SERVICE
+                ),
+                DependencyNode(
+                    name="grandparent-service", dependency_type=DependencyType.COMPOSE
+                ),
+            },
         }
 
-        assert dependency_graph.get_starting_order() == [
-            "child-service",
-            "parent-service",
-            "grandparent-service",
-        ]
+        starting_order = dependency_graph.get_starting_order()
+        assert starting_order.index(
+            DependencyNode(name="child-service", dependency_type=DependencyType.SERVICE)
+        ) < starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Child service should come before parent service in the starting order"
+        assert starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ) < starting_order.index(
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Parent service should come before grandparent service in the starting order"
 
 
 def test_construct_dependency_graph_shared_dependency(
@@ -2666,16 +2732,218 @@ def test_construct_dependency_graph_shared_dependency(
         install_and_verify_dependencies(service)
         dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
-            "child-service": set(),
-            "parent-service": {"child-service"},
-            "grandparent-service": {"parent-service", "child-service"},
+            DependencyNode(
+                name="child-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="child-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.COMPOSE
+                )
+            },
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="parent-service", dependency_type=DependencyType.COMPOSE
+                ),
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="grandparent-service", dependency_type=DependencyType.COMPOSE
+                ),
+                DependencyNode(
+                    name="parent-service", dependency_type=DependencyType.SERVICE
+                ),
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
         }
 
-        assert dependency_graph.get_starting_order() == [
-            "child-service",
-            "parent-service",
-            "grandparent-service",
-        ]
+        starting_order = dependency_graph.get_starting_order()
+        assert starting_order.index(
+            DependencyNode(name="child-service", dependency_type=DependencyType.SERVICE)
+        ) < starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Child service should come before parent service in the starting order"
+
+        assert starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ) < starting_order.index(
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Parent service should come before grandparent service in the starting order"
+
+
+def test_construct_dependency_graph_non_self_reference(
+    tmp_path: Path,
+) -> None:
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    child_service_repo_path = tmp_path / "child-service-repo"
+    create_mock_git_repo("blank_repo", parent_service_repo_path)
+    create_mock_git_repo("blank_repo", child_service_repo_path)
+    parent_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "parent-service",
+            "dependencies": {
+                "child-service": {
+                    "description": "child-service",
+                    "remote": {
+                        "repo_name": "child-service",
+                        "repo_link": f"file://{child_service_repo_path}",
+                        "branch": "main",
+                    },
+                },
+                "parent-service-container": {
+                    "description": "parent-service-container",
+                },
+            },
+            "modes": {"default": ["child-service", "parent-service-container"]},
+        },
+        "services": {
+            "parent-service-container": {
+                "image": "parent-service-container",
+            },
+        },
+    }
+    child_service_repo_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "child-service",
+            "dependencies": {
+                "child-service-container": {
+                    "description": "child-service-container",
+                },
+            },
+            "modes": {"default": ["child-service-container"]},
+        },
+        "services": {
+            "child-service-container": {
+                "image": "child-service-container",
+            },
+        },
+    }
+    create_config_file(parent_service_repo_path, parent_service_repo_config)
+    create_config_file(child_service_repo_path, child_service_repo_config)
+    run_git_command(["add", "."], cwd=parent_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=parent_service_repo_path
+    )
+    run_git_command(["add", "."], cwd=child_service_repo_path)
+    run_git_command(
+        ["commit", "-m", "Add devservices config"], cwd=child_service_repo_path
+    )
+    service = Service(
+        name="grandparent-service",
+        repo_path="/path/to/grandparent-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="grandparent-service",
+            dependencies={
+                "parent-service": Dependency(
+                    description="parent-service",
+                    remote=RemoteConfig(
+                        repo_name="parent-service",
+                        repo_link=f"file://{parent_service_repo_path}",
+                        branch="main",
+                    ),
+                ),
+                "grandparent-service-container": Dependency(
+                    description="grandparent-service-container",
+                ),
+            },
+            modes={
+                "default": ["parent-service", "grandparent-service-container"],
+            },
+        ),
+    )
+
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        install_and_verify_dependencies(service)
+        dependency_graph = construct_dependency_graph(service, ["default"])
+        assert dependency_graph.graph == {
+            DependencyNode(
+                name="child-service-container", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="child-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="child-service-container",
+                    dependency_type=DependencyType.COMPOSE,
+                )
+            },
+            DependencyNode(
+                name="parent-service-container", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="parent-service-container",
+                    dependency_type=DependencyType.COMPOSE,
+                ),
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
+            DependencyNode(
+                name="grandparent-service-container",
+                dependency_type=DependencyType.COMPOSE,
+            ): set(),
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="grandparent-service-container",
+                    dependency_type=DependencyType.COMPOSE,
+                ),
+                DependencyNode(
+                    name="parent-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
+        }
+
+        starting_order = dependency_graph.get_starting_order()
+        assert starting_order.index(
+            DependencyNode(name="child-service", dependency_type=DependencyType.SERVICE)
+        ) < starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Child service should come before parent service in the starting order"
+
+        assert starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ) < starting_order.index(
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Parent service should come before grandparent service in the starting order"
 
 
 def test_construct_dependency_graph_complex(
@@ -2839,14 +3107,85 @@ def test_construct_dependency_graph_complex(
         install_and_verify_dependencies(service)
         dependency_graph = construct_dependency_graph(service, ["default"])
         assert dependency_graph.graph == {
-            "child-service": set(),
-            "parent-service": {"child-service"},
-            "grandparent-service": {"parent-service"},
-            "complex-service": {"grandparent-service", "child-service"},
+            DependencyNode(
+                name="child-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="child-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.COMPOSE
+                )
+            },
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="parent-service", dependency_type=DependencyType.COMPOSE
+                ),
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="grandparent-service", dependency_type=DependencyType.COMPOSE
+                ),
+                DependencyNode(
+                    name="parent-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
+            DependencyNode(
+                name="complex-service", dependency_type=DependencyType.COMPOSE
+            ): set(),
+            DependencyNode(
+                name="complex-service", dependency_type=DependencyType.SERVICE
+            ): {
+                DependencyNode(
+                    name="complex-service", dependency_type=DependencyType.COMPOSE
+                ),
+                DependencyNode(
+                    name="grandparent-service", dependency_type=DependencyType.SERVICE
+                ),
+                DependencyNode(
+                    name="child-service", dependency_type=DependencyType.SERVICE
+                ),
+            },
         }
-        assert dependency_graph.get_starting_order() == [
-            "child-service",
-            "parent-service",
-            "grandparent-service",
-            "complex-service",
-        ]
+
+        starting_order = dependency_graph.get_starting_order()
+        assert starting_order.index(
+            DependencyNode(name="child-service", dependency_type=DependencyType.SERVICE)
+        ) < starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Child service should come before parent service in the starting order"
+
+        assert starting_order.index(
+            DependencyNode(
+                name="parent-service", dependency_type=DependencyType.SERVICE
+            )
+        ) < starting_order.index(
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Parent service should come before grandparent service in the starting order"
+
+        assert starting_order.index(
+            DependencyNode(
+                name="complex-service", dependency_type=DependencyType.SERVICE
+            )
+        ) > starting_order.index(
+            DependencyNode(
+                name="grandparent-service", dependency_type=DependencyType.SERVICE
+            )
+        ), "Grandparent service should come before complex service in the starting order"

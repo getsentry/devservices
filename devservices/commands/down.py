@@ -22,6 +22,8 @@ from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
+from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -234,7 +236,10 @@ def _get_dependent_service(
         )
         # If the service we are trying to bring down is in the dependency graph of another service,
         # we should not bring it down
-        if service.name in dependency_graph.graph:
+        if (
+            DependencyNode(name=service.name, dependency_type=DependencyType.SERVICE)
+            in dependency_graph.graph
+        ):
             return other_started_service
 
     return None
