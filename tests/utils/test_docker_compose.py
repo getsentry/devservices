@@ -775,7 +775,9 @@ def test_get_all_commands_to_run_complex_shared_dependency(
 @mock.patch("devservices.utils.docker_compose.subprocess.check_output")
 def test_get_container_names_for_project_success(_mock_check_output: mock.Mock) -> None:
     _mock_check_output.return_value = '{"name": "devservices-container1", "short_name": "container1"}\n{"name": "devservices-container2", "short_name": "container2"}'
-    assert get_container_names_for_project("project", "config_path") == [
+    assert get_container_names_for_project(
+        "project", "config_path", ["container1", "container2"]
+    ) == [
         ContainerNames(name="devservices-container1", short_name="container1"),
         ContainerNames(name="devservices-container2", short_name="container2"),
     ]
@@ -787,5 +789,7 @@ def test_get_container_names_for_project_error(_mock_check_output: mock.Mock) ->
         returncode=1, cmd="docker compose ps --format", stderr="command failed"
     )
     with pytest.raises(DockerComposeError) as e:
-        get_container_names_for_project("project", "config_path")
+        get_container_names_for_project(
+            "project", "config_path", ["container1", "container2"]
+        )
     assert e.value.stderr == "command failed"
