@@ -75,12 +75,6 @@ class DependencyGraph:
     def __init__(self) -> None:
         self.graph: dict[DependencyNode, set[DependencyNode]] = dict()
 
-    def get_node(self, name: str, kind: DependencyType) -> DependencyNode:
-        node = DependencyNode(dependency_type=kind, name=name)
-        if node not in self.graph:
-            raise ValueError(f"Node {node.qualified_name} not found in the graph")
-        return node
-
     def add_node(self, node: DependencyNode) -> None:
         if node not in self.graph:
             self.graph[node] = set()
