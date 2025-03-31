@@ -67,9 +67,6 @@ class DependencyNode:
     def __str__(self) -> str:
         return self.name
 
-    def qualified_name(self) -> str:
-        return f"{self.dependency_type.value}:{self.name}"
-
 
 class DependencyGraph:
     def __init__(self) -> None:
