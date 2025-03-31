@@ -225,7 +225,7 @@ def _up(
     for cmd in up_commands:
         try:
             container_names = get_container_names_for_project(
-                cmd.project_name, cmd.config_path
+                cmd.project_name, cmd.config_path, cmd.services
             )
             containers_to_check.extend(container_names)
         except DockerComposeError as dce:

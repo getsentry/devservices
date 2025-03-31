@@ -95,7 +95,7 @@ def install_docker_compose() -> None:
 
 
 def get_container_names_for_project(
-    project_name: str, config_path: str
+    project_name: str, config_path: str, services: list[str]
 ) -> list[ContainerNames]:
     try:
         output = subprocess.check_output(
@@ -107,6 +107,9 @@ def get_container_names_for_project(
                 "-f",
                 config_path,
                 "ps",
+            ]
+            + sorted(services)
+            + [
                 "--format",
                 '{"name":"{{.Names}}", "short_name":"{{.Service}}"}',
             ],
