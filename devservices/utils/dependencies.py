@@ -77,6 +77,9 @@ class DependencyGraph:
             self.graph[node] = set()
 
     def add_edge(self, from_node: DependencyNode, to_node: DependencyNode) -> None:
+        if from_node == to_node:
+            # TODO: Add a better exception
+            raise ValueError("Cannot add an edge from a node to itself")
         if from_node not in self.graph:
             self.add_node(from_node)
         if to_node not in self.graph:
