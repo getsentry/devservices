@@ -88,6 +88,17 @@ def up(args: Namespace) -> None:
         lambda: console.warning(f"Starting '{service.name}' in mode: '{mode}'"),
         lambda: console.success(f"{service.name} started"),
     ) as status:
+        services_with_local_runtime = state.get_services_by_runtime(
+            ServiceRuntime.LOCAL
+        )
+        for service_with_local_runtime in services_with_local_runtime:
+            if (
+                service_with_local_runtime != service.name
+                and service_with_local_runtime in modes[mode]
+            ):
+                status.warning(
+                    f"Skipping '{service_with_local_runtime}' as it is set to run locally"
+                )
         try:
             status.info("Retrieving dependencies")
             remote_dependencies = install_and_verify_dependencies(
@@ -111,9 +122,6 @@ def up(args: Namespace) -> None:
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
         mode_dependencies = modes[mode]
         # We want to ignore any dependencies that are set to run locally
-        services_with_local_runtime = state.get_services_by_runtime(
-            ServiceRuntime.LOCAL
-        )
         mode_dependencies = [
             dep for dep in mode_dependencies if dep not in services_with_local_runtime
         ]
