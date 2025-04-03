@@ -93,7 +93,8 @@ def up(args: Namespace) -> None:
         )
         for service_with_local_runtime in services_with_local_runtime:
             if (
-                service_with_local_runtime != service.name
+                mode in modes
+                and service_with_local_runtime != service.name
                 and service_with_local_runtime in modes[mode]
             ):
                 status.warning(
@@ -121,6 +122,13 @@ def up(args: Namespace) -> None:
         # Add the service to the starting services table
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
         mode_dependencies = modes[mode]
+        for service_with_local_runtime in services_with_local_runtime:
+            if service_with_local_runtime in [
+                dep.service_name for dep in remote_dependencies
+            ]:
+                status.warning(
+                    f"Skipping '{service_with_local_runtime}' as it is set to run locally"
+                )
         # We want to ignore any dependencies that are set to run locally
         mode_dependencies = [
             dep for dep in mode_dependencies if dep not in services_with_local_runtime
