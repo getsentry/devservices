@@ -10,13 +10,6 @@ from devservices.exceptions import SupervisorError
 from devservices.exceptions import SupervisorProcessError
 
 
-class ProcessInfo:
-    def __init__(self, name: str, statename: str, pid: str) -> None:
-        self.name = name
-        self.statename = statename
-        self.pid = pid
-
-
 class SupervisorManager:
     def __init__(self, port: int | None, config_file: str | None = None) -> None:
         if port is None:
