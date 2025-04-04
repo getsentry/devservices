@@ -153,3 +153,27 @@ class ContainerHealthcheckFailedError(Exception):
 
     def __str__(self) -> str:
         return f"Container {self.container_name} did not become healthy within {self.timeout} seconds."
+
+
+class SupervisorError(Exception):
+    """Base exception for supervisor-related errors."""
+
+    pass
+
+
+class SupervisorConfigError(SupervisorError):
+    """Raised when there's an error with the supervisor configuration."""
+
+    pass
+
+
+class SupervisorConnectionError(SupervisorError):
+    """Raised when unable to connect to the supervisor XML-RPC server."""
+
+    pass
+
+
+class SupervisorProcessError(SupervisorError):
+    """Raised when there's an error with a supervisor process."""
+
+    pass
