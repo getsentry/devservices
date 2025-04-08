@@ -480,6 +480,104 @@ def test_generate_service_status_tree_with_nested_child_services(
         )
 
 
+@mock.patch(
+    "devservices.commands.status.get_status_json_results",
+    return_value=[
+        subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"Project": "test-service", "Service": "clickhouse", "State": "running", "Health": "healthy", "Name": "test-service-clickhouse-1", "RunningFor": "1 days ago", "Publishers": [{"URL": "http://localhost", "PublishedPort": 8080, "TargetPort": 8080, "Protocol": "tcp"}]}\n{"Project": "test-service", "Service": "redis", "State": "running", "Health": "healthy", "Name": "test-service-redis-1", "RunningFor": "1 days ago", "Publishers": [{"URL": "http://localhost", "PublishedPort": 8081, "TargetPort": 8081, "Protocol": "tcp"}]}\n',
+            stderr="",
+        ),
+    ],
+)
+@mock.patch("devservices.commands.status.find_matching_service")
+def test_handle_started_service(
+    mock_find_matching_service: mock.Mock,
+    mock_get_status_json_results: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    with (
+        mock.patch(
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            str(tmp_path / "code"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        test_service_repo_path = tmp_path / "test-service"
+        create_mock_git_repo("blank_repo", test_service_repo_path)
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "test-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"], "test": ["redis"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+        service_path = tmp_path / "test-service"
+        create_config_file(service_path, config)
+        run_git_command(["add", "."], cwd=test_service_repo_path)
+        run_git_command(["commit", "-m", "Initial commit"], cwd=test_service_repo_path)
+        service = Service(
+            name="test-service",
+            repo_path=str(test_service_repo_path),
+            config=ServiceConfig(
+                version=0.1,
+                service_name="test-service",
+                dependencies={
+                    "redis": Dependency(description="Redis"),
+                    "clickhouse": Dependency(description="Clickhouse"),
+                },
+                modes={"default": ["redis", "clickhouse"], "test": ["redis"]},
+            ),
+        )
+        state = State()
+        state.update_service_entry(
+            "test-service", "default", StateTables.STARTED_SERVICES
+        )
+        dependency = DependencyNode(
+            name="test-service",
+            dependency_type=DependencyType.SERVICE,
+        )
+        mock_find_matching_service.return_value = service
+        result = handle_started_service(dependency, "  ")
+        assert result == (
+            "    \033[1mtest-service\033[0m:\n"
+            "      Type: service\n"
+            "      Runtime: local\n"
+            "      \033[1mclickhouse\033[0m:\n"
+            "        Type: container\n"
+            "        Status: running\n"
+            "        Health: \033[32mhealthy\033[0m\n"
+            "        Container: test-service-clickhouse-1\n"
+            "        Uptime: 1 days ago\n"
+            "        Ports:\n"
+            "          http://localhost:8080 -> 8080/tcp\n"
+            "      \033[1mredis\033[0m:\n"
+            "        Type: container\n"
+            "        Status: running\n"
+            "        Health: \033[32mhealthy\033[0m\n"
+            "        Container: test-service-redis-1\n"
+            "        Uptime: 1 days ago\n"
+            "        Ports:\n"
+            "          http://localhost:8081 -> 8081/tcp"
+        )
+        mock_find_matching_service.assert_called_once_with("test-service")
+
+
 def test_handle_started_service_invalid_config(
     tmp_path: Path,
 ) -> None:
