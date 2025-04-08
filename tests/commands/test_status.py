@@ -139,6 +139,17 @@ def test_parse_docker_compose_status() -> None:
     assert parse_docker_compose_status(mock_status) == expected_output
 
 
+def test_parse_docker_compose_status_missing_stdout() -> None:
+    mock_status = [
+        subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="",
+        ),
+    ]
+    assert parse_docker_compose_status(mock_status) == {}
+
+
 def test_generate_service_status_details() -> None:
     dependency = DependencyNode(
         name="test-service",
@@ -495,6 +506,28 @@ def test_handle_started_service_invalid_config(
             "    Status: N/A\n"
             "    Runtime: local"
         )
+
+
+@mock.patch("devservices.commands.status.handle_started_service")
+def test_process_service_with_local_runtime_started(
+    mock_handle_started_service: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        state = State()
+        state.update_service_entry(
+            "test-service", "default", StateTables.STARTED_SERVICES
+        )
+        dependency = DependencyNode(
+            name="test-service",
+            dependency_type=DependencyType.SERVICE,
+        )
+        mock_handle_started_service.return_value = "test-service is running"
+        result = process_service_with_local_runtime(dependency, "  ")
+        assert result == "test-service is running"
+        mock_handle_started_service.assert_called_once_with(dependency, "  ")
 
 
 def test_process_service_with_local_runtime_starting(
