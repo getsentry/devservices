@@ -75,10 +75,19 @@ def test_start_supervisor_daemon_success(
 
 
 @patch("devservices.utils.supervisor.subprocess.run")
-def test_start_supervisor_daemon_failure(
+def test_start_supervisor_daemon_subprocess_failure(
     mock_subprocess_run: MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     mock_subprocess_run.side_effect = subprocess.CalledProcessError(1, "supervisord")
+    with pytest.raises(SupervisorError):
+        supervisor_manager.start_supervisor_daemon()
+
+
+@patch("devservices.utils.supervisor.subprocess.run")
+def test_start_supervisor_daemon_file_not_found_failure(
+    mock_subprocess_run: MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_subprocess_run.side_effect = FileNotFoundError("supervisord")
     with pytest.raises(SupervisorError):
         supervisor_manager.start_supervisor_daemon()
 

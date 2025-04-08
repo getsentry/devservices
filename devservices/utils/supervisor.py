@@ -34,7 +34,6 @@ class SupervisorManager:
             )
 
     def start_supervisor_daemon(self) -> None:
-        """Start the supervisor daemon."""
         try:
             subprocess.run(["supervisord", "-c", self.config_file], check=True)
         except subprocess.CalledProcessError as e:
@@ -45,14 +44,12 @@ class SupervisorManager:
             )
 
     def stop_supervisor_daemon(self) -> None:
-        """Stop the supervisor daemon."""
         try:
             self._get_rpc_client().supervisor.shutdown()
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to stop supervisor: {e.faultString}")
 
     def start_program(self, program_name: str) -> None:
-        """Start a specific supervisor program."""
         try:
             self._get_rpc_client().supervisor.startProcess(program_name)
         except xmlrpc.client.Fault as e:
@@ -61,7 +58,6 @@ class SupervisorManager:
             )
 
     def stop_program(self, program_name: str) -> None:
-        """Stop a specific supervisor program."""
         try:
             self._get_rpc_client().supervisor.stopProcess(program_name)
         except xmlrpc.client.Fault as e:
