@@ -164,13 +164,30 @@ def test_generate_service_status_details() -> None:
     result = generate_service_status_details(
         dependency, docker_compose_service_to_status, ""
     )
-    assert "Type: container" in result
-    assert "Status: running" in result
-    assert "Health: \033[32mhealthy\033[0m" in result
-    assert "Container: test-container" in result
-    assert "Uptime: 2 days ago" in result
-    assert "Ports:" in result
-    assert "http://localhost:8080 -> 8080/tcp" in result
+    assert result == (
+        "\033[1mtest-service\033[0m:\n"
+        "  Type: container\n"
+        "  Status: running\n"
+        "  Health: \033[32mhealthy\033[0m\n"
+        "  Container: test-container\n"
+        "  Uptime: 2 days ago\n"
+        "  Ports:\n"
+        "    http://localhost:8080 -> 8080/tcp"
+    )
+
+
+def test_generate_service_status_details_missing_status() -> None:
+    dependency = DependencyNode(
+        name="test-service",
+        dependency_type=DependencyType.SERVICE,
+    )
+    docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
+    result = generate_service_status_details(
+        dependency, docker_compose_service_to_status, ""
+    )
+    assert result == (
+        "\033[1mtest-service\033[0m:\n" "  Type: container\n" "  Status: N/A"
+    )
 
 
 def test_generate_service_status_tree_no_child_service(
