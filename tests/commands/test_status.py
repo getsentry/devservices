@@ -458,7 +458,7 @@ def test_handle_started_service_invalid_config(
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
         mock.patch(
-            "devservices.commands.toggle.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            "devservices.commands.status.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
             str(tmp_path / "dependency-dir"),
         ),
         mock.patch(
