@@ -8,9 +8,11 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 from collections import namedtuple
+from typing import TypedDict
 
 from sentry_sdk import capture_exception
 
+from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
@@ -22,17 +24,40 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
+from devservices.utils.dependencies import construct_dependency_graph
+from devservices.utils.dependencies import DependencyGraph
+from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
+from devservices.utils.state import State
+from devservices.utils.state import StateTables
 
-LINE_LENGTH = 40
+BASE_INDENTATION = "  "
 
 
 ServiceStatus = namedtuple("ServiceStatus", ["name", "formatted_output"])
+
+
+class ServiceStatusOutput(TypedDict):
+    Service: str
+    Name: str
+    State: str
+    Health: str
+    RunningFor: str
+    Publishers: list[Ports]
+
+
+class Ports(TypedDict):
+    URL: str
+    PublishedPort: int
+    TargetPort: int
+    Protocol: str
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -44,41 +69,6 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         default=None,
     )
     parser.set_defaults(func=status)
-
-
-def format_status_output(service_status_json: str) -> list[ServiceStatus]:
-    # Docker compose ps is line delimited json, so this constructs this into an array we can use
-    service_statuses = service_status_json.split("\n")[:-1]
-    outputs = []
-    for service_status in service_statuses:
-        output = []
-        service = json.loads(service_status)
-        name = service["Service"]
-        state = service["State"]
-        container_name = service["Name"]
-        health = service.get("Health", "N/A")
-        ports = service.get("Publishers", [])
-        running_for = service.get("RunningFor", "N/A")
-
-        output.append(f"{name}")
-        output.append(f"Container: {container_name}")
-        output.append(f"Status: {state}")
-        output.append(f"Health: {health}")
-        output.append(f"Uptime: {running_for}")
-
-        if ports:
-            output.append("Ports:")
-            for port in ports:
-                output.append(
-                    f"  {port['URL']}:{port['PublishedPort']} -> {port['TargetPort']}/{port['Protocol']}"
-                )
-        else:
-            output.append("No ports exposed")
-
-        output.append("")  # Empty line for readability
-        outputs.append(ServiceStatus(name=name, formatted_output="\n".join(output)))
-
-    return outputs
 
 
 def status(args: Namespace) -> None:
@@ -101,46 +91,62 @@ def status(args: Namespace) -> None:
         console.failure(str(e))
         exit(1)
 
-    modes = service.config.modes
-    # TODO: allow custom modes to be used
-    mode_to_view = "default"
-    mode_dependencies = modes[mode_to_view]
+    state = State()
+    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
+    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
+    active_services = starting_services.union(started_services)
+    if service.name not in active_services:
+        console.warning(f"Status unavailable. {service.name} is not running standalone")
+        return  # Since exit(0) is captured as an internal_error by sentry
 
     try:
-        remote_dependencies = install_and_verify_dependencies(service)
+        status_tree = get_status_for_service(service)
     except DependencyError as de:
         capture_exception(de)
         console.failure(
             f"{str(de)}. If this error persists, try running `devservices purge`"
         )
         exit(1)
-    try:
-        status_json_results = _status(service, remote_dependencies, mode_dependencies)
     except DockerComposeError as dce:
         capture_exception(dce)
         console.failure(f"Failed to get status for {service.name}: {dce.stderr}")
         exit(1)
-
-    # Filter out empty stdout to help us determine if the service is running
-    status_json_results = [
-        status_json for status_json in status_json_results if status_json.stdout
-    ]
-    if len(status_json_results) == 0:
-        console.warning(f"{service.name} is not running")
-        return
-    output = f"Service: {service.name}\n\n"
-    output += "=" * LINE_LENGTH + "\n"
-    formatted_status_outputs = []
-    for status_json in status_json_results:
-        formatted_status_outputs.extend(format_status_output(status_json.stdout))
-    formatted_status_outputs.sort(key=lambda x: x.name)
-    for formatted_status_output in formatted_status_outputs:
-        output += formatted_status_output[1]
-        output += "-" * LINE_LENGTH + "\n"
-    console.info(output)
+    console.info(status_tree)
 
 
-def _status(
+def get_status_for_service(service: Service) -> str:
+    state = State()
+
+    modes = service.config.modes
+
+    starting_modes = set(
+        state.get_active_modes_for_service(service.name, StateTables.STARTING_SERVICES)
+    )
+    started_modes = set(
+        state.get_active_modes_for_service(service.name, StateTables.STARTED_SERVICES)
+    )
+    active_modes = starting_modes.union(started_modes)
+    mode_dependencies = set()
+    for active_mode in active_modes:
+        active_mode_dependencies = modes.get(active_mode, [])
+        mode_dependencies.update(active_mode_dependencies)
+
+    remote_dependencies = install_and_verify_dependencies(service)
+
+    dependency_graph = construct_dependency_graph(service, list(active_modes))
+
+    status_json_results = get_status_json_results(
+        service, remote_dependencies, list(mode_dependencies)
+    )
+
+    docker_compose_service_to_status = parse_docker_compose_status(status_json_results)
+    status_tree = generate_service_status_tree(
+        service.name, dependency_graph, docker_compose_service_to_status
+    )
+    return status_tree
+
+
+def get_status_json_results(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
@@ -178,3 +184,187 @@ def _status(
             cmd_outputs.append(future.result())
 
     return cmd_outputs
+
+
+def generate_service_status_tree(
+    service_name: str,
+    dependency_graph: DependencyGraph,
+    docker_compose_service_to_status: dict[str, ServiceStatusOutput],
+    indentation: str = "",
+) -> str:
+    output = []
+    state = State()
+    services_with_local_runtime = state.get_services_by_runtime(ServiceRuntime.LOCAL)
+
+    dependencies = dependency_graph.graph[
+        DependencyNode(name=service_name, dependency_type=DependencyType.SERVICE)
+    ]
+
+    # Using indentation == "" to check if the service is the root service (hacky, but works) since the root service may not be in the services_with_local_runtime set
+    runtime = (
+        "local"
+        if service_name in services_with_local_runtime or indentation == ""
+        else "containerized"
+    )
+
+    output = [
+        f"{indentation}{Color.BOLD}{service_name}{Color.RESET}:",
+        f"{indentation}{BASE_INDENTATION}Type: service",
+        f"{indentation}{BASE_INDENTATION}Runtime: {runtime}",
+    ]
+
+    for dependency in sorted(
+        dependencies, key=lambda d: (d.dependency_type.value, d.name)
+    ):
+        if dependency.name in services_with_local_runtime:
+            output.append(
+                process_service_with_local_runtime(
+                    dependency,
+                    indentation + BASE_INDENTATION,
+                )
+            )
+        else:
+            output.append(
+                process_service_with_containerized_runtime(
+                    dependency,
+                    docker_compose_service_to_status,
+                    indentation + BASE_INDENTATION,
+                    dependency_graph,
+                )
+            )
+    return "\n".join(output)
+
+
+def process_service_with_local_runtime(
+    dependency: DependencyNode,
+    indentation: str,
+) -> str:
+    output = []
+    state = State()
+    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
+    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
+
+    if dependency.name in started_services:
+        return handle_started_service(dependency, indentation)
+    elif dependency.name in starting_services:
+        output.append(f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:")
+        output.append(f"{indentation}{BASE_INDENTATION}Type: service")
+        output.append(f"{indentation}{BASE_INDENTATION}Status: starting")
+        output.append(f"{indentation}{BASE_INDENTATION}Runtime: local")
+    else:
+        output.append(f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:")
+        output.append(f"{indentation}{BASE_INDENTATION}Type: service")
+        output.append(f"{indentation}{BASE_INDENTATION}Status: N/A")
+        output.append(f"{indentation}{BASE_INDENTATION}Runtime: local")
+    return "\n".join(output)
+
+
+def process_service_with_containerized_runtime(
+    dependency: DependencyNode,
+    docker_compose_service_to_status: dict[str, ServiceStatusOutput],
+    indentation: str,
+    dependency_graph: DependencyGraph,
+) -> str:
+    if len(dependency_graph.graph[dependency]) > 0:
+        return generate_service_status_tree(
+            dependency.name,
+            dependency_graph,
+            docker_compose_service_to_status,
+            indentation,
+        )
+    else:
+        return generate_service_status_details(
+            dependency, docker_compose_service_to_status, indentation
+        )
+
+
+def parse_docker_compose_status(
+    status_json_results: list[subprocess.CompletedProcess[str]],
+) -> dict[str, ServiceStatusOutput]:
+    """Parse the JSON output from docker-compose status command."""
+    docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
+    for status_json in status_json_results:
+        if not status_json.stdout:
+            continue
+        docker_compose_service_status_output = status_json.stdout.split("\n")[:-1]
+        for docker_compose_service_status in docker_compose_service_status_output:
+            docker_compose_service_status_json = json.loads(
+                docker_compose_service_status
+            )
+            compose_service = docker_compose_service_status_json["Service"]
+            docker_compose_service_to_status[
+                compose_service
+            ] = docker_compose_service_status_json
+
+    return docker_compose_service_to_status
+
+
+def generate_service_status_details(
+    dependency: DependencyNode,
+    docker_compose_service_to_status: dict[str, ServiceStatusOutput],
+    indentation: str,
+) -> str:
+    output = [f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:"]
+
+    if dependency.name not in docker_compose_service_to_status:
+        return "\n".join(
+            [
+                *output,
+                f"{indentation}{BASE_INDENTATION}Type: container",
+                f"{indentation}{BASE_INDENTATION}Status: N/A",
+            ]
+        )
+
+    service_status = docker_compose_service_to_status[dependency.name]
+    details = [
+        "Type: container",
+        f"Status: {service_status.get('State', 'N/A')}",
+        f"Health: {format_health(service_status.get('Health', 'N/A'))}",
+        f"Container: {service_status.get('Name', 'N/A')}",
+        f"Uptime: {service_status.get('RunningFor', 'N/A')}",
+    ]
+
+    output.extend(f"{indentation}{BASE_INDENTATION}{detail}" for detail in details)
+
+    if service_ports := service_status.get("Publishers", []):
+        output.append(f"{indentation}{BASE_INDENTATION}Ports:")
+        for service_port in service_ports:
+            output.append(
+                f"{indentation}{BASE_INDENTATION}{BASE_INDENTATION}{service_port['URL']}:{service_port['PublishedPort']} -> {service_port['TargetPort']}/{service_port['Protocol']}"
+            )
+
+    return "\n".join(output)
+
+
+def handle_started_service(dependency: DependencyNode, indentation: str) -> str:
+    try:
+        service_with_local_runtime = find_matching_service(dependency.name)
+    except (ConfigError, ServiceNotFoundError) as e:
+        capture_exception(e)
+        return "\n".join(
+            [
+                f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:",
+                f"{indentation}{BASE_INDENTATION}Type: service",
+                f"{indentation}{BASE_INDENTATION}Status: N/A",
+                f"{indentation}{BASE_INDENTATION}Runtime: local",
+            ]
+        )
+    service_output = get_status_for_service(service_with_local_runtime)
+    return "\n".join(
+        [
+            f"{indentation}{BASE_INDENTATION}{line}"
+            for line in service_output.splitlines()
+        ],
+    )
+
+
+def format_health(health: str) -> str:
+    """Format the health status for display."""
+    color = (
+        Color.GREEN
+        if health.lower() == "healthy"
+        else Color.RED
+        if health.lower() == "unhealthy"
+        else Color.YELLOW
+    )
+    return f"{color}{health}{Color.RESET}"
