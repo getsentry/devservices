@@ -118,13 +118,13 @@ def get_status_for_service(service: Service) -> str:
 
     modes = service.config.modes
 
-    starting_modes = state.get_active_modes_for_service(
-        service.name, StateTables.STARTING_SERVICES
+    starting_modes = set(
+        state.get_active_modes_for_service(service.name, StateTables.STARTING_SERVICES)
     )
-    started_modes = state.get_active_modes_for_service(
-        service.name, StateTables.STARTED_SERVICES
+    started_modes = set(
+        state.get_active_modes_for_service(service.name, StateTables.STARTED_SERVICES)
     )
-    active_modes = starting_modes or started_modes
+    active_modes = starting_modes.union(started_modes)
     mode_dependencies = set()
     for active_mode in active_modes:
         active_mode_dependencies = modes.get(active_mode, [])
@@ -132,7 +132,7 @@ def get_status_for_service(service: Service) -> str:
 
     remote_dependencies = install_and_verify_dependencies(service)
 
-    dependency_graph = construct_dependency_graph(service, active_modes)
+    dependency_graph = construct_dependency_graph(service, list(active_modes))
 
     status_json_results = get_status_json_results(
         service, remote_dependencies, list(mode_dependencies)
