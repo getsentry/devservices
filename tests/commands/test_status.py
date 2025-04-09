@@ -165,7 +165,7 @@ def test_generate_service_status_details() -> None:
             "RunningFor": "2 days ago",
             "Publishers": [
                 {
-                    "URL": "http://localhost",
+                    "URL": "127.0.0.1",
                     "PublishedPort": 8080,
                     "TargetPort": 8080,
                     "Protocol": "tcp",
@@ -184,7 +184,7 @@ def test_generate_service_status_details() -> None:
         "  Container: test-container\n"
         "  Uptime: 2 days ago\n"
         "  Ports:\n"
-        "    http://localhost:8080 -> 8080/tcp"
+        "    127.0.0.1:8080 -> 8080/tcp"
     )
 
 
@@ -227,13 +227,13 @@ def test_generate_service_status_tree_no_child_service(
                 "RunningFor": "2 days ago",
                 "Publishers": [
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8080,
                         "TargetPort": 8080,
                         "Protocol": "tcp",
                     },
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8081,
                         "TargetPort": 8081,
                         "Protocol": "tcp",
@@ -258,8 +258,8 @@ def test_generate_service_status_tree_no_child_service(
             "    Container: parent-container\n"
             "    Uptime: 2 days ago\n"
             "    Ports:\n"
-            "      http://localhost:8080 -> 8080/tcp\n"
-            "      http://localhost:8081 -> 8081/tcp"
+            "      127.0.0.1:8080 -> 8080/tcp\n"
+            "      127.0.0.1:8081 -> 8081/tcp"
         )
 
 
@@ -296,13 +296,13 @@ def test_generate_service_status_tree_with_child_service(
                 "RunningFor": "2 days ago",
                 "Publishers": [
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8080,
                         "TargetPort": 8080,
                         "Protocol": "tcp",
                     },
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8081,
                         "TargetPort": 8081,
                         "Protocol": "tcp",
@@ -317,7 +317,7 @@ def test_generate_service_status_tree_with_child_service(
                 "RunningFor": "2 days ago",
                 "Publishers": [
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8082,
                         "TargetPort": 8082,
                         "Protocol": "tcp",
@@ -342,8 +342,8 @@ def test_generate_service_status_tree_with_child_service(
             "    Container: parent-container\n"
             "    Uptime: 2 days ago\n"
             "    Ports:\n"
-            "      http://localhost:8080 -> 8080/tcp\n"
-            "      http://localhost:8081 -> 8081/tcp\n"
+            "      127.0.0.1:8080 -> 8080/tcp\n"
+            "      127.0.0.1:8081 -> 8081/tcp\n"
             f"  {Color.BOLD}child-service{Color.RESET}:\n"
             "    Type: service\n"
             "    Runtime: containerized\n"
@@ -354,7 +354,7 @@ def test_generate_service_status_tree_with_child_service(
             "      Container: child-container\n"
             "      Uptime: 2 days ago\n"
             "      Ports:\n"
-            "        http://localhost:8082 -> 8082/tcp"
+            "        127.0.0.1:8082 -> 8082/tcp"
         )
 
 
@@ -402,7 +402,7 @@ def test_generate_service_status_tree_with_nested_child_services(
                 "RunningFor": "1 days ago",
                 "Publishers": [
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8080,
                         "TargetPort": 8080,
                         "Protocol": "tcp",
@@ -417,7 +417,7 @@ def test_generate_service_status_tree_with_nested_child_services(
                 "RunningFor": "3 days ago",
                 "Publishers": [
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8081,
                         "TargetPort": 8081,
                         "Protocol": "tcp",
@@ -432,7 +432,7 @@ def test_generate_service_status_tree_with_nested_child_services(
                 "RunningFor": "2 days ago",
                 "Publishers": [
                     {
-                        "URL": "http://localhost",
+                        "URL": "127.0.0.1",
                         "PublishedPort": 8082,
                         "TargetPort": 8082,
                         "Protocol": "tcp",
@@ -457,7 +457,7 @@ def test_generate_service_status_tree_with_nested_child_services(
             "    Container: grandparent-container\n"
             "    Uptime: 1 days ago\n"
             "    Ports:\n"
-            "      http://localhost:8080 -> 8080/tcp\n"
+            "      127.0.0.1:8080 -> 8080/tcp\n"
             f"  {Color.BOLD}parent-service{Color.RESET}:\n"
             "    Type: service\n"
             "    Runtime: containerized\n"
@@ -468,7 +468,7 @@ def test_generate_service_status_tree_with_nested_child_services(
             "      Container: parent-container\n"
             "      Uptime: 3 days ago\n"
             "      Ports:\n"
-            "        http://localhost:8081 -> 8081/tcp\n"
+            "        127.0.0.1:8081 -> 8081/tcp\n"
             f"    {Color.BOLD}child-service{Color.RESET}:\n"
             "      Type: service\n"
             "      Runtime: containerized\n"
@@ -479,7 +479,7 @@ def test_generate_service_status_tree_with_nested_child_services(
             "        Container: child-container\n"
             "        Uptime: 2 days ago\n"
             "        Ports:\n"
-            "          http://localhost:8082 -> 8082/tcp"
+            "          127.0.0.1:8082 -> 8082/tcp"
         )
 
 
@@ -489,7 +489,7 @@ def test_generate_service_status_tree_with_nested_child_services(
         subprocess.CompletedProcess(
             args=[],
             returncode=0,
-            stdout='{"Project": "test-service", "Service": "clickhouse", "State": "running", "Health": "healthy", "Name": "test-service-clickhouse-1", "RunningFor": "1 days ago", "Publishers": [{"URL": "http://localhost", "PublishedPort": 8080, "TargetPort": 8080, "Protocol": "tcp"}]}\n{"Project": "test-service", "Service": "redis", "State": "running", "Health": "healthy", "Name": "test-service-redis-1", "RunningFor": "1 days ago", "Publishers": [{"URL": "http://localhost", "PublishedPort": 8081, "TargetPort": 8081, "Protocol": "tcp"}]}\n',
+            stdout='{"Project": "test-service", "Service": "clickhouse", "State": "running", "Health": "healthy", "Name": "test-service-clickhouse-1", "RunningFor": "1 days ago", "Publishers": [{"URL": "127.0.0.1", "PublishedPort": 8080, "TargetPort": 8080, "Protocol": "tcp"}]}\n{"Project": "test-service", "Service": "redis", "State": "running", "Health": "healthy", "Name": "test-service-redis-1", "RunningFor": "1 days ago", "Publishers": [{"URL": "127.0.0.1", "PublishedPort": 8081, "TargetPort": 8081, "Protocol": "tcp"}]}\n',
             stderr="",
         ),
     ],
@@ -568,7 +568,7 @@ def test_handle_started_service(
             "        Container: test-service-clickhouse-1\n"
             "        Uptime: 1 days ago\n"
             "        Ports:\n"
-            "          http://localhost:8080 -> 8080/tcp\n"
+            "          127.0.0.1:8080 -> 8080/tcp\n"
             f"      {Color.BOLD}redis{Color.RESET}:\n"
             "        Type: container\n"
             "        Status: running\n"
@@ -576,7 +576,7 @@ def test_handle_started_service(
             "        Container: test-service-redis-1\n"
             "        Uptime: 1 days ago\n"
             "        Ports:\n"
-            "          http://localhost:8081 -> 8081/tcp"
+            "          127.0.0.1:8081 -> 8081/tcp"
         )
         mock_find_matching_service.assert_called_once_with("test-service")
 
