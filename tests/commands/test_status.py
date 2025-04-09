@@ -18,6 +18,7 @@ from devservices.commands.status import ServiceStatusOutput
 from devservices.commands.status import status
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
+from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
@@ -176,10 +177,10 @@ def test_generate_service_status_details() -> None:
         dependency, docker_compose_service_to_status, ""
     )
     assert result == (
-        "\033[1mtest-service\033[0m:\n"
+        f"{Color.BOLD}test-service{Color.RESET}:\n"
         "  Type: container\n"
         "  Status: running\n"
-        "  Health: \033[32mhealthy\033[0m\n"
+        f"  Health: {Color.GREEN}healthy{Color.RESET}\n"
         "  Container: test-container\n"
         "  Uptime: 2 days ago\n"
         "  Ports:\n"
@@ -197,7 +198,9 @@ def test_generate_service_status_details_missing_status() -> None:
         dependency, docker_compose_service_to_status, ""
     )
     assert result == (
-        "\033[1mtest-service\033[0m:\n" "  Type: container\n" "  Status: N/A"
+        f"{Color.BOLD}test-service{Color.RESET}:\n"
+        "  Type: container\n"
+        "  Status: N/A"
     )
 
 
@@ -245,13 +248,13 @@ def test_generate_service_status_tree_no_child_service(
             "",
         )
         assert result == (
-            "\033[1mparent-service\033[0m:\n"
+            f"{Color.BOLD}parent-service{Color.RESET}:\n"
             "  Type: service\n"
             "  Runtime: local\n"
-            "  \033[1mparent-container\033[0m:\n"
+            f"  {Color.BOLD}parent-container{Color.RESET}:\n"
             "    Type: container\n"
             "    Status: running\n"
-            "    Health: \033[32mhealthy\033[0m\n"
+            f"    Health: {Color.GREEN}healthy{Color.RESET}\n"
             "    Container: parent-container\n"
             "    Uptime: 2 days ago\n"
             "    Ports:\n"
@@ -329,25 +332,25 @@ def test_generate_service_status_tree_with_child_service(
             "",
         )
         assert result == (
-            "\033[1mparent-service\033[0m:\n"
+            f"{Color.BOLD}parent-service{Color.RESET}:\n"
             "  Type: service\n"
             "  Runtime: local\n"
-            "  \033[1mparent-container\033[0m:\n"
+            f"  {Color.BOLD}parent-container{Color.RESET}:\n"
             "    Type: container\n"
             "    Status: running\n"
-            "    Health: \033[32mhealthy\033[0m\n"
+            f"    Health: {Color.GREEN}healthy{Color.RESET}\n"
             "    Container: parent-container\n"
             "    Uptime: 2 days ago\n"
             "    Ports:\n"
             "      http://localhost:8080 -> 8080/tcp\n"
             "      http://localhost:8081 -> 8081/tcp\n"
-            "  \033[1mchild-service\033[0m:\n"
+            f"  {Color.BOLD}child-service{Color.RESET}:\n"
             "    Type: service\n"
             "    Runtime: containerized\n"
-            "    \033[1mchild-container\033[0m:\n"
+            f"    {Color.BOLD}child-container{Color.RESET}:\n"
             "      Type: container\n"
             "      Status: running\n"
-            "      Health: \033[91munhealthy\033[0m\n"
+            f"      Health: {Color.RED}unhealthy{Color.RESET}\n"
             "      Container: child-container\n"
             "      Uptime: 2 days ago\n"
             "      Ports:\n"
@@ -444,35 +447,35 @@ def test_generate_service_status_tree_with_nested_child_services(
             "",
         )
         assert result == (
-            "\033[1mgrandparent-service\033[0m:\n"
+            f"{Color.BOLD}grandparent-service{Color.RESET}:\n"
             "  Type: service\n"
             "  Runtime: local\n"
-            "  \033[1mgrandparent-container\033[0m:\n"
+            f"  {Color.BOLD}grandparent-container{Color.RESET}:\n"
             "    Type: container\n"
             "    Status: running\n"
-            "    Health: \033[32mhealthy\033[0m\n"
+            f"    Health: {Color.GREEN}healthy{Color.RESET}\n"
             "    Container: grandparent-container\n"
             "    Uptime: 1 days ago\n"
             "    Ports:\n"
             "      http://localhost:8080 -> 8080/tcp\n"
-            "  \033[1mparent-service\033[0m:\n"
+            f"  {Color.BOLD}parent-service{Color.RESET}:\n"
             "    Type: service\n"
             "    Runtime: containerized\n"
-            "    \033[1mparent-container\033[0m:\n"
+            f"    {Color.BOLD}parent-container{Color.RESET}:\n"
             "      Type: container\n"
             "      Status: running\n"
-            "      Health: \033[32mhealthy\033[0m\n"
+            f"      Health: {Color.GREEN}healthy{Color.RESET}\n"
             "      Container: parent-container\n"
             "      Uptime: 3 days ago\n"
             "      Ports:\n"
             "        http://localhost:8081 -> 8081/tcp\n"
-            "    \033[1mchild-service\033[0m:\n"
+            f"    {Color.BOLD}child-service{Color.RESET}:\n"
             "      Type: service\n"
             "      Runtime: containerized\n"
-            "      \033[1mchild-container\033[0m:\n"
+            f"      {Color.BOLD}child-container{Color.RESET}:\n"
             "        Type: container\n"
             "        Status: running\n"
-            "        Health: \033[93mstarting\033[0m\n"
+            f"        Health: {Color.YELLOW}starting{Color.RESET}\n"
             "        Container: child-container\n"
             "        Uptime: 2 days ago\n"
             "        Ports:\n"
@@ -555,21 +558,21 @@ def test_handle_started_service(
         mock_find_matching_service.return_value = service
         result = handle_started_service(dependency, "  ")
         assert result == (
-            "    \033[1mtest-service\033[0m:\n"
+            f"    {Color.BOLD}test-service{Color.RESET}:\n"
             "      Type: service\n"
             "      Runtime: local\n"
-            "      \033[1mclickhouse\033[0m:\n"
+            f"      {Color.BOLD}clickhouse{Color.RESET}:\n"
             "        Type: container\n"
             "        Status: running\n"
-            "        Health: \033[32mhealthy\033[0m\n"
+            f"        Health: {Color.GREEN}healthy{Color.RESET}\n"
             "        Container: test-service-clickhouse-1\n"
             "        Uptime: 1 days ago\n"
             "        Ports:\n"
             "          http://localhost:8080 -> 8080/tcp\n"
-            "      \033[1mredis\033[0m:\n"
+            f"      {Color.BOLD}redis{Color.RESET}:\n"
             "        Type: container\n"
             "        Status: running\n"
-            "        Health: \033[32mhealthy\033[0m\n"
+            f"        Health: {Color.GREEN}healthy{Color.RESET}\n"
             "        Container: test-service-redis-1\n"
             "        Uptime: 1 days ago\n"
             "        Ports:\n"
@@ -644,7 +647,7 @@ def test_process_service_with_local_runtime_starting(
         )
         result = process_service_with_local_runtime(dependency, "  ")
         assert result == (
-            "  \033[1mtest-service\033[0m:\n"
+            f"  {Color.BOLD}test-service{Color.RESET}:\n"
             "    Type: service\n"
             "    Status: starting\n"
             "    Runtime: local"
@@ -663,7 +666,7 @@ def test_process_service_with_local_runtime_not_active(
         )
         result = process_service_with_local_runtime(dependency, "  ")
         assert result == (
-            "  \033[1mtest-service\033[0m:\n"
+            f"  {Color.BOLD}test-service{Color.RESET}:\n"
             "    Type: service\n"
             "    Status: N/A\n"
             "    Runtime: local"
@@ -836,4 +839,4 @@ def test_status_service_not_running(
     mock_get_status_for_service.assert_not_called()
 
     captured = capsys.readouterr()
-    assert "test-service is not running standalone" in captured.out
+    assert "Status unavailable. test-service is not running standalone" in captured.out

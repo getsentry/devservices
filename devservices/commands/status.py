@@ -12,6 +12,7 @@ from typing import TypedDict
 
 from sentry_sdk import capture_exception
 
+from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
@@ -207,7 +208,7 @@ def generate_service_status_tree(
     )
 
     output = [
-        f"{indentation}\033[1m{service_name}\033[0m:",
+        f"{indentation}{Color.BOLD}{service_name}{Color.RESET}:",
         f"{indentation}{BASE_INDENTATION}Type: service",
         f"{indentation}{BASE_INDENTATION}Runtime: {runtime}",
     ]
@@ -246,12 +247,12 @@ def process_service_with_local_runtime(
     if dependency.name in started_services:
         return handle_started_service(dependency, indentation)
     elif dependency.name in starting_services:
-        output.append(f"{indentation}\033[1m{dependency.name}\033[0m:")
+        output.append(f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:")
         output.append(f"{indentation}{BASE_INDENTATION}Type: service")
         output.append(f"{indentation}{BASE_INDENTATION}Status: starting")
         output.append(f"{indentation}{BASE_INDENTATION}Runtime: local")
     else:
-        output.append(f"{indentation}\033[1m{dependency.name}\033[0m:")
+        output.append(f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:")
         output.append(f"{indentation}{BASE_INDENTATION}Type: service")
         output.append(f"{indentation}{BASE_INDENTATION}Status: N/A")
         output.append(f"{indentation}{BASE_INDENTATION}Runtime: local")
@@ -303,7 +304,7 @@ def generate_service_status_details(
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str,
 ) -> str:
-    output = [f"{indentation}\033[1m{dependency.name}\033[0m:"]
+    output = [f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:"]
 
     if dependency.name not in docker_compose_service_to_status:
         return "\n".join(
@@ -342,7 +343,7 @@ def handle_started_service(dependency: DependencyNode, indentation: str) -> str:
         capture_exception(e)
         return "\n".join(
             [
-                f"{indentation}\033[1m{dependency.name}\033[0m:",
+                f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:",
                 f"{indentation}{BASE_INDENTATION}Type: service",
                 f"{indentation}{BASE_INDENTATION}Status: N/A",
                 f"{indentation}{BASE_INDENTATION}Runtime: local",
@@ -360,10 +361,10 @@ def handle_started_service(dependency: DependencyNode, indentation: str) -> str:
 def format_health(health: str) -> str:
     """Format the health status for display."""
     color = (
-        "\033[32m"
+        Color.GREEN
         if health.lower() == "healthy"
-        else "\033[91m"
+        else Color.RED
         if health.lower() == "unhealthy"
-        else "\033[93m"
+        else Color.YELLOW
     )
-    return f"{color}{health}\033[0m"
+    return f"{color}{health}{Color.RESET}"

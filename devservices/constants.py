@@ -3,6 +3,18 @@ from __future__ import annotations
 import os
 from datetime import timedelta
 
+
+class Color:
+    RED = "\033[0;31m"
+    GREEN = "\033[0;32m"
+    YELLOW = "\033[0;33m"
+    BLUE = "\033[0;34m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    NEGATIVE = "\033[7m"
+    RESET = "\033[0m"
+
+
 MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
 DEVSERVICES_DIR_NAME = "devservices"
 CONFIG_FILE_NAME = "config.yml"
