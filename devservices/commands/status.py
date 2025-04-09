@@ -95,7 +95,7 @@ def status(args: Namespace) -> None:
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
     active_services = starting_services.union(started_services)
     if service.name not in active_services:
-        console.warning(f"{service.name} is not running standalone")
+        console.warning(f"Status unavailable. {service.name} is not running standalone")
         return  # Since exit(0) is captured as an internal_error by sentry
 
     try:
