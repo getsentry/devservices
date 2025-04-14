@@ -1317,8 +1317,10 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
 
         captured = capsys.readouterr()
         assert (
-            "Skipping 'local-runtime-service' as it is set to run locally"
-            in captured.out.strip()
+            captured.out.strip().count(
+                "Skipping 'local-runtime-service' as it is set to run locally"
+            )
+            == 1
         )
 
 
@@ -1494,8 +1496,10 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local(
 
         captured = capsys.readouterr()
         assert (
-            "Skipping 'local-runtime-service' as it is set to run locally"
-            in captured.out.strip()
+            captured.out.strip().count(
+                "Skipping 'local-runtime-service' as it is set to run locally"
+            )
+            == 1
         )
 
 
@@ -1674,8 +1678,10 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
 
         captured = capsys.readouterr()
         assert (
-            "Skipping 'local-runtime-service' as it is set to run locally"
-            not in captured.out.strip()
+            captured.out.strip().count(
+                "Skipping 'local-runtime-service' as it is set to run locally"
+            )
+            == 0
         )
 
 
@@ -1857,6 +1863,8 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
 
         captured = capsys.readouterr()
         assert (
-            "Skipping 'local-runtime-service' as it is set to run locally"
-            not in captured.out.strip()
+            captured.out.strip().count(
+                "Skipping 'local-runtime-service' as it is set to run locally"
+            )
+            == 0
         )
