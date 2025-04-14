@@ -91,12 +91,14 @@ def up(args: Namespace) -> None:
         services_with_local_runtime = state.get_services_by_runtime(
             ServiceRuntime.LOCAL
         )
+        skipped_services = set()
         for service_with_local_runtime in services_with_local_runtime:
             if (
                 mode in modes
                 and service_with_local_runtime != service.name
                 and service_with_local_runtime in modes[mode]
             ):
+                skipped_services.add(service_with_local_runtime)
                 status.warning(
                     f"Skipping '{service_with_local_runtime}' as it is set to run locally"
                 )
@@ -123,9 +125,12 @@ def up(args: Namespace) -> None:
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
         mode_dependencies = modes[mode]
         for service_with_local_runtime in services_with_local_runtime:
-            if service_with_local_runtime in [
-                dep.service_name for dep in remote_dependencies
-            ]:
+            if (
+                service_with_local_runtime
+                in [dep.service_name for dep in remote_dependencies]
+                and service_with_local_runtime not in skipped_services
+            ):
+                skipped_services.add(service_with_local_runtime)
                 status.warning(
                     f"Skipping '{service_with_local_runtime}' as it is set to run locally"
                 )
