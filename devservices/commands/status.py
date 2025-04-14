@@ -351,10 +351,7 @@ def handle_started_service(dependency: DependencyNode, indentation: str) -> str:
         )
     service_output = get_status_for_service(service_with_local_runtime)
     return "\n".join(
-        [
-            f"{indentation}{BASE_INDENTATION}{line}"
-            for line in service_output.splitlines()
-        ],
+        [f"{indentation}{line}" for line in service_output.splitlines()],
     )
 
 
