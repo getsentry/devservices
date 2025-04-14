@@ -6,7 +6,6 @@ import os
 import socket
 import subprocess
 import xmlrpc.client
-from pathlib import Path
 
 from devservices.constants import DEVSERVICES_SUPERVISOR_CONFIG_DIR
 from devservices.exceptions import SupervisorConfigError
@@ -41,33 +40,31 @@ class UnixSocketTransport(xmlrpc.client.Transport):
 
 
 class SupervisorManager:
-    def __init__(self, config_file: str, service_name: str) -> None:
+    def __init__(self, config_file_path: str, service_name: str) -> None:
         self.service_name = service_name
-        if not os.path.exists(config_file):
-            raise SupervisorConfigError(f"Config file {config_file} does not exist")
-        self.config_file = self._extend_config_file(config_file)
+        if not os.path.exists(config_file_path):
+            raise SupervisorConfigError(
+                f"Config file {config_file_path} does not exist"
+            )
+        self.socket_path = os.path.join(
+            DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{service_name}.sock"
+        )
+        self.config_file_path = self._extend_config_file(config_file_path)
 
-    def _extend_config_file(self, config_file: str) -> str:
+    def _extend_config_file(self, config_file_path: str) -> str:
         """Extend the supervisor config file passed into devservices with configuration settings that should be abstracted from users."""
 
         config = configparser.ConfigParser()
 
-        config.read(config_file)
+        config.read(config_file_path)
         os.makedirs(DEVSERVICES_SUPERVISOR_CONFIG_DIR, exist_ok=True)
 
-        self.socket_path = os.path.join(
-            DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{self.service_name}.sock"
-        )
         config["unix_http_server"] = {"file": self.socket_path}
 
         config["supervisord"] = {
-            "pidfile": str(
-                Path(
-                    os.path.join(
-                        DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{self.service_name}.pid"
-                    )
-                )
-            ),
+            "pidfile": os.path.join(
+                DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{self.service_name}.pid"
+            )
         }
 
         config["supervisorctl"] = {"serverurl": f"unix://{self.socket_path}"}
@@ -76,13 +73,13 @@ class SupervisorManager:
             "supervisor.rpcinterface_factory": "supervisor.rpcinterface:make_main_rpcinterface"
         }
 
-        new_config_file = os.path.join(
+        extended_config_file_path = os.path.join(
             DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{self.service_name}.processes.conf"
         )
-        with open(new_config_file, "w") as f:
+        with open(extended_config_file_path, "w") as f:
             config.write(f)
 
-        return str(new_config_file)
+        return extended_config_file_path
 
     def _get_rpc_client(self) -> xmlrpc.client.ServerProxy:
         """Get or create an XML-RPC client that connects to the supervisor daemon."""
@@ -102,7 +99,7 @@ class SupervisorManager:
 
     def start_supervisor_daemon(self) -> None:
         try:
-            subprocess.run(["supervisord", "-c", self.config_file], check=True)
+            subprocess.run(["supervisord", "-c", self.config_file_path], check=True)
         except subprocess.CalledProcessError as e:
             raise SupervisorError(f"Failed to start supervisor: {str(e)}")
         except FileNotFoundError:

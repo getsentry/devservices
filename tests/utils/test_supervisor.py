@@ -21,28 +21,28 @@ def supervisor_manager(tmp_path: Path) -> SupervisorManager:
     with mock.patch(
         "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
     ):
-        config_file = tmp_path / DEVSERVICES_DIR_NAME / "processes.conf"
-        config_file.parent.mkdir(parents=True, exist_ok=True)
-        config_file.write_text(
+        config_file_path = tmp_path / DEVSERVICES_DIR_NAME / "processes.conf"
+        config_file_path.parent.mkdir(parents=True, exist_ok=True)
+        config_file_path.write_text(
             """
     [program:test_program]
     command = python test_program.py
     """
         )
         return SupervisorManager(
-            config_file=str(config_file), service_name="test-service"
+            config_file_path=str(config_file_path), service_name="test-service"
         )
 
 
 def test_init_with_config_file(supervisor_manager: SupervisorManager) -> None:
     assert supervisor_manager.service_name == "test-service"
-    assert "test-service.processes.conf" in supervisor_manager.config_file
+    assert "test-service.processes.conf" in supervisor_manager.config_file_path
 
 
 def test_init_with_nonexistent_config() -> None:
     with pytest.raises(SupervisorConfigError):
         SupervisorManager(
-            config_file="/nonexistent/path.conf", service_name="test-service"
+            config_file_path="/nonexistent/path.conf", service_name="test-service"
         )
 
 
@@ -78,7 +78,7 @@ def test_start_supervisor_daemon_success(
 ) -> None:
     supervisor_manager.start_supervisor_daemon()
     mock_subprocess_run.assert_called_once_with(
-        ["supervisord", "-c", supervisor_manager.config_file], check=True
+        ["supervisord", "-c", supervisor_manager.config_file_path], check=True
     )
 
 
@@ -164,10 +164,10 @@ def test_stop_program_failure(
 def test_extend_config_file(
     supervisor_manager: SupervisorManager, tmp_path: Path
 ) -> None:
-    assert supervisor_manager.config_file == str(
+    assert supervisor_manager.config_file_path == str(
         tmp_path / "test-service.processes.conf"
     )
-    with open(supervisor_manager.config_file, "r") as f:
+    with open(supervisor_manager.config_file_path, "r") as f:
         assert (
             f.read()
             == f"""[program:test_program]
