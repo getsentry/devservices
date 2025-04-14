@@ -130,6 +130,7 @@ def up(args: Namespace) -> None:
                 in [dep.service_name for dep in remote_dependencies]
                 and service_with_local_runtime not in skipped_services
             ):
+                skipped_services.add(service_with_local_runtime)
                 status.warning(
                     f"Skipping '{service_with_local_runtime}' as it is set to run locally"
                 )
