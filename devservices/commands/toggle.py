@@ -76,33 +76,42 @@ def toggle(args: Namespace) -> None:
         console.failure(str(e))
         exit(1)
 
-    runtime = args.runtime
+    desired_runtime = args.runtime
     state = State()
     current_runtime = state.get_service_runtime(service.name)
-    if current_runtime.value == runtime:
-        console.warning(f"{service.name} is already running in {runtime} runtime")
+    if current_runtime.value == desired_runtime:
+        console.warning(
+            f"{service.name} is already running in {desired_runtime} runtime"
+        )
         return
-    if runtime == "local":
+    if desired_runtime == "local":
         starting_services = set(
             state.get_service_entries(StateTables.STARTING_SERVICES)
         )
         started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
         active_services = starting_services.union(started_services)
         if service.name in active_services:
+            # TODO: This is a stupid case, we shouldn't care since it's already technically running locally
             console.warning(f"{service.name} is running, please stop it first")
             return
 
         # TODO: Clean up naming of active_service vs service (can be confusing)
         for active_service_name in active_services:
             active_service = find_matching_service(active_service_name)
-            starting_active_modes = state.get_active_modes_for_service(
-                active_service_name, StateTables.STARTING_SERVICES
+            starting_active_modes = set(
+                state.get_active_modes_for_service(
+                    active_service_name, StateTables.STARTING_SERVICES
+                )
             )
-            started_active_modes = state.get_active_modes_for_service(
-                active_service_name, StateTables.STARTED_SERVICES
+            started_active_modes = set(
+                state.get_active_modes_for_service(
+                    active_service_name, StateTables.STARTED_SERVICES
+                )
             )
-            active_modes = starting_active_modes or started_active_modes
-            dependency_graph = construct_dependency_graph(active_service, active_modes)
+            active_modes = starting_active_modes.union(started_active_modes)
+            dependency_graph = construct_dependency_graph(
+                active_service, list(active_modes)
+            )
             if service.name in [node.name for node in dependency_graph.graph]:
                 # TODO: We should bring down for every mode it is currently running in
                 service_dependency_config = active_service.config.dependencies.get(
@@ -123,22 +132,48 @@ def toggle(args: Namespace) -> None:
                     [service_mode],
                 )
                 break
-        state.update_service_runtime(service.name, ServiceRuntime(runtime))
-    elif runtime == "containerized":
+        state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
+    elif desired_runtime == "containerized":
         starting_services = set(
             state.get_service_entries(StateTables.STARTING_SERVICES)
         )
         started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
         active_services = starting_services.union(started_services)
         if service.name in active_services:
-            subprocess.run(
-                ["devservices", "down", service.name],
-                check=True,
-                text=True,
-                stdout=subprocess.PIPE,
+            console.warning(f"{service.name} is running, please stop it first")
+            return
+        dependent_services = []
+        for active_service_name in active_services:
+            active_service = find_matching_service(active_service_name)
+            starting_active_modes = set(
+                state.get_active_modes_for_service(
+                    active_service_name, StateTables.STARTING_SERVICES
+                )
             )
-        state.update_service_runtime(service.name, ServiceRuntime(runtime))
-    console.success(f"{service.name} is now running in {runtime} runtime")
+            started_active_modes = set(
+                state.get_active_modes_for_service(
+                    active_service_name, StateTables.STARTED_SERVICES
+                )
+            )
+            active_modes = starting_active_modes.union(started_active_modes)
+            dependency_graph = construct_dependency_graph(
+                active_service, list(active_modes)
+            )
+            dependent_services.extend(
+                [
+                    node.name
+                    for node in dependency_graph.graph
+                    if node.name == active_service_name
+                ]
+            )
+        if len(dependent_services) > 0:
+            them_or_it = "them" if len(dependent_services) > 1 else "it"
+            console.warning(
+                f"{service.name} is a dependency of {', '.join(dependent_services)}, please stop {them_or_it} first"
+            )
+            return
+        state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
+    console.success(f"{service.name} is now running in {desired_runtime} runtime")
 
 
 def _bring_down_containerized_service(
