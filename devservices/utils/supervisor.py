@@ -59,16 +59,20 @@ class SupervisorManager:
         config.read(config_file_path)
         os.makedirs(DEVSERVICES_SUPERVISOR_CONFIG_DIR, exist_ok=True)
 
+        # Set unix http server to use the socket path
         config["unix_http_server"] = {"file": self.socket_path}
 
+        # Set generated pidfile to use service name
         config["supervisord"] = {
             "pidfile": os.path.join(
                 DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{self.service_name}.pid"
             )
         }
 
+        # Set supervisorctl to use the socket path
         config["supervisorctl"] = {"serverurl": f"unix://{self.socket_path}"}
 
+        # Required by supervisor to work properly
         config["rpcinterface:supervisor"] = {
             "supervisor.rpcinterface_factory": "supervisor.rpcinterface:make_main_rpcinterface"
         }
