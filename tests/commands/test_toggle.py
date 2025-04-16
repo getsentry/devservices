@@ -13,6 +13,9 @@ from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import ConfigNotFoundError
+from devservices.exceptions import ConfigParseError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.services import Service
@@ -22,6 +25,54 @@ from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
 from testing.utils import run_git_command
+
+
+@mock.patch("devservices.commands.toggle.find_matching_service")
+def test_toggle_config_not_found(
+    mock_find_matching_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_find_matching_service.side_effect = ConfigNotFoundError("Config not found")
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        toggle(Namespace(service_name=None, debug=False, runtime="local"))
+
+    mock_find_matching_service.assert_called_once_with(None)
+    captured = capsys.readouterr()
+    assert "Config not found" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.toggle.find_matching_service")
+def test_toggle_config_error(
+    mock_find_matching_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_find_matching_service.side_effect = ConfigParseError("Config parse error")
+    with (
+        pytest.raises(SystemExit),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        toggle(Namespace(service_name=None, debug=False, runtime="local"))
+
+    mock_find_matching_service.assert_called_once_with(None)
+    captured = capsys.readouterr()
+    assert "Config parse error" in captured.out.strip()
+
+
+@mock.patch("devservices.commands.toggle.find_matching_service")
+def test_toggle_service_not_found(
+    mock_find_matching_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_find_matching_service.side_effect = ServiceNotFoundError("Service not found")
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        toggle(Namespace(service_name=None, debug=False, runtime="local"))
+
+    mock_find_matching_service.assert_called_once_with(None)
+    captured = capsys.readouterr()
+    assert "Service not found" in captured.out.strip()
 
 
 def test_toggle_nothing_running(

@@ -67,14 +67,14 @@ def toggle(args: Namespace) -> None:
         console.failure(
             f"{str(e)}. Please specify a service (i.e. `devservices toggle snuba`) or run the command from a directory with a devservices configuration."
         )
-        exit(1)
+        return
     except ConfigError as e:
         capture_exception(e)
         console.failure(str(e))
         exit(1)
     except ServiceNotFoundError as e:
         console.failure(str(e))
-        exit(1)
+        return
 
     desired_runtime = args.runtime
     state = State()
@@ -90,9 +90,12 @@ def toggle(args: Namespace) -> None:
         )
         started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
         active_services = starting_services.union(started_services)
+        # If the service is already running standalone, we can just update the runtime
         if service.name in active_services:
-            # TODO: This is a stupid case, we shouldn't care since it's already technically running locally
-            console.warning(f"{service.name} is running, please stop it first")
+            state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
+            console.success(
+                f"{service.name} is now running in {desired_runtime} runtime"
+            )
             return
 
         # TODO: Clean up naming of active_service vs service (can be confusing)
