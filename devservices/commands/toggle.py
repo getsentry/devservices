@@ -142,7 +142,7 @@ def toggle(args: Namespace) -> None:
         if service.name in active_services:
             console.warning(f"{service.name} is running, please stop it first")
             return
-        dependent_services = []
+        dependent_services: dict[str, list[str]] = dict()
         for active_service_name in active_services:
             active_service = find_matching_service(active_service_name)
             starting_active_modes = set(
@@ -156,23 +156,50 @@ def toggle(args: Namespace) -> None:
                 )
             )
             active_modes = starting_active_modes.union(started_active_modes)
-            dependency_graph = construct_dependency_graph(
-                active_service, list(active_modes)
-            )
-            dependent_services.extend(
-                [
-                    node.name
-                    for node in dependency_graph.graph
-                    if node.name == active_service_name
-                ]
-            )
-        if len(dependent_services) > 0:
-            them_or_it = "them" if len(dependent_services) > 1 else "it"
-            console.warning(
-                f"{service.name} is a dependency of {', '.join(dependent_services)}, please stop {them_or_it} first"
-            )
-            return
-        state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
+            for active_mode in active_modes:
+                dependency_graph = construct_dependency_graph(
+                    active_service, [active_mode]
+                )
+                if service.name in [node.name for node in dependency_graph.graph]:
+                    current_dependent_modes = dependent_services.get(
+                        active_service_name, []
+                    )
+                    current_dependent_modes.append(active_mode)
+                    dependent_services[active_service_name] = current_dependent_modes
+        if len(dependent_services.keys()) > 0:
+            with Status(
+                on_start=lambda: console.warning(
+                    f"Restarting dependent services to ensure {service.name} is running in a containerized runtime"
+                ),
+            ) as status:
+                try:
+                    state.update_service_runtime(
+                        service.name, ServiceRuntime(desired_runtime)
+                    )
+                    for dependent_service in dependent_services:
+                        for mode in dependent_services[dependent_service]:
+                            status.info(
+                                f"Restarting {dependent_service} in mode {mode}"
+                            )
+                            subprocess.run(
+                                [
+                                    "devservices",
+                                    "up",
+                                    dependent_service,
+                                    "--mode",
+                                    mode,
+                                ],
+                                check=True,
+                                text=True,
+                                stdout=subprocess.PIPE,
+                            )
+                except subprocess.CalledProcessError:
+                    status.failure(
+                        "Failed to restart services, please try starting them manually"
+                    )
+                    exit(1)
+        else:
+            state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
     console.success(f"{service.name} is now running in {desired_runtime} runtime")
 
 
