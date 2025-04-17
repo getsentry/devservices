@@ -100,7 +100,7 @@ def test_toggle_nothing_running(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         with mock.patch(
-            "devservices.commands.toggle.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
             str(tmp_path / "dependency-dir"),
         ):
             config = {
@@ -168,7 +168,7 @@ def test_toggle_nothing_running_same_runtime(
 ) -> None:
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         with mock.patch(
-            "devservices.commands.toggle.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
             str(tmp_path / "dependency-dir"),
         ):
             config = {
@@ -223,7 +223,7 @@ def test_toggle_dependent_service_running(
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
         mock.patch(
-            "devservices.commands.toggle.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
             str(tmp_path / "dependency-dir"),
         ),
         mock.patch(
@@ -431,7 +431,7 @@ def test_handle_transition_to_containerized_runtime_no_dependent_services(
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
         mock.patch(
-            "devservices.commands.toggle.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
             str(tmp_path / "dependency-dir"),
         ),
     ):
@@ -542,7 +542,7 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
         mock.patch(
-            "devservices.commands.toggle.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
             str(tmp_path / "dependency-dir"),
         ),
         mock.patch(
