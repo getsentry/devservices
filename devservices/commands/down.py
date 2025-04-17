@@ -139,7 +139,9 @@ def down(args: Namespace) -> None:
         # If no other service depends on the service we are trying to bring down, we can bring it down
         if dependent_service_name is None:
             try:
-                _down(service, remote_dependencies, list(mode_dependencies), status)
+                bring_down_service(
+                    service, remote_dependencies, list(mode_dependencies), status
+                )
             except DockerComposeError as dce:
                 capture_exception(dce, level="info")
                 status.failure(f"Failed to stop {service.name}: {dce.stderr}")
@@ -156,16 +158,7 @@ def down(args: Namespace) -> None:
         console.success(f"{service.name} stopped")
 
 
-def _bring_down_dependency(
-    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
-) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought down
-    for dependency in cmd.services:
-        status.info(f"Stopping {dependency}")
-    return run_cmd(cmd.full_command, current_env)
-
-
-def _down(
+def bring_down_service(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
@@ -243,3 +236,12 @@ def _get_dependent_service(
             return other_started_service
 
     return None
+
+
+def _bring_down_dependency(
+    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
+) -> subprocess.CompletedProcess[str]:
+    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought down
+    for dependency in cmd.services:
+        status.info(f"Stopping {dependency}")
+    return run_cmd(cmd.full_command, current_env)
