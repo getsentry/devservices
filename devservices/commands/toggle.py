@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import concurrent.futures
-import os
 import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
@@ -9,11 +7,7 @@ from argparse import Namespace
 
 from sentry_sdk import capture_exception
 
-from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DEPENDENCY_CONFIG_VERSION
-from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
-from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
-from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.commands.down import bring_down_service
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -24,10 +18,6 @@ from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
-from devservices.utils.dependencies import InstalledRemoteDependency
-from devservices.utils.docker_compose import DockerComposeCommand
-from devservices.utils.docker_compose import get_docker_compose_commands_to_run
-from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
@@ -49,9 +39,9 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.add_argument(
         "runtime",
         help="Runtime to use for the service",
-        choices=["containerized", "local"],
+        choices=[ServiceRuntime.CONTAINERIZED.value, ServiceRuntime.LOCAL.value],
         nargs="?",
-        default="containerized",
+        default=ServiceRuntime.CONTAINERIZED.value,
     )
     parser.set_defaults(func=toggle)
 
@@ -84,129 +74,152 @@ def toggle(args: Namespace) -> None:
             f"{service.name} is already running in {desired_runtime} runtime"
         )
         return
-    if desired_runtime == "local":
-        starting_services = set(
-            state.get_service_entries(StateTables.STARTING_SERVICES)
-        )
-        started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-        active_services = starting_services.union(started_services)
-        # If the service is already running standalone, we can just update the runtime
-        if service.name in active_services:
-            state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
-            console.success(
-                f"{service.name} is now running in {desired_runtime} runtime"
-            )
-            return
-
-        # TODO: Clean up naming of active_service vs service (can be confusing)
-        for active_service_name in active_services:
-            active_service = find_matching_service(active_service_name)
-            starting_active_modes = set(
-                state.get_active_modes_for_service(
-                    active_service_name, StateTables.STARTING_SERVICES
-                )
-            )
-            started_active_modes = set(
-                state.get_active_modes_for_service(
-                    active_service_name, StateTables.STARTED_SERVICES
-                )
-            )
-            active_modes = starting_active_modes.union(started_active_modes)
-            dependency_graph = construct_dependency_graph(
-                active_service, list(active_modes)
-            )
-            if service.name in [node.name for node in dependency_graph.graph]:
-                # TODO: We should bring down for every mode it is currently running in
-                service_dependency_config = active_service.config.dependencies.get(
-                    service.name, None
-                )
-                if (
-                    service_dependency_config is None
-                    or service_dependency_config.remote is None
-                ):
-                    # TODO: This shouldn't happen?
-                    console.warning(
-                        f"{service.name} is not a remote dependency of {active_service_name}"
-                    )
-                    continue
-                service_mode = service_dependency_config.remote.mode
-                _bring_down_containerized_service(
-                    service,
-                    [service_mode],
-                )
-                break
-        state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
-    elif desired_runtime == "containerized":
-        starting_services = set(
-            state.get_service_entries(StateTables.STARTING_SERVICES)
-        )
-        started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-        active_services = starting_services.union(started_services)
-        if service.name in active_services:
-            console.warning(f"{service.name} is running, please stop it first")
-            return
-        dependent_services: dict[str, list[str]] = dict()
-        for active_service_name in active_services:
-            active_service = find_matching_service(active_service_name)
-            starting_active_modes = set(
-                state.get_active_modes_for_service(
-                    active_service_name, StateTables.STARTING_SERVICES
-                )
-            )
-            started_active_modes = set(
-                state.get_active_modes_for_service(
-                    active_service_name, StateTables.STARTED_SERVICES
-                )
-            )
-            active_modes = starting_active_modes.union(started_active_modes)
-            for active_mode in active_modes:
-                dependency_graph = construct_dependency_graph(
-                    active_service, [active_mode]
-                )
-                if service.name in [node.name for node in dependency_graph.graph]:
-                    current_dependent_modes = dependent_services.get(
-                        active_service_name, []
-                    )
-                    current_dependent_modes.append(active_mode)
-                    dependent_services[active_service_name] = current_dependent_modes
-        if len(dependent_services.keys()) > 0:
-            with Status(
-                on_start=lambda: console.warning(
-                    f"Restarting dependent services to ensure {service.name} is running in a containerized runtime"
-                ),
-            ) as status:
-                try:
-                    state.update_service_runtime(
-                        service.name, ServiceRuntime(desired_runtime)
-                    )
-                    for dependent_service in dependent_services:
-                        for mode in dependent_services[dependent_service]:
-                            status.info(
-                                f"Restarting {dependent_service} in mode {mode}"
-                            )
-                            subprocess.run(
-                                [
-                                    "devservices",
-                                    "up",
-                                    dependent_service,
-                                    "--mode",
-                                    mode,
-                                ],
-                                check=True,
-                                text=True,
-                                stdout=subprocess.PIPE,
-                            )
-                except subprocess.CalledProcessError:
-                    status.failure(
-                        "Failed to restart services, please try starting them manually"
-                    )
-                    exit(1)
-        else:
-            state.update_service_runtime(service.name, ServiceRuntime(desired_runtime))
+    if desired_runtime == ServiceRuntime.LOCAL.value:
+        handle_transition_to_local_runtime(service)
+    elif desired_runtime == ServiceRuntime.CONTAINERIZED.value:
+        handle_transition_to_containerized_runtime(service)
     console.success(f"{service.name} is now running in {desired_runtime} runtime")
 
 
-def _bring_down_containerized_service(
+def handle_transition_to_local_runtime(service: Service) -> None:
+    """Handle the transition to a local runtime for a service."""
+    console = Console()
+    state = State()
+
+    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
+    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
+    active_services = starting_services.union(started_services)
+
+    # If the service is already running standalone, we can just update the runtime
+    if service.name in active_services:
+        state.update_service_runtime(service.name, ServiceRuntime.LOCAL)
+        console.success(
+            f"{service.name} is now running in {ServiceRuntime.LOCAL.value} runtime"
+        )
+        return
+
+    # TODO: Clean up naming of active_service vs service (can be confusing)
+    for active_service_name in active_services:
+        active_service = find_matching_service(active_service_name)
+        starting_active_modes = set(
+            state.get_active_modes_for_service(
+                active_service_name, StateTables.STARTING_SERVICES
+            )
+        )
+        started_active_modes = set(
+            state.get_active_modes_for_service(
+                active_service_name, StateTables.STARTED_SERVICES
+            )
+        )
+        active_modes = starting_active_modes.union(started_active_modes)
+        dependency_graph = construct_dependency_graph(
+            active_service, list(active_modes)
+        )
+        if service.name in [node.name for node in dependency_graph.graph]:
+            # TODO: We should bring down for every mode it is currently running in
+            service_dependency_config = active_service.config.dependencies.get(
+                service.name, None
+            )
+            if (
+                service_dependency_config is None
+                or service_dependency_config.remote is None
+            ):
+                # TODO: This shouldn't happen?
+                console.warning(
+                    f"{service.name} is not a remote dependency of {active_service_name}"
+                )
+                continue
+            service_mode = service_dependency_config.remote.mode
+            bring_down_containerized_service(
+                service,
+                [service_mode],
+            )
+            break
+    state.update_service_runtime(service.name, ServiceRuntime.LOCAL)
+
+
+def handle_transition_to_containerized_runtime(service: Service) -> None:
+    """Handle the transition to a containerized runtime for a service."""
+    console = Console()
+    state = State()
+    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
+    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
+    active_services = starting_services.union(started_services)
+    if service.name in active_services:
+        console.warning(f"{service.name} is running, please stop it first")
+        return
+    dependent_services = find_dependent_services(service, active_services)
+    state.update_service_runtime(service.name, ServiceRuntime.CONTAINERIZED)
+    if len(dependent_services.keys()) > 0:
+        # It's important that the state is updated before the dependent services are restarted
+        restart_dependent_services(service.name, dependent_services)
+
+
+def find_dependent_services(
+    service: Service, active_services: set[str]
+) -> dict[str, list[str]]:
+    """Find all dependent services for a given service and the modes for which they depend on the given service."""
+    state = State()
+    dependent_services: dict[str, list[str]] = dict()
+    for active_service_name in active_services:
+        active_service = find_matching_service(active_service_name)
+        starting_active_modes = set(
+            state.get_active_modes_for_service(
+                active_service_name, StateTables.STARTING_SERVICES
+            )
+        )
+        started_active_modes = set(
+            state.get_active_modes_for_service(
+                active_service_name, StateTables.STARTED_SERVICES
+            )
+        )
+        active_modes = starting_active_modes.union(started_active_modes)
+        for active_mode in active_modes:
+            dependency_graph = construct_dependency_graph(active_service, [active_mode])
+            if service.name in [node.name for node in dependency_graph.graph]:
+                current_dependent_modes = dependent_services.get(
+                    active_service_name, []
+                )
+                current_dependent_modes.append(active_mode)
+                dependent_services[active_service_name] = current_dependent_modes
+    return dependent_services
+
+
+def restart_dependent_services(
+    service_name: str, dependent_services: dict[str, list[str]]
+) -> None:
+    """Restart all relevant modes of all dependent services to ensure the service is running in a containerized runtime."""
+    console = Console()
+    with Status(
+        on_start=lambda: console.warning(
+            f"Restarting dependent services to ensure {service_name} is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
+        ),
+    ) as status:
+        try:
+            for dependent_service in dependent_services:
+                for mode in dependent_services[dependent_service]:
+                    status.info(f"Restarting {dependent_service} in mode {mode}")
+                    subprocess.run(
+                        [
+                            "devservices",
+                            "up",
+                            dependent_service,
+                            "--mode",
+                            mode,
+                        ],
+                        check=True,
+                        text=True,
+                        stdout=subprocess.PIPE,
+                    )
+        except subprocess.CalledProcessError:
+            # TODO: Figure out how to handle this (should we send this to sentry?) Should probably throw an error that is handled by the caller
+            status.failure(
+                "Failed to restart services, please try starting them manually"
+            )
+            exit(1)
+
+
+def bring_down_containerized_service(
     service: Service,
     active_modes: list[str],
 ) -> None:
@@ -240,67 +253,10 @@ def _bring_down_containerized_service(
             )
             exit(1)
         try:
-            _down(service, remote_dependencies, list(mode_dependencies), status)
+            bring_down_service(
+                service, remote_dependencies, sorted(list(mode_dependencies)), status
+            )
         except DockerComposeError as dce:
             capture_exception(dce, level="info")
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
-
-
-# TODO: This is duplicate code with the down command, we should refactor this
-def _down(
-    service: Service,
-    remote_dependencies: set[InstalledRemoteDependency],
-    mode_dependencies: list[str],
-    status: Status,
-) -> None:
-    relative_local_dependency_directory = os.path.relpath(
-        os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
-        service.repo_path,
-    )
-    service_config_file_path = os.path.join(
-        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-    )
-    # Set the environment variable for the local dependencies directory to be used by docker compose
-    current_env = os.environ.copy()
-    current_env[
-        DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
-    ] = relative_local_dependency_directory
-    state = State()
-    locally_running_services = state.get_services_by_runtime(ServiceRuntime.LOCAL)
-    mode_dependencies = [
-        dep for dep in mode_dependencies if dep not in locally_running_services
-    ]
-    remote_dependencies = {
-        dep
-        for dep in remote_dependencies
-        if dep.service_name not in locally_running_services
-    }
-    docker_compose_commands = get_docker_compose_commands_to_run(
-        service=service,
-        remote_dependencies=list(remote_dependencies),
-        current_env=current_env,
-        command="stop",
-        options=[],
-        service_config_file_path=service_config_file_path,
-        mode_dependencies=mode_dependencies,
-    )
-
-    cmd_outputs = []
-
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(_bring_down_dependency, cmd, current_env, status)
-            for cmd in docker_compose_commands
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            cmd_outputs.append(future.result())
-
-
-# TODO: This is duplicate code with the down command, we should refactor this
-def _bring_down_dependency(
-    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
-) -> subprocess.CompletedProcess[str]:
-    for dependency in cmd.services:
-        status.info(f"Stopping {dependency}")
-    return run_cmd(cmd.full_command, current_env)
