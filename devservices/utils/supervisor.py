@@ -132,3 +132,15 @@ class SupervisorManager:
             raise SupervisorProcessError(
                 f"Failed to stop program {program_name}: {e.faultString}"
             )
+
+    def foreground_program(self, program_name: str) -> None:
+        try:
+            subprocess.run(
+                ["supervisorctl", "-c", self.config_file_path, "fg", program_name],
+                check=True,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError as e:
+            raise SupervisorError(f"Failed to foreground {program_name}: {str(e)}")
+        except KeyboardInterrupt:
+            pass

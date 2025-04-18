@@ -187,3 +187,49 @@ supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 """
         )
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+def test_foreground_program_success(
+    mock_subprocess_run: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    supervisor_manager.foreground_program("test_program")
+    mock_subprocess_run.assert_called_once_with(
+        [
+            "supervisorctl",
+            "-c",
+            supervisor_manager.config_file_path,
+            "fg",
+            "test_program",
+        ],
+        check=True,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+def test_foreground_program_failure(
+    mock_subprocess_run: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_subprocess_run.side_effect = subprocess.CalledProcessError(1, "supervisorctl")
+    with pytest.raises(SupervisorError, match="Failed to foreground test_program"):
+        supervisor_manager.foreground_program("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+def test_foreground_program_keyboard_interrupt(
+    mock_subprocess_run: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_subprocess_run.side_effect = KeyboardInterrupt()
+    supervisor_manager.foreground_program("test_program")
+    mock_subprocess_run.assert_called_once_with(
+        [
+            "supervisorctl",
+            "-c",
+            supervisor_manager.config_file_path,
+            "fg",
+            "test_program",
+        ],
+        check=True,
+        stderr=subprocess.DEVNULL,
+    )
