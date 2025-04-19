@@ -7,6 +7,8 @@ import socket
 import subprocess
 import xmlrpc.client
 
+from supervisor.options import ServerOptions
+
 from devservices.constants import DEVSERVICES_SUPERVISOR_CONFIG_DIR
 from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorConnectionError
@@ -132,3 +134,14 @@ class SupervisorManager:
             raise SupervisorProcessError(
                 f"Failed to stop program {program_name}: {e.faultString}"
             )
+
+    def get_program_command(self, program_name: str) -> str:
+        opts = ServerOptions()
+        opts.configfile = self.config_file_path
+        # this reads & validates the file, populating opts.configroot
+        opts.process_config()
+        for group in opts.process_group_configs:
+            for proc in group.process_configs:
+                if proc.name == program_name and isinstance(proc.command, str):
+                    return proc.command
+        raise SupervisorConfigError(f"Program {program_name} not found in config")
