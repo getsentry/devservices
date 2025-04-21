@@ -75,7 +75,14 @@ def toggle(args: Namespace) -> None:
         )
         return
     if desired_runtime == ServiceRuntime.LOCAL.value:
-        handle_transition_to_local_runtime(service)
+        try:
+            handle_transition_to_local_runtime(service)
+        except ConfigError as e:
+            capture_exception(e)
+            console.failure(
+                f"{str(e)}. Please check the configuration for {service.name} and try again."
+            )
+            exit(1)
     elif desired_runtime == ServiceRuntime.CONTAINERIZED.value:
         handle_transition_to_containerized_runtime(service)
     console.success(f"{service.name} is now running in {desired_runtime} runtime")
@@ -124,11 +131,9 @@ def handle_transition_to_local_runtime(service: Service) -> None:
                 service_dependency_config is None
                 or service_dependency_config.remote is None
             ):
-                # TODO: This shouldn't happen?
-                console.warning(
+                raise ConfigError(
                     f"{service.name} is not a remote dependency of {active_service_name}"
                 )
-                continue
             service_mode = service_dependency_config.remote.mode
             bring_down_containerized_service(
                 service,
