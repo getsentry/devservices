@@ -81,10 +81,32 @@ def test_check_program_running_success(
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_check_program_running_failure(
+def test_check_program_running_program_not_running(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {"state": 0}
+    assert not supervisor_manager._check_program_running("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_check_program_running_typing_error(
+    mock_rpc_client: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = 1
+    assert not supervisor_manager._check_program_running("test_program")
+    mock_rpc_client.return_value.supervisor.getProcessInfo.side_effect = {"state": "20"}
+    assert not supervisor_manager._check_program_running("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_check_program_running_failure(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.side_effect = (
+        xmlrpc.client.Fault(1, "Error")
+    )
     assert not supervisor_manager._check_program_running("test_program")
 
 
@@ -250,7 +272,7 @@ def tail_program_logs_success(
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def tail_program_logs_not_running(
+def test_tail_program_logs_not_running(
     mock_rpc_client: mock.MagicMock,
     mock_subprocess_run: mock.MagicMock,
     supervisor_manager: SupervisorManager,
@@ -265,7 +287,7 @@ def tail_program_logs_not_running(
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def tail_program_logs_failure(
+def test_tail_program_logs_failure(
     mock_rpc_client: mock.MagicMock,
     mock_subprocess_run: mock.MagicMock,
     supervisor_manager: SupervisorManager,
@@ -278,7 +300,7 @@ def tail_program_logs_failure(
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def tail_program_logs_keyboard_interrupt(
+def test_tail_program_logs_keyboard_interrupt(
     mock_rpc_client: mock.MagicMock,
     mock_subprocess_run: mock.MagicMock,
     supervisor_manager: SupervisorManager,
