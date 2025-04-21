@@ -91,7 +91,7 @@ def toggle(args: Namespace) -> None:
         console.success(f"{service.name} is now running in {desired_runtime} runtime")
 
 
-def handle_transition_to_local_runtime(service: Service) -> None:
+def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
     """Handle the transition to a local runtime for a service."""
     console = Console()
     state = State()
@@ -101,14 +101,13 @@ def handle_transition_to_local_runtime(service: Service) -> None:
     active_services = starting_services.union(started_services)
 
     # If the service is already running standalone, we can just update the runtime
-    if service.name in active_services:
-        state.update_service_runtime(service.name, ServiceRuntime.LOCAL)
+    if service_to_transition.name in active_services:
+        state.update_service_runtime(service_to_transition.name, ServiceRuntime.LOCAL)
         console.success(
-            f"{service.name} is now running in {ServiceRuntime.LOCAL.value} runtime"
+            f"{service_to_transition.name} is now running in {ServiceRuntime.LOCAL.value} runtime"
         )
         return
 
-    # TODO: Clean up naming of active_service vs service (can be confusing)
     for active_service_name in active_services:
         active_service = find_matching_service(active_service_name)
         starting_active_modes = set(
@@ -125,25 +124,23 @@ def handle_transition_to_local_runtime(service: Service) -> None:
         dependency_graph = construct_dependency_graph(
             active_service, list(active_modes)
         )
-        if service.name in [node.name for node in dependency_graph.graph]:
-            # TODO: We should bring down for every mode it is currently running in
-            service_dependency_config = active_service.config.dependencies.get(
-                service.name, None
+        if service_to_transition.name in [node.name for node in dependency_graph.graph]:
+            service_to_transition_dependency_config = (
+                active_service.config.dependencies.get(service_to_transition.name, None)
             )
             if (
-                service_dependency_config is None
-                or service_dependency_config.remote is None
+                service_to_transition_dependency_config is None
+                or service_to_transition_dependency_config.remote is None
             ):
                 raise ConfigError(
-                    f"{service.name} is not a remote dependency of {active_service_name}"
+                    f"{service_to_transition.name} is not a remote dependency of {active_service_name}"
                 )
-            service_mode = service_dependency_config.remote.mode
             bring_down_containerized_service(
-                service,
-                [service_mode],
+                service_to_transition,
+                [service_to_transition_dependency_config.remote.mode],
             )
             break
-    state.update_service_runtime(service.name, ServiceRuntime.LOCAL)
+    state.update_service_runtime(service_to_transition.name, ServiceRuntime.LOCAL)
 
 
 def handle_transition_to_containerized_runtime(service: Service) -> None:
