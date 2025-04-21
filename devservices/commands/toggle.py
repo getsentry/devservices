@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -8,6 +7,7 @@ from argparse import Namespace
 from sentry_sdk import capture_exception
 
 from devservices.commands.down import bring_down_service
+from devservices.commands.up import up
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -85,7 +85,10 @@ def toggle(args: Namespace) -> None:
             exit(1)
     elif desired_runtime == ServiceRuntime.CONTAINERIZED.value:
         handle_transition_to_containerized_runtime(service)
-    console.success(f"{service.name} is now running in {desired_runtime} runtime")
+
+    final_runtime = state.get_service_runtime(service.name)
+    if final_runtime.value == desired_runtime:
+        console.success(f"{service.name} is now running in {desired_runtime} runtime")
 
 
 def handle_transition_to_local_runtime(service: Service) -> None:
@@ -200,28 +203,22 @@ def restart_dependent_services(
             f"Restarting dependent services to ensure {service_name} is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
         ),
     ) as status:
-        try:
-            for dependent_service in dependent_services:
-                for mode in dependent_services[dependent_service]:
-                    status.info(f"Restarting {dependent_service} in mode {mode}")
-                    subprocess.run(
-                        [
-                            "devservices",
-                            "up",
-                            dependent_service,
-                            "--mode",
-                            mode,
-                        ],
-                        check=True,
-                        text=True,
-                        stdout=subprocess.PIPE,
+        for dependent_service in dependent_services:
+            for mode in dependent_services[dependent_service]:
+                status.info(f"Restarting {dependent_service} in mode {mode}")
+                args = Namespace(
+                    service_name=dependent_service,
+                    mode=mode,
+                    debug=False,
+                )
+                try:
+                    up(args)
+                except SystemExit:
+                    status.failure(
+                        f"Failed to restart {dependent_service} in mode {mode}"
                     )
-        except subprocess.CalledProcessError:
-            # TODO: Figure out how to handle this (should we send this to sentry?) Should probably throw an error that is handled by the caller
-            status.failure(
-                "Failed to restart services, please try starting them manually"
-            )
-            exit(1)
+                    exit(1)
+        status.success("Successfully restarted dependent services")
 
 
 def bring_down_containerized_service(

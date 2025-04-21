@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
@@ -706,19 +705,20 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
         )
 
 
-@mock.patch("devservices.commands.toggle.subprocess.run")
+@mock.patch("devservices.commands.toggle.up")
 def test_restart_dependent_services_single_dependent_service_single_mode(
-    mock_subprocess_run: mock.Mock,
+    mock_up: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     restart_dependent_services("example-service", {"dependent-service": ["default"]})
 
-    mock_subprocess_run.assert_called_once_with(
-        ["devservices", "up", "dependent-service", "--mode", "default"],
-        check=True,
-        text=True,
-        stdout=mock.ANY,
+    mock_up.assert_called_once_with(
+        Namespace(
+            service_name="dependent-service",
+            mode="default",
+            debug=False,
+        )
     )
 
     captured = capsys.readouterr()
@@ -730,9 +730,9 @@ def test_restart_dependent_services_single_dependent_service_single_mode(
     assert "Restarting dependent-service in mode default" in captured.out.strip()
 
 
-@mock.patch("devservices.commands.toggle.subprocess.run")
+@mock.patch("devservices.commands.toggle.up")
 def test_restart_dependent_services_single_dependent_service_multiple_modes(
-    mock_subprocess_run: mock.Mock,
+    mock_up: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
@@ -740,19 +740,21 @@ def test_restart_dependent_services_single_dependent_service_multiple_modes(
         "example-service", {"dependent-service": ["default", "other-mode"]}
     )
 
-    mock_subprocess_run.assert_has_calls(
+    mock_up.assert_has_calls(
         [
             mock.call(
-                ["devservices", "up", "dependent-service", "--mode", "default"],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="dependent-service",
+                    mode="default",
+                    debug=False,
+                )
             ),
             mock.call(
-                ["devservices", "up", "dependent-service", "--mode", "other-mode"],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="dependent-service",
+                    mode="other-mode",
+                    debug=False,
+                )
             ),
         ]
     )
@@ -767,9 +769,9 @@ def test_restart_dependent_services_single_dependent_service_multiple_modes(
     assert "Restarting dependent-service in mode other-mode" in captured.out.strip()
 
 
-@mock.patch("devservices.commands.toggle.subprocess.run")
+@mock.patch("devservices.commands.toggle.up")
 def test_restart_dependent_services_multiple_dependent_services_single_mode(
-    mock_subprocess_run: mock.Mock,
+    mock_up: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
@@ -778,19 +780,21 @@ def test_restart_dependent_services_multiple_dependent_services_single_mode(
         {"dependent-service": ["default"], "other-dependent-service": ["default"]},
     )
 
-    mock_subprocess_run.assert_has_calls(
+    mock_up.assert_has_calls(
         [
             mock.call(
-                ["devservices", "up", "dependent-service", "--mode", "default"],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="dependent-service",
+                    mode="default",
+                    debug=False,
+                )
             ),
             mock.call(
-                ["devservices", "up", "other-dependent-service", "--mode", "default"],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="other-dependent-service",
+                    mode="default",
+                    debug=False,
+                )
             ),
         ]
     )
@@ -805,9 +809,9 @@ def test_restart_dependent_services_multiple_dependent_services_single_mode(
     assert "Restarting other-dependent-service in mode default" in captured.out.strip()
 
 
-@mock.patch("devservices.commands.toggle.subprocess.run")
+@mock.patch("devservices.commands.toggle.up")
 def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
-    mock_subprocess_run: mock.Mock,
+    mock_up: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
@@ -819,37 +823,35 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
         },
     )
 
-    mock_subprocess_run.assert_has_calls(
+    mock_up.assert_has_calls(
         [
             mock.call(
-                ["devservices", "up", "dependent-service", "--mode", "default"],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="dependent-service",
+                    mode="default",
+                    debug=False,
+                )
             ),
             mock.call(
-                ["devservices", "up", "dependent-service", "--mode", "other-mode"],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="dependent-service",
+                    mode="other-mode",
+                    debug=False,
+                )
             ),
             mock.call(
-                ["devservices", "up", "other-dependent-service", "--mode", "default"],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="other-dependent-service",
+                    mode="default",
+                    debug=False,
+                )
             ),
             mock.call(
-                [
-                    "devservices",
-                    "up",
-                    "other-dependent-service",
-                    "--mode",
-                    "other-mode",
-                ],
-                check=True,
-                text=True,
-                stdout=mock.ANY,
+                Namespace(
+                    service_name="other-dependent-service",
+                    mode="other-mode",
+                    debug=False,
+                )
             ),
         ]
     )
@@ -868,16 +870,13 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
     )
 
 
-@mock.patch("devservices.commands.toggle.subprocess.run")
+@mock.patch("devservices.commands.toggle.up")
 def test_restart_dependent_services_failure(
-    mock_subprocess_run: mock.Mock,
+    mock_up: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    mock_subprocess_run.side_effect = subprocess.CalledProcessError(
-        returncode=1,
-        cmd=["devservices", "up", "dependent-service", "--mode", "default"],
-    )
+    mock_up.side_effect = SystemExit(1)
 
     with pytest.raises(SystemExit):
         restart_dependent_services(
@@ -886,10 +885,7 @@ def test_restart_dependent_services_failure(
 
     captured = capsys.readouterr()
 
-    assert (
-        "Failed to restart services, please try starting them manually"
-        in captured.out.strip()
-    )
+    assert "Failed to restart dependent-service in mode default" in captured.out.strip()
 
 
 @mock.patch("devservices.commands.toggle.install_and_verify_dependencies")
