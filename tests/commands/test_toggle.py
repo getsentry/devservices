@@ -22,6 +22,7 @@ from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
+from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -1299,6 +1300,103 @@ def test_bring_down_containerized_service_with_remote_dependency(
                 mock.ANY,
             ),
         ]
+    )
+
+
+@mock.patch("devservices.commands.toggle.install_and_verify_dependencies")
+@mock.patch("devservices.commands.toggle.get_non_shared_remote_dependencies")
+def test_bring_down_containerized_service_get_non_shared_remote_dependencies_error(
+    mock_get_non_shared_remote_dependencies: mock.Mock,
+    mock_install_and_verify_dependencies: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_install_and_verify_dependencies.return_value = set()
+    mock_get_non_shared_remote_dependencies.side_effect = InvalidDependencyConfigError(
+        repo_name="redis",
+        repo_link="fake-link",
+        branch="main",
+        stderr="stderr",
+    )
+
+    with pytest.raises(SystemExit):
+        bring_down_containerized_service(
+            Service(
+                name="example-service",
+                repo_path=str(tmp_path / "example-service"),
+                config=ServiceConfig(
+                    version=0.1,
+                    service_name="example-service",
+                    dependencies={
+                        "redis": Dependency(
+                            description="Redis",
+                            remote=RemoteConfig(
+                                repo_name="redis",
+                                repo_link="fake-link",
+                                branch="main",
+                                mode="default",
+                            ),
+                        ),
+                    },
+                    modes={"default": ["redis"]},
+                ),
+            ),
+            ["default"],
+        )
+
+    mock_install_and_verify_dependencies.assert_called_once_with(
+        Service(
+            name="example-service",
+            repo_path=str(tmp_path / "example-service"),
+            config=ServiceConfig(
+                version=0.1,
+                service_name="example-service",
+                dependencies={
+                    "redis": Dependency(
+                        description="Redis",
+                        remote=RemoteConfig(
+                            repo_name="redis",
+                            repo_link="fake-link",
+                            branch="main",
+                            mode="default",
+                        ),
+                    ),
+                },
+                modes={"default": ["redis"]},
+            ),
+        ),
+        modes=["default"],
+    )
+
+    mock_get_non_shared_remote_dependencies.assert_called_once_with(
+        Service(
+            name="example-service",
+            repo_path=str(tmp_path / "example-service"),
+            config=ServiceConfig(
+                version=0.1,
+                service_name="example-service",
+                dependencies={
+                    "redis": Dependency(
+                        description="Redis",
+                        remote=RemoteConfig(
+                            repo_name="redis",
+                            repo_link="fake-link",
+                            branch="main",
+                            mode="default",
+                        ),
+                    ),
+                },
+                modes={"default": ["redis"]},
+            ),
+        ),
+        set(),
+    )
+
+    captured = capsys.readouterr()
+
+    assert (
+        "Invalid config for dependency: redis (fake-link) on main. If this error persists, try running `devservices purge`"
+        in captured.out.strip()
     )
 
 
