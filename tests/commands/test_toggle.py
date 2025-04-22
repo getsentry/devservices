@@ -21,6 +21,7 @@ from devservices.exceptions import CannotToggleNonRemoteServiceError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import DependencyError
+from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -1234,3 +1235,61 @@ def test_bring_down_containerized_service_with_remote_dependency(
             ),
         ]
     )
+
+
+@mock.patch("devservices.commands.toggle.bring_down_service")
+@mock.patch("devservices.commands.toggle.install_and_verify_dependencies")
+@mock.patch("devservices.commands.toggle.get_non_shared_remote_dependencies")
+def test_bring_down_containerized_service_docker_compose_error(
+    mock_get_non_shared_remote_dependencies: mock.Mock,
+    mock_install_and_verify_dependencies: mock.Mock,
+    mock_bring_down_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        mock_install_and_verify_dependencies.return_value = set()
+        mock_get_non_shared_remote_dependencies.return_value = set()
+        mock_bring_down_service.side_effect = DockerComposeError(
+            "docker-compose", 1, "stdout", "stderr"
+        )
+
+        example_service_path = tmp_path / "example-service"
+        example_service_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "clickhouse": {
+                        "description": "Clickhouse",
+                    },
+                },
+                "modes": {"default": ["clickhouse"]},
+            },
+        }
+        create_config_file(example_service_path, example_service_config)
+
+        with pytest.raises(SystemExit):
+            bring_down_containerized_service(
+                Service(
+                    name="example-service",
+                    repo_path=str(example_service_path),
+                    config=ServiceConfig(
+                        version=0.1,
+                        service_name="example-service",
+                        dependencies={
+                            "clickhouse": Dependency(
+                                description="Clickhouse", remote=None
+                            ),
+                        },
+                        modes={"default": ["clickhouse"]},
+                    ),
+                ),
+                ["default"],
+            )
+
+        captured = capsys.readouterr()
+
+        assert "Failed to stop example-service: stderr" in captured.out.strip()
