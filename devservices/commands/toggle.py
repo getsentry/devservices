@@ -40,9 +40,9 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.add_argument(
         "runtime",
         help="Runtime to use for the service",
-        choices=[ServiceRuntime.CONTAINERIZED.value, ServiceRuntime.LOCAL.value],
+        choices=[ServiceRuntime.CONTAINERIZED, ServiceRuntime.LOCAL],
         nargs="?",
-        default=ServiceRuntime.CONTAINERIZED.value,
+        default=None,
     )
     parser.set_defaults(func=toggle)
 
@@ -70,23 +70,25 @@ def toggle(args: Namespace) -> None:
     desired_runtime = args.runtime
     state = State()
     current_runtime = state.get_service_runtime(service.name)
-    if current_runtime.value == desired_runtime:
+    if desired_runtime is None:
+        desired_runtime = get_opposite_runtime(current_runtime)
+    if current_runtime == desired_runtime:
         console.warning(
             f"{service.name} is already running in {desired_runtime} runtime"
         )
         return
-    if desired_runtime == ServiceRuntime.LOCAL.value:
+    if desired_runtime == ServiceRuntime.LOCAL:
         try:
             handle_transition_to_local_runtime(service)
         except CannotToggleNonRemoteServiceError as e:
             capture_exception(e)
             console.failure(f"{str(e)}")
             exit(1)
-    elif desired_runtime == ServiceRuntime.CONTAINERIZED.value:
+    elif desired_runtime == ServiceRuntime.CONTAINERIZED:
         handle_transition_to_containerized_runtime(service)
 
     final_runtime = state.get_service_runtime(service.name)
-    if final_runtime.value == desired_runtime:
+    if final_runtime == desired_runtime:
         console.success(f"{service.name} is now running in {desired_runtime} runtime")
 
 
@@ -103,7 +105,7 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
     if service_to_transition.name in active_services:
         state.update_service_runtime(service_to_transition.name, ServiceRuntime.LOCAL)
         console.success(
-            f"{service_to_transition.name} is now running in {ServiceRuntime.LOCAL.value} runtime"
+            f"{service_to_transition.name} is now running in {ServiceRuntime.LOCAL} runtime"
         )
         return
 
@@ -194,7 +196,7 @@ def restart_dependent_services(
     console = Console()
     with Status(
         on_start=lambda: console.warning(
-            f"Restarting dependent services to ensure {service_name} is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
+            f"Restarting dependent services to ensure {service_name} is running in a {ServiceRuntime.CONTAINERIZED} runtime"
         ),
     ) as status:
         for dependent_service in dependent_services:
@@ -256,3 +258,10 @@ def bring_down_containerized_service(
             capture_exception(dce, level="info")
             status.failure(f"Failed to stop {service.name}: {dce.stderr}")
             exit(1)
+
+
+def get_opposite_runtime(current_runtime: ServiceRuntime) -> ServiceRuntime:
+    if current_runtime == ServiceRuntime.CONTAINERIZED:
+        return ServiceRuntime.LOCAL
+    else:
+        return ServiceRuntime.CONTAINERIZED

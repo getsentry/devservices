@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from devservices.commands.toggle import bring_down_containerized_service
+from devservices.commands.toggle import get_opposite_runtime
 from devservices.commands.toggle import handle_transition_to_containerized_runtime
 from devservices.commands.toggle import handle_transition_to_local_runtime
 from devservices.commands.toggle import restart_dependent_services
@@ -44,11 +45,7 @@ def test_toggle_config_not_found(
 ) -> None:
     mock_find_matching_service.side_effect = ConfigNotFoundError("Config not found")
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
-        toggle(
-            Namespace(
-                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
-            )
-        )
+        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
 
     mock_find_matching_service.assert_called_once_with(None)
     captured = capsys.readouterr()
@@ -66,11 +63,7 @@ def test_toggle_config_error(
         pytest.raises(SystemExit),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        toggle(
-            Namespace(
-                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
-            )
-        )
+        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
 
     mock_find_matching_service.assert_called_once_with(None)
     captured = capsys.readouterr()
@@ -85,11 +78,7 @@ def test_toggle_service_not_found(
 ) -> None:
     mock_find_matching_service.side_effect = ServiceNotFoundError("Service not found")
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
-        toggle(
-            Namespace(
-                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
-            )
-        )
+        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
 
     mock_find_matching_service.assert_called_once_with(None)
     captured = capsys.readouterr()
@@ -129,18 +118,14 @@ def test_toggle_nothing_running(
 
         state = State()
 
-        toggle(
-            Namespace(
-                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
-            )
-        )
+        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
 
         assert state.get_service_runtime("example-service") == ServiceRuntime.LOCAL
 
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is now running in {ServiceRuntime.LOCAL.value} runtime"
+            f"example-service is now running in {ServiceRuntime.LOCAL} runtime"
             in captured.out.strip()
         )
 
@@ -148,7 +133,7 @@ def test_toggle_nothing_running(
             Namespace(
                 service_name=None,
                 debug=False,
-                runtime=ServiceRuntime.CONTAINERIZED.value,
+                runtime=ServiceRuntime.CONTAINERIZED,
             )
         )
 
@@ -159,7 +144,7 @@ def test_toggle_nothing_running(
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is now running in {ServiceRuntime.CONTAINERIZED.value} runtime"
+            f"example-service is now running in {ServiceRuntime.CONTAINERIZED} runtime"
             in captured.out.strip()
         )
 
@@ -201,7 +186,7 @@ def test_toggle_nothing_running_same_runtime(
             Namespace(
                 service_name=None,
                 debug=False,
-                runtime=ServiceRuntime.CONTAINERIZED.value,
+                runtime=ServiceRuntime.CONTAINERIZED,
             )
         )
 
@@ -212,7 +197,7 @@ def test_toggle_nothing_running_same_runtime(
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is already running in {ServiceRuntime.CONTAINERIZED.value} runtime"
+            f"example-service is already running in {ServiceRuntime.CONTAINERIZED} runtime"
             in captured.out.strip()
         )
 
@@ -353,11 +338,7 @@ def test_toggle_dependent_service_running(
             "other-service", "default", StateTables.STARTED_SERVICES
         )
 
-        toggle(
-            Namespace(
-                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
-            )
-        )
+        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
 
         assert state.get_service_runtime("example-service") == ServiceRuntime.LOCAL
 
@@ -381,6 +362,58 @@ def test_toggle_dependent_service_running(
             ),
             mock.ANY,
             mock.ANY,
+        )
+
+
+@mock.patch("devservices.commands.toggle.find_matching_service")
+@mock.patch("devservices.commands.toggle.handle_transition_to_local_runtime")
+def test_toggle_to_local_runtime_no_runtime_specified(
+    mock_handle_transition_to_local_runtime: mock.Mock,
+    mock_find_matching_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        mock_find_matching_service.return_value = Service(
+            name="example-service",
+            repo_path=str(tmp_path / "example-service"),
+            config=ServiceConfig(
+                version=0.1,
+                service_name="example-service",
+                dependencies={
+                    "clickhouse": Dependency(
+                        description="Clickhouse",
+                        remote=None,
+                    ),
+                },
+                modes={"default": ["clickhouse"]},
+            ),
+        )
+
+        # Even though containerized is the default, we want to be safe and set it explicitly
+        state = State()
+        state.update_service_runtime("example-service", ServiceRuntime.CONTAINERIZED)
+
+        toggle(Namespace(service_name="example-service", debug=False, runtime=None))
+
+        mock_handle_transition_to_local_runtime.assert_called_once_with(
+            Service(
+                name="example-service",
+                repo_path=str(tmp_path / "example-service"),
+                config=ServiceConfig(
+                    version=0.1,
+                    service_name="example-service",
+                    dependencies={
+                        "clickhouse": Dependency(
+                            description="Clickhouse",
+                            remote=None,
+                        ),
+                    },
+                    modes={"default": ["clickhouse"]},
+                ),
+            )
         )
 
 
@@ -419,7 +452,7 @@ def test_toggle_cannot_toggle_non_remote_service(
                 Namespace(
                     service_name="example-service",
                     debug=False,
-                    runtime=ServiceRuntime.LOCAL.value,
+                    runtime=ServiceRuntime.LOCAL,
                 )
             )
 
@@ -485,7 +518,7 @@ def test_handle_transition_to_local_runtime_currently_running_standalone(
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is now running in {ServiceRuntime.LOCAL.value} runtime"
+            f"example-service is now running in {ServiceRuntime.LOCAL} runtime"
             in captured.out.strip()
         )
 
@@ -887,7 +920,7 @@ def test_restart_dependent_services_single_dependent_service_single_mode(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
@@ -925,7 +958,7 @@ def test_restart_dependent_services_single_dependent_service_multiple_modes(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
@@ -965,7 +998,7 @@ def test_restart_dependent_services_multiple_dependent_services_single_mode(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
@@ -1022,7 +1055,7 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
@@ -1456,3 +1489,8 @@ def test_bring_down_containerized_service_docker_compose_error(
         captured = capsys.readouterr()
 
         assert "Failed to stop example-service: stderr" in captured.out.strip()
+
+
+def test_get_opposite_runtime() -> None:
+    assert get_opposite_runtime(ServiceRuntime.CONTAINERIZED) == ServiceRuntime.LOCAL
+    assert get_opposite_runtime(ServiceRuntime.LOCAL) == ServiceRuntime.CONTAINERIZED
