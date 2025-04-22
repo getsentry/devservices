@@ -383,6 +383,71 @@ def test_toggle_dependent_service_running(
         )
 
 
+@mock.patch("devservices.commands.toggle.find_matching_service")
+@mock.patch("devservices.commands.toggle.handle_transition_to_local_runtime")
+def test_toggle_cannot_toggle_non_remote_service(
+    mock_handle_transition_to_local_runtime: mock.Mock,
+    mock_find_matching_service: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        mock_find_matching_service.return_value = Service(
+            name="example-service",
+            repo_path=str(tmp_path / "example-service"),
+            config=ServiceConfig(
+                version=0.1,
+                service_name="example-service",
+                dependencies={
+                    "clickhouse": Dependency(
+                        description="Clickhouse",
+                        remote=None,
+                    ),
+                },
+                modes={"default": ["clickhouse"]},
+            ),
+        )
+        mock_handle_transition_to_local_runtime.side_effect = (
+            CannotToggleNonRemoteServiceError("example-service")
+        )
+
+        with pytest.raises(SystemExit):
+            toggle(
+                Namespace(
+                    service_name="example-service",
+                    debug=False,
+                    runtime=ServiceRuntime.LOCAL.value,
+                )
+            )
+
+        mock_handle_transition_to_local_runtime.assert_called_once_with(
+            Service(
+                name="example-service",
+                repo_path=str(tmp_path / "example-service"),
+                config=ServiceConfig(
+                    version=0.1,
+                    service_name="example-service",
+                    dependencies={
+                        "clickhouse": Dependency(
+                            description="Clickhouse",
+                            remote=None,
+                        ),
+                    },
+                    modes={"default": ["clickhouse"]},
+                ),
+            )
+        )
+
+        captured = capsys.readouterr()
+
+        assert (
+            "Cannot toggle example-service because it is not a remote service. This is likely because of a naming conflict."
+            in captured.out.strip()
+        )
+
+
 def test_handle_transition_to_local_runtime_currently_running_standalone(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
