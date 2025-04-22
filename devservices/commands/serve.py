@@ -10,7 +10,9 @@ from argparse import Namespace
 from sentry_sdk import capture_exception
 
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import PROCESSES_CONF_FILE_NAME
 from devservices.exceptions import ConfigNotFoundError
+from devservices.exceptions import SupervisorConfigError
 from devservices.utils.console import Console
 from devservices.utils.services import find_matching_service
 from devservices.utils.supervisor import SupervisorManager
@@ -34,16 +36,28 @@ def serve(args: Namespace) -> None:
     try:
         service = find_matching_service()
     except ConfigNotFoundError as e:
-        capture_exception(e, level="info")
         console.failure(
-            f"{str(e)}. Please specify a service (i.e. `devservices up sentry`) or run the command from a directory with a devservices configuration."
+            f"{str(e)}. Please run the command from a directory with a valid devservices configuration."
         )
-        exit(1)
+        return
 
+    processes_config_path = os.path.join(
+        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROCESSES_CONF_FILE_NAME}"
+    )
+    if not os.path.exists(processes_config_path):
+        console.failure(f"No processes.conf file found in {processes_config_path}.")
+        return
     manager = SupervisorManager(
-        os.path.join(service.repo_path, f"{DEVSERVICES_DIR_NAME}/processes.conf"),
+        processes_config_path,
         service_name=service.name,
     )
-    devserver_command = manager.get_program_command("devserver")
+
+    try:
+        devserver_command = manager.get_program_command("devserver")
+    except SupervisorConfigError as e:
+        capture_exception(e, level="info")
+        console.failure(f"Error when getting devserver command: {str(e)}")
+        return
+
     argv = shlex.split(devserver_command) + args.extra
     pty.spawn(argv)

@@ -138,7 +138,6 @@ class SupervisorManager:
     def get_program_command(self, program_name: str) -> str:
         opts = ServerOptions()
         opts.configfile = self.config_file_path
-        # this reads & validates the file, populating opts.configroot
         opts.process_config()
         for group in opts.process_group_configs:
             for proc in group.process_configs:
