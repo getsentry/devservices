@@ -8,6 +8,7 @@ from sentry_sdk import capture_exception
 
 from devservices.commands.down import bring_down_service
 from devservices.commands.up import up
+from devservices.exceptions import CannotToggleNonRemoteServiceError
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -77,11 +78,9 @@ def toggle(args: Namespace) -> None:
     if desired_runtime == ServiceRuntime.LOCAL.value:
         try:
             handle_transition_to_local_runtime(service)
-        except ConfigError as e:
+        except CannotToggleNonRemoteServiceError as e:
             capture_exception(e)
-            console.failure(
-                f"{str(e)}. Please check the configuration for {service.name} and try again."
-            )
+            console.failure(f"{str(e)}")
             exit(1)
     elif desired_runtime == ServiceRuntime.CONTAINERIZED.value:
         handle_transition_to_containerized_runtime(service)
@@ -132,9 +131,7 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
                 service_to_transition_dependency_config is None
                 or service_to_transition_dependency_config.remote is None
             ):
-                raise ConfigError(
-                    f"{service_to_transition.name} is not a remote dependency of {active_service_name}"
-                )
+                raise CannotToggleNonRemoteServiceError(service_to_transition.name)
             bring_down_containerized_service(
                 service_to_transition,
                 [service_to_transition_dependency_config.remote.mode],

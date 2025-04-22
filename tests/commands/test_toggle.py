@@ -17,6 +17,7 @@ from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.exceptions import CannotToggleNonRemoteServiceError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import DependencyError
@@ -420,6 +421,101 @@ def test_handle_transition_to_local_runtime_currently_running_standalone(
             f"example-service is now running in {ServiceRuntime.LOCAL.value} runtime"
             in captured.out.strip()
         )
+
+
+def test_handle_transition_to_local_runtime_naming_conflict(
+    tmp_path: Path,
+) -> None:
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(tmp_path / "code"),
+        ),
+    ):
+        other_repo_path = create_mock_git_repo("blank_repo", tmp_path / "other")
+        other_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "other-service",
+                "dependencies": {
+                    "example-service": {"description": "Example service"},
+                },
+                "modes": {"default": ["example-service"]},
+            },
+            "services": {
+                "example-service": {"image": "example-service:latest"},
+            },
+        }
+        create_config_file(other_repo_path, other_config)
+        run_git_command(["add", "."], cwd=other_repo_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=other_repo_path)
+
+        other_service_path = tmp_path / "code" / "other"
+        create_config_file(other_service_path, other_config)
+
+        example_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["clickhouse"]},
+            },
+            "services": {
+                "clickhouse": {"image": "clickhouse:latest"},
+            },
+        }
+
+        example_service_path = tmp_path / "code" / "example-service"
+        create_config_file(example_service_path, example_config)
+
+        install_and_verify_dependencies(
+            Service(
+                name="example-service",
+                repo_path=str(example_service_path),
+                config=ServiceConfig(
+                    version=0.1,
+                    service_name="example-service",
+                    dependencies={
+                        "clickhouse": Dependency(
+                            description="Clickhouse",
+                            remote=None,
+                        ),
+                    },
+                    modes={"default": ["clickhouse"]},
+                ),
+            )
+        )
+
+        state = State()
+        state.update_service_entry(
+            "other-service", "default", StateTables.STARTED_SERVICES
+        )
+
+        with pytest.raises(CannotToggleNonRemoteServiceError):
+            handle_transition_to_local_runtime(
+                Service(
+                    name="example-service",
+                    repo_path=str(example_service_path),
+                    config=ServiceConfig(
+                        version=0.1,
+                        service_name="example-service",
+                        dependencies={
+                            "clickhouse": Dependency(
+                                description="Clickhouse",
+                                remote=None,
+                            ),
+                        },
+                        modes={"default": ["clickhouse"]},
+                    ),
+                )
+            )
 
 
 @mock.patch("devservices.commands.toggle.restart_dependent_services")
