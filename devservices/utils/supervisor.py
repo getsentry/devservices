@@ -6,6 +6,7 @@ import os
 import socket
 import subprocess
 import xmlrpc.client
+from enum import IntEnum
 
 from devservices.constants import DEVSERVICES_SUPERVISOR_CONFIG_DIR
 from devservices.exceptions import SupervisorConfigError
@@ -16,7 +17,22 @@ from devservices.utils.console import Console
 
 # Supervisor process state 20 is RUNNING
 # https://supervisord.org/subprocess.html#process-states
-PROGRAM_RUNNING_STATE = 20
+
+
+class SupervisorProcessState(IntEnum):
+    """Supervisor process states.
+
+    https://supervisord.org/subprocess.html#process-states
+    """
+
+    STOPPED = 0
+    STARTING = 10
+    RUNNING = 20
+    BACKOFF = 30
+    STOPPING = 40
+    EXITED = 100
+    FATAL = 200
+    UNKNOWN = 1000
 
 
 class UnixSocketHTTPConnection(http.client.HTTPConnection):
@@ -106,7 +122,7 @@ class SupervisorManager:
                 f"Failed to connect to supervisor XML-RPC server: {e.errmsg}"
             )
 
-    def _check_program_running(self, program_name: str) -> bool:
+    def _is_program_running(self, program_name: str) -> bool:
         try:
             client = self._get_rpc_client()
             process_info = client.supervisor.getProcessInfo(program_name)
@@ -116,7 +132,7 @@ class SupervisorManager:
             state = process_info.get("state")
             if not isinstance(state, int):
                 return False
-            return state == PROGRAM_RUNNING_STATE
+            return state == SupervisorProcessState.RUNNING
         except xmlrpc.client.Fault:
             # If we can't get the process info, assume it's not running
             return False
@@ -138,7 +154,7 @@ class SupervisorManager:
             raise SupervisorError(f"Failed to stop supervisor: {e.faultString}")
 
     def start_program(self, program_name: str) -> None:
-        if self._check_program_running(program_name):
+        if self._is_program_running(program_name):
             return
         try:
             self._get_rpc_client().supervisor.startProcess(program_name)
@@ -148,7 +164,7 @@ class SupervisorManager:
             )
 
     def stop_program(self, program_name: str) -> None:
-        if not self._check_program_running(program_name):
+        if not self._is_program_running(program_name):
             return
         try:
             self._get_rpc_client().supervisor.stopProcess(program_name)
@@ -158,9 +174,9 @@ class SupervisorManager:
             )
 
     def tail_program_logs(self, program_name: str) -> None:
-        if not self._check_program_running(program_name):
+        if not self._is_program_running(program_name):
             console = Console()
-            console.failure(f"Process {program_name} is not running")
+            console.failure(f"Program {program_name} is not running")
             return
 
         try:
