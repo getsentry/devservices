@@ -1,3 +1,17 @@
+## 1.1.0
+
+### Various fixes & improvements
+
+- feat(toggle): add toggle command (#256) by @IanWoodard
+- feat(supervisor): Generate supervisor config file to local dir (#252) by @hubertdeng123
+- fix(up): Only show skipped message once (#254) by @IanWoodard
+- fix(status): Fixing status indentation (#253) by @IanWoodard
+- ref(status): Revamp status command (#251) by @IanWoodard
+- feat(supervisor): Add initial supervisor logic (#250) by @hubertdeng123
+- ref(up): Add info about local runtime in up (#249) by @IanWoodard
+- fix healthcheck bug (#247) by @hubertdeng123
+- ref(dependency-graph): Adding more context to the dependency graph (#248) by @IanWoodard
+
 ## 1.0.18
 
 ### Various fixes & improvements
