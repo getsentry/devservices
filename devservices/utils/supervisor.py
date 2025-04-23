@@ -15,9 +15,6 @@ from devservices.exceptions import SupervisorError
 from devservices.exceptions import SupervisorProcessError
 from devservices.utils.console import Console
 
-# Supervisor process state 20 is RUNNING
-# https://supervisord.org/subprocess.html#process-states
-
 
 class SupervisorProcessState(IntEnum):
     """Supervisor process states.
