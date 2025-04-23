@@ -3,7 +3,6 @@ from __future__ import annotations
 import socket
 import subprocess
 import xmlrpc.client
-import xmlrpc.server
 from pathlib import Path
 from unittest import mock
 
