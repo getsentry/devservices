@@ -14,6 +14,7 @@ from devservices.exceptions import SupervisorConnectionError
 from devservices.exceptions import SupervisorError
 from devservices.exceptions import SupervisorProcessError
 from devservices.utils.supervisor import SupervisorManager
+from devservices.utils.supervisor import SupervisorProcessState
 from devservices.utils.supervisor import UnixSocketHTTPConnection
 from devservices.utils.supervisor import UnixSocketTransport
 
@@ -112,6 +113,50 @@ def test_get_rpc_client_failure(
     assert transport_arg.socket_path == supervisor_manager.socket_path
 
 
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_is_program_running_success(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    assert supervisor_manager._is_program_running("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_is_program_running_program_not_running(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.STOPPED
+    }
+    assert not supervisor_manager._is_program_running("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_is_program_running_typing_error(
+    mock_rpc_client: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = 1
+    assert not supervisor_manager._is_program_running("test_program")
+    mock_rpc_client.return_value.supervisor.getProcessInfo.side_effect = {
+        "state": [SupervisorProcessState.STOPPED]
+    }
+    assert not supervisor_manager._is_program_running("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_is_program_running_failure(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.side_effect = (
+        xmlrpc.client.Fault(1, "Error")
+    )
+    assert not supervisor_manager._is_program_running("test_program")
+
+
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 def test_start_supervisor_daemon_success(
     mock_subprocess_run: mock.MagicMock, supervisor_manager: SupervisorManager
@@ -163,6 +208,9 @@ def test_stop_supervisor_daemon_failure(
 def test_start_program_success(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.STOPPED
+    }
     supervisor_manager.start_program("test_program")
     supervisor_manager._get_rpc_client().supervisor.startProcess.assert_called_once_with(
         "test_program"
@@ -173,6 +221,9 @@ def test_start_program_success(
 def test_start_program_failure(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.STOPPED
+    }
     mock_rpc_client.return_value.supervisor.startProcess.side_effect = (
         xmlrpc.client.Fault(1, "Error")
     )
@@ -181,9 +232,23 @@ def test_start_program_failure(
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_start_program_already_running(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    supervisor_manager.start_program("test_program")
+    mock_rpc_client.supervisor.startProcess.assert_not_called()
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
 def test_stop_program_success(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
     supervisor_manager.stop_program("test_program")
     supervisor_manager._get_rpc_client().supervisor.stopProcess.assert_called_once_with(
         "test_program"
@@ -194,11 +259,25 @@ def test_stop_program_success(
 def test_stop_program_failure(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
     mock_rpc_client.return_value.supervisor.stopProcess.side_effect = (
         xmlrpc.client.Fault(1, "Error")
     )
     with pytest.raises(SupervisorProcessError):
         supervisor_manager.stop_program("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_stop_program_not_running(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.STOPPED
+    }
+    supervisor_manager.stop_program("test_program")
+    mock_rpc_client.supervisor.stopProcess.assert_not_called()
 
 
 def test_extend_config_file(
@@ -227,3 +306,83 @@ supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 """
         )
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def tail_program_logs_success(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    supervisor_manager.tail_program_logs("test_program")
+    mock_subprocess_run.assert_called_once_with(
+        [
+            "supervisorctl",
+            "-c",
+            supervisor_manager.config_file_path,
+            "fg",
+            "test_program",
+        ],
+        check=True,
+    )
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_tail_program_logs_not_running(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.STOPPED
+    }
+    supervisor_manager.tail_program_logs("test_program")
+    captured = capsys.readouterr()
+    assert "Program test_program is not running" in captured.out
+    mock_subprocess_run.assert_not_called()
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_tail_program_logs_failure(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    mock_subprocess_run.side_effect = subprocess.CalledProcessError(1, "supervisorctl")
+    with pytest.raises(SupervisorError, match="Failed to tail logs for test_program"):
+        supervisor_manager.tail_program_logs("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_tail_program_logs_keyboard_interrupt(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    mock_subprocess_run.side_effect = KeyboardInterrupt()
+    supervisor_manager.tail_program_logs("test_program")
+    mock_subprocess_run.assert_called_once_with(
+        [
+            "supervisorctl",
+            "-c",
+            supervisor_manager.config_file_path,
+            "tail",
+            "-f",
+            "test_program",
+        ],
+        check=True,
+    )
