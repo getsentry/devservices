@@ -22,6 +22,7 @@ NOTE: service-name is an optional parameter. If not provided, devservices will a
 - `devservices list-dependencies <service-name>`: List all dependencies for a service and whether they are enabled/disabled.
 - `devservices update` Update devservices to the latest version.
 - `devservices purge`: Purge the local devservices cache.
+- `devservices toggle <service-name>`: Toggle the runtime for a service between containerized and local.
 
 ## Installation
 
@@ -30,7 +31,7 @@ NOTE: service-name is an optional parameter. If not provided, devservices will a
 The recommended way to install devservices is through a virtualenv in the requirements.txt. Once that is installed and a devservices config file is added, you should be able to run `devservices up` to begin local development.
 
 ```
-devservices==1.0.18
+devservices==1.1.0
 ```
 
 ### 2. Add devservices config files

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 import subprocess
 import xmlrpc.client
 from pathlib import Path
@@ -14,7 +15,46 @@ from devservices.exceptions import SupervisorError
 from devservices.exceptions import SupervisorProcessError
 from devservices.utils.supervisor import SupervisorManager
 from devservices.utils.supervisor import SupervisorProcessState
+from devservices.utils.supervisor import UnixSocketHTTPConnection
 from devservices.utils.supervisor import UnixSocketTransport
+
+
+@mock.patch("socket.socket")
+def test_unix_socket_http_connection_connect(
+    mock_socket: mock.MagicMock, tmp_path: Path
+) -> None:
+    socket_path = str(tmp_path / "test.sock")
+    mock_sock = mock_socket.return_value
+
+    conn = UnixSocketHTTPConnection(socket_path)
+    conn.connect()
+
+    mock_socket.assert_called_once_with(socket.AF_UNIX, socket.SOCK_STREAM)
+    mock_sock.connect.assert_called_once_with(socket_path)
+    assert conn.sock == mock_sock
+
+
+@mock.patch("socket.socket")
+def test_unix_socket_transport_make_connection(
+    mock_socket: mock.MagicMock, tmp_path: Path
+) -> None:
+    """
+    Test that the Unix socket transport correctly attempts to connect to the socket.
+    """
+    socket_path = str(tmp_path / "test.sock")
+    mock_sock = mock_socket.return_value
+
+    transport = UnixSocketTransport(socket_path)
+
+    connection = transport.make_connection("localhost")
+
+    # Connect the socket - this happens when we make an RPC call
+    connection.connect()
+
+    # Verify socket creation with correct family and type
+    mock_socket.assert_called_with(socket.AF_UNIX, socket.SOCK_STREAM)
+    # Verify connection to the right path
+    mock_sock.connect.assert_called_with(socket_path)
 
 
 @pytest.fixture
