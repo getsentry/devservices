@@ -24,6 +24,8 @@ from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
+from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker import check_all_containers_healthy
@@ -33,6 +35,7 @@ from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 
@@ -63,7 +66,7 @@ def up(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except ConfigNotFoundError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(
             f"{str(e)}. Please specify a service (i.e. `devservices up sentry`) or run the command from a directory with a devservices configuration."
         )
@@ -85,6 +88,20 @@ def up(args: Namespace) -> None:
         lambda: console.warning(f"Starting '{service.name}' in mode: '{mode}'"),
         lambda: console.success(f"{service.name} started"),
     ) as status:
+        services_with_local_runtime = state.get_services_by_runtime(
+            ServiceRuntime.LOCAL
+        )
+        skipped_services = set()
+        for service_with_local_runtime in services_with_local_runtime:
+            if (
+                mode in modes
+                and service_with_local_runtime != service.name
+                and service_with_local_runtime in modes[mode]
+            ):
+                skipped_services.add(service_with_local_runtime)
+                status.warning(
+                    f"Skipping '{service_with_local_runtime}' as it is set to run locally"
+                )
         try:
             status.info("Retrieving dependencies")
             remote_dependencies = install_and_verify_dependencies(
@@ -106,11 +123,30 @@ def up(args: Namespace) -> None:
             pass
         # Add the service to the starting services table
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
+        mode_dependencies = modes[mode]
+        for service_with_local_runtime in services_with_local_runtime:
+            if (
+                service_with_local_runtime
+                in [dep.service_name for dep in remote_dependencies]
+                and service_with_local_runtime not in skipped_services
+            ):
+                skipped_services.add(service_with_local_runtime)
+                status.warning(
+                    f"Skipping '{service_with_local_runtime}' as it is set to run locally"
+                )
+        # We want to ignore any dependencies that are set to run locally
+        mode_dependencies = [
+            dep for dep in mode_dependencies if dep not in services_with_local_runtime
+        ]
+        remote_dependencies = {
+            dep
+            for dep in remote_dependencies
+            if dep.service_name not in services_with_local_runtime
+        }
         try:
-            mode_dependencies = modes[mode]
             _up(service, [mode], remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
-            capture_exception(dce)
+            capture_exception(dce, level="info")
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
     # TODO: We should factor in healthchecks here before marking service as running
@@ -118,12 +154,20 @@ def up(args: Namespace) -> None:
     state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES)
 
 
+def _pull_dependency_images(
+    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
+) -> None:
+    run_cmd(cmd.full_command, current_env)
+    for dependency in cmd.services:
+        status.info(f"Pulled image for {dependency}")
+
+
 def _bring_up_dependency(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
-) -> subprocess.CompletedProcess[str]:
+) -> None:
     for dependency in cmd.services:
         status.info(f"Starting {dependency}")
-    return run_cmd(cmd.full_command, current_env)
+    run_cmd(cmd.full_command, current_env)
 
 
 def _up(
@@ -148,31 +192,61 @@ def _up(
     dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
-        remote_dependencies, key=lambda dep: starting_order.index(dep.service_name)
+        remote_dependencies,
+        key=lambda dep: starting_order.index(
+            DependencyNode(
+                name=dep.service_name, dependency_type=DependencyType.SERVICE
+            )
+        ),
     )
-    docker_compose_commands = get_docker_compose_commands_to_run(
+    # Pull all images in parallel
+    status.info("Pulling images")
+    pull_commands = get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=sorted_remote_dependencies,
+        current_env=current_env,
+        command="pull",
+        options=[],
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+
+    with concurrent.futures.ThreadPoolExecutor() as pull_dependency_executor:
+        futures = [
+            pull_dependency_executor.submit(
+                _pull_dependency_images, cmd, current_env, status
+            )
+            for cmd in pull_commands
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            _ = future.result()
+
+    # Bring up all necessary containers
+    up_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=sorted_remote_dependencies,
         current_env=current_env,
         command="up",
-        options=["-d", "--pull", "always"],
+        options=["-d"],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
 
     containers_to_check = []
-    with concurrent.futures.ThreadPoolExecutor() as dependency_executor:
+    with concurrent.futures.ThreadPoolExecutor() as up_dependency_executor:
         futures = [
-            dependency_executor.submit(_bring_up_dependency, cmd, current_env, status)
-            for cmd in docker_compose_commands
+            up_dependency_executor.submit(
+                _bring_up_dependency, cmd, current_env, status
+            )
+            for cmd in up_commands
         ]
         for future in concurrent.futures.as_completed(futures):
             _ = future.result()
 
-    for cmd in docker_compose_commands:
+    for cmd in up_commands:
         try:
             container_names = get_container_names_for_project(
-                cmd.project_name, cmd.config_path
+                cmd.project_name, cmd.config_path, cmd.services
             )
             containers_to_check.extend(container_names)
         except DockerComposeError as dce:

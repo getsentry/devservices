@@ -1,3 +1,76 @@
+## 1.1.0
+
+### Various fixes & improvements
+
+- feat(toggle): add toggle command (#256) by @IanWoodard
+- feat(supervisor): Generate supervisor config file to local dir (#252) by @hubertdeng123
+- fix(up): Only show skipped message once (#254) by @IanWoodard
+- fix(status): Fixing status indentation (#253) by @IanWoodard
+- ref(status): Revamp status command (#251) by @IanWoodard
+- feat(supervisor): Add initial supervisor logic (#250) by @hubertdeng123
+- ref(up): Add info about local runtime in up (#249) by @IanWoodard
+- fix healthcheck bug (#247) by @hubertdeng123
+- ref(dependency-graph): Adding more context to the dependency graph (#248) by @IanWoodard
+
+## 1.0.18
+
+### Various fixes & improvements
+
+- feat(up): Add text verbosity for healthchecks (#245) by @hubertdeng123
+- ref(down): Updating down to work with local runtime (#243) by @IanWoodard
+- feat(up): Add better UX when pulling images (#242) by @hubertdeng123
+- fix(tests): Fixing test variable naming (#244) by @IanWoodard
+- feat(runtime): Updating up to handle local runtime (#240) by @IanWoodard
+- feat(ci): Add tags for ci runs (#241) by @hubertdeng123
+- feat(runtime): Adding state to track runtime (#238) by @IanWoodard
+- fix(gha): Updating actions/cache to 4.2.0 (#239) by @IanWoodard
+- feat(readme): Add config section to readme (#234) by @hubertdeng123
+
+## 1.0.17
+
+### Various fixes & improvements
+
+- feat(sentry): Manually set status of transactions (#237) by @hubertdeng123
+
+## 1.0.16
+
+### Various fixes & improvements
+
+- chore(docker-compose): Move `docker compose version` command to separate function (#232) by @hubertdeng123
+- fix(docker-compose): Smarter detection of docker config dir (#231) by @hubertdeng123
+- chore(sentry): updating platform tag name (#230) by @IanWoodard
+- chore(sentry): Fixing status for down when not running (#229) by @IanWoodard
+
+## 1.0.15
+
+### Various fixes & improvements
+
+- bump the sentry sdk version (#228) by @hubertdeng123
+- fix(dependencies): Only get dependencies that should be running based on modes (#226) by @IanWoodard
+- chore(devservices): Fixing capitalization in update help message (#227) by @IanWoodard
+
+## 1.0.14
+
+### Various fixes & improvements
+
+- ref(sentry): Tweak devservices environment env variable (#224) by @hubertdeng123
+- fix(docker-compose): Allow docker compose verification logic to properly throw (#225) by @hubertdeng123
+- fix(sentry): Fixing disable sentry env var logic (#223) by @IanWoodard
+- ref(sentry): adding more context to sentry (#222) by @IanWoodard
+- fix(dependencies): Exclude submodules from fetch (#221) by @IanWoodard
+
+## 1.0.13
+
+### Various fixes & improvements
+
+- chore(healthchecks): Bump healthcheck timeout to 2 minutes (#220) by @hubertdeng123
+
+## 1.0.12
+
+### Various fixes & improvements
+
+- chore(sentry): Adding sentry release (#218) by @IanWoodard
+
 ## 1.0.11
 
 ### Various fixes & improvements

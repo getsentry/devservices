@@ -10,6 +10,7 @@ from collections import deque
 from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from enum import Enum
 from typing import TextIO
 from typing import TypeGuard
 
@@ -53,51 +54,65 @@ RELEVANT_GIT_CONFIG_KEYS = [
 ]
 
 
+class DependencyType(str, Enum):
+    SERVICE = "service"
+    COMPOSE = "compose"
+
+
+@dataclass(frozen=True, eq=True)
+class DependencyNode:
+    name: str
+    dependency_type: DependencyType
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class DependencyGraph:
     def __init__(self) -> None:
-        self.graph: dict[str, set[str]] = dict()
+        self.graph: dict[DependencyNode, set[DependencyNode]] = dict()
 
-    def add_dependency(self, service_name: str) -> None:
-        if service_name not in self.graph:
-            self.graph[service_name] = set()
+    def add_node(self, node: DependencyNode) -> None:
+        if node not in self.graph:
+            self.graph[node] = set()
 
-    def add_edge(self, service_name: str, dependency_name: str) -> None:
-        # TODO: We should rename services that depend on themselves
-        if service_name == dependency_name:
-            return
-        if service_name not in self.graph:
-            self.add_dependency(service_name)
-        if dependency_name not in self.graph:
-            self.add_dependency(dependency_name)
+    def add_edge(self, from_node: DependencyNode, to_node: DependencyNode) -> None:
+        if from_node == to_node:
+            # TODO: Add a better exception
+            raise ValueError("Cannot add an edge from a node to itself")
+        if from_node not in self.graph:
+            self.add_node(from_node)
+        if to_node not in self.graph:
+            self.add_node(to_node)
 
         # TODO: Should we check for cycles here?
 
-        self.graph[service_name].add(dependency_name)
+        self.graph[from_node].add(to_node)
 
-    def topological_sort(self) -> list[str]:
+    def topological_sort(self) -> list[DependencyNode]:
         in_degree = {service_name: 0 for service_name in self.graph}
 
-        for service_name in self.graph.keys():
-            for dependency in self.graph[service_name]:
-                in_degree[dependency] += 1
+        for service_node in self.graph.keys():
+            for dependency_node in self.graph[service_node]:
+                in_degree[dependency_node] += 1
 
         queue = deque(
             [
-                service_name
-                for service_name in self.graph
-                if in_degree[service_name] == 0
+                dependency_node
+                for dependency_node in self.graph
+                if in_degree[dependency_node] == 0
             ]
         )
         topological_order = list()
 
         while queue:
-            service_name = queue.popleft()
-            topological_order.append(service_name)
+            service_node = queue.popleft()
+            topological_order.append(service_node)
 
-            for dependency in self.graph[service_name]:
-                in_degree[dependency] -= 1
-                if in_degree[dependency] == 0:
-                    queue.append(dependency)
+            for dependency_node in self.graph[service_node]:
+                in_degree[dependency_node] -= 1
+                if in_degree[dependency_node] == 0:
+                    queue.append(dependency_node)
 
         if len(topological_order) != len(self.graph):
             # TODO: Add a better exception
@@ -105,7 +120,7 @@ class DependencyGraph:
 
         return topological_order
 
-    def get_starting_order(self) -> list[str]:
+    def get_starting_order(self) -> list[DependencyNode]:
         return list(reversed(self.topological_sort()))
 
 
@@ -271,7 +286,19 @@ def get_non_shared_remote_dependencies(
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
     active_services = starting_services.union(started_services)
     # We don't care about the remote dependencies of the service we are stopping
-    active_services.remove(service_to_stop.name)
+    if service_to_stop.name in active_services:
+        active_services.remove(service_to_stop.name)
+
+    active_modes: dict[str, list[str]] = dict()
+    for active_service in active_services:
+        starting_modes = state.get_active_modes_for_service(
+            active_service, StateTables.STARTING_SERVICES
+        )
+        started_modes = state.get_active_modes_for_service(
+            active_service, StateTables.STARTED_SERVICES
+        )
+        active_modes[active_service] = starting_modes or started_modes
+
     other_running_remote_dependencies: set[InstalledRemoteDependency] = set()
     base_running_service_names: set[str] = set()
     for started_service_name in active_services:
@@ -279,8 +306,18 @@ def get_non_shared_remote_dependencies(
         for dependency_name in service_to_stop.config.dependencies.keys():
             if dependency_name == started_service.config.service_name:
                 base_running_service_names.add(started_service_name)
+
+        started_service_modes = active_modes[started_service_name]
+        # Only consider the dependencies of the modes that are running
+        started_service_dependencies: dict[str, Dependency] = dict()
+        for started_service_mode in started_service_modes:
+            for dependency_name in started_service.config.modes[started_service_mode]:
+                started_service_dependencies[
+                    dependency_name
+                ] = started_service.config.dependencies[dependency_name]
+
         installed_remote_dependencies = get_installed_remote_dependencies(
-            list(started_service.config.dependencies.values())
+            list(started_service_dependencies.values())
         )
         # TODO: There is an edge case here where there is a shared remote dependency with different modes
         other_running_remote_dependencies = other_running_remote_dependencies.union(
@@ -472,7 +509,14 @@ def _update_dependency(
 
     try:
         _run_command_with_retries(
-            ["git", "fetch", "origin", dependency.branch, "--filter=blob:none"],
+            [
+                "git",
+                "fetch",
+                "origin",
+                dependency.branch,
+                "--filter=blob:none",
+                "--no-recurse-submodules",  # Avoid fetching submodules
+            ],
             cwd=dependency_repo_dir,
         )
     except subprocess.CalledProcessError as e:
@@ -700,7 +744,18 @@ def construct_dependency_graph(service: Service, modes: list[str]) -> Dependency
             # Skip the dependency if it's not in the modes (since it may not be installed and we don't care about it)
             if dependency_name not in service_mode_dependencies:
                 continue
-            dependency_graph.add_edge(service_config.service_name, dependency_name)
+            dependency_graph.add_edge(
+                DependencyNode(
+                    name=service_config.service_name,
+                    dependency_type=DependencyType.SERVICE,
+                ),
+                DependencyNode(
+                    name=dependency_name,
+                    dependency_type=DependencyType.SERVICE
+                    if _has_remote_config(dependency.remote)
+                    else DependencyType.COMPOSE,
+                ),
+            )
             if _has_remote_config(dependency.remote):
                 dependency_config = get_remote_dependency_config(dependency.remote)
                 _construct_dependency_graph(dependency_config, [dependency.remote.mode])

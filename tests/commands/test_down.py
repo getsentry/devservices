@@ -19,6 +19,7 @@ from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
@@ -244,9 +245,10 @@ def test_down_error(
 
     args = Namespace(service_name=None, debug=False)
 
-    with mock.patch(
-        "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
-    ), pytest.raises(SystemExit):
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        pytest.raises(SystemExit),
+    ):
         state = State()
         state.update_service_entry(
             "example-service", "default", StateTables.STARTED_SERVICES
@@ -300,15 +302,18 @@ def test_down_mode_simple(
 
         args = Namespace(service_name=None, debug=False)
 
-        with mock.patch(
-            "devservices.commands.down.run_cmd",
-            return_value=subprocess.CompletedProcess(
-                args=["docker", "compose", "config", "--services"],
-                returncode=0,
-                stdout="redis\n",
+        with (
+            mock.patch(
+                "devservices.commands.down.run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=["docker", "compose", "config", "--services"],
+                    returncode=0,
+                    stdout="redis\n",
+                ),
+            ) as mock_run_cmd,
+            mock.patch(
+                "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
             ),
-        ) as mock_run_cmd, mock.patch(
-            "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
         ):
             state = State()
             state.update_service_entry(
@@ -966,5 +971,344 @@ def test_down_overlapping_non_remote_services(
             [
                 mock.call("example-service", StateTables.STARTING_SERVICES),
                 mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
+        )
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+def test_down_does_bring_down_service_if_set_to_local_with_dependent_service_running(
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    """
+    Test that the down command does allow the user to stop a service that is set
+    to use local runtime even if a service that normally depends on it is running.
+    """
+    with (
+        mock.patch(
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(tmp_path / "code"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        redis_repo_path = create_mock_git_repo("blank_repo", tmp_path / "redis")
+        redis_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "redis",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                },
+                "modes": {"default": ["redis"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+            },
+        }
+        create_config_file(redis_repo_path, redis_config)
+        run_git_command(["add", "."], cwd=redis_repo_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
+
+        local_runtime_repo_path = create_mock_git_repo(
+            "blank_repo", tmp_path / "local-runtime-service"
+        )
+        local_runtime_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "local-runtime-service",
+                "dependencies": {
+                    "redis": {
+                        "description": "Redis",
+                        "remote": {
+                            "repo_name": "redis",
+                            "branch": "main",
+                            "repo_link": f"file://{redis_repo_path}",
+                        },
+                    },
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
+            },
+            "services": {
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+        create_config_file(local_runtime_repo_path, local_runtime_config)
+        run_git_command(["add", "."], cwd=local_runtime_repo_path)
+        run_git_command(
+            ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
+        )
+
+        local_runtime_service_path = tmp_path / "code" / "local-runtime-service"
+        create_config_file(local_runtime_service_path, local_runtime_config)
+
+        other_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "other-service",
+                "dependencies": {
+                    "redis": {
+                        "description": "Redis",
+                        "remote": {
+                            "repo_name": "redis",
+                            "branch": "main",
+                            "repo_link": f"file://{redis_repo_path}",
+                        },
+                    },
+                    "local-runtime-service": {
+                        "description": "Example service",
+                        "remote": {
+                            "repo_name": "local-runtime-service",
+                            "branch": "main",
+                            "repo_link": f"file://{local_runtime_repo_path}",
+                        },
+                    },
+                },
+                "modes": {"default": ["redis", "local-runtime-service"]},
+            },
+        }
+        other_service_path = tmp_path / "code" / "other-service"
+        create_config_file(other_service_path, other_config)
+
+        os.chdir(local_runtime_service_path)
+
+        install_and_verify_dependencies(
+            Service(
+                name="other-service",
+                repo_path=str(other_service_path),
+                config=ServiceConfig(
+                    version=0.1,
+                    service_name="other-service",
+                    dependencies={
+                        "redis": Dependency(
+                            description="Redis",
+                            remote=RemoteConfig(
+                                repo_name="redis",
+                                repo_link=f"file://{redis_repo_path}",
+                                branch="main",
+                                mode="default",
+                            ),
+                        ),
+                        "local-runtime-service": Dependency(
+                            description="Local runtime service",
+                            remote=RemoteConfig(
+                                repo_name="local-runtime-service",
+                                repo_link=f"file://{local_runtime_repo_path}",
+                                branch="main",
+                                mode="default",
+                            ),
+                        ),
+                    },
+                    modes={"default": ["redis", "local-runtime-service"]},
+                ),
+            )
+        )
+
+        state = State()
+        state.update_service_entry(
+            "other-service", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_entry(
+            "local-runtime-service", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
+
+        args = Namespace(service_name=None, debug=False)
+
+        with (
+            mock.patch(
+                "devservices.commands.down._bring_down_dependency",
+            ) as mock_bring_down_dependency,
+        ):
+            down(args)
+
+        # local-runtime-service is able to be brought down even though it is set to runtime LOCAL
+        # but does not bring redis down since it is being used by other-service
+        mock_bring_down_dependency.assert_called_once_with(
+            DockerComposeCommand(
+                full_command=[
+                    "docker",
+                    "compose",
+                    "-p",
+                    "local-runtime-service",
+                    "-f",
+                    f"{local_runtime_service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    "stop",
+                    "clickhouse",
+                ],
+                project_name="local-runtime-service",
+                config_path=f"{local_runtime_service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                services=["clickhouse"],
+            ),
+            mock.ANY,
+            mock.ANY,
+        )
+
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("local-runtime-service", StateTables.STARTING_SERVICES),
+                mock.call("local-runtime-service", StateTables.STARTED_SERVICES),
+            ]
+        )
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+def test_down_does_not_bring_down_dependency_if_set_to_local(
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    """
+    Test that the down command doesn't stop dependencies that are set
+    to use local runtime.
+    """
+    with (
+        mock.patch(
+            "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(tmp_path / "code"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        redis_repo_path = create_mock_git_repo("blank_repo", tmp_path / "redis")
+        redis_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "redis",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                },
+                "modes": {"default": ["redis"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+            },
+        }
+        create_config_file(redis_repo_path, redis_config)
+        run_git_command(["add", "."], cwd=redis_repo_path)
+        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
+
+        local_runtime_repo_path = create_mock_git_repo(
+            "blank_repo", tmp_path / "local-runtime-service"
+        )
+        local_runtime_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "local-runtime-service",
+                "dependencies": {
+                    "redis": {
+                        "description": "Redis",
+                        "remote": {
+                            "repo_name": "redis",
+                            "branch": "main",
+                            "repo_link": f"file://{redis_repo_path}",
+                        },
+                    },
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
+            },
+            "services": {
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+        create_config_file(local_runtime_repo_path, local_runtime_config)
+        run_git_command(["add", "."], cwd=local_runtime_repo_path)
+        run_git_command(
+            ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
+        )
+
+        local_runtime_service_path = tmp_path / "code" / "local-runtime-service"
+        create_config_file(local_runtime_service_path, local_runtime_config)
+
+        other_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "other-service",
+                "dependencies": {
+                    "redis": {
+                        "description": "Redis",
+                        "remote": {
+                            "repo_name": "redis",
+                            "branch": "main",
+                            "repo_link": f"file://{redis_repo_path}",
+                        },
+                    },
+                    "local-runtime-service": {
+                        "description": "Example service",
+                        "remote": {
+                            "repo_name": "local-runtime-service",
+                            "branch": "main",
+                            "repo_link": f"file://{local_runtime_repo_path}",
+                        },
+                    },
+                },
+                "modes": {"default": ["redis", "local-runtime-service"]},
+            },
+        }
+        other_service_path = tmp_path / "code" / "other-service"
+        create_config_file(other_service_path, other_config)
+
+        os.chdir(other_service_path)
+
+        state = State()
+        state.update_service_entry(
+            "other-service", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
+
+        args = Namespace(service_name=None, debug=False)
+
+        with (
+            mock.patch(
+                "devservices.commands.down._bring_down_dependency",
+            ) as mock_bring_down_dependency,
+        ):
+            down(args)
+
+        # local-runtime-service is not brought down since it is set to runtime LOCAL
+        # this means it should be brought down separately by the user
+        mock_bring_down_dependency.assert_called_once_with(
+            DockerComposeCommand(
+                full_command=[
+                    "docker",
+                    "compose",
+                    "-p",
+                    "redis",
+                    "-f",
+                    f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    "stop",
+                    "redis",
+                ],
+                project_name="redis",
+                config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                services=["redis"],
+            ),
+            mock.ANY,
+            mock.ANY,
+        )
+
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("other-service", StateTables.STARTING_SERVICES),
+                mock.call("other-service", StateTables.STARTED_SERVICES),
             ]
         )

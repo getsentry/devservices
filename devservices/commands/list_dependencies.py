@@ -34,7 +34,7 @@ def list_dependencies(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except ConfigNotFoundError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(
             f"{str(e)}. Please specify a service (i.e. `devservices list-dependencies sentry`) or run the command from a directory with a devservices configuration."
         )

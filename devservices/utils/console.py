@@ -7,19 +7,10 @@ import time
 from collections.abc import Callable
 from types import TracebackType
 
+from devservices.constants import Color
+
 
 ANIMATION_FRAMES = ("⠟", "⠯", "⠷", "⠾", "⠽", "⠻")
-
-
-class Color:
-    RED = "\033[0;31m"
-    GREEN = "\033[0;32m"
-    YELLOW = "\033[0;33m"
-    BLUE = "\033[0;34m"
-    BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
-    NEGATIVE = "\033[7m"
-    RESET = "\033[0m"
 
 
 class Console:

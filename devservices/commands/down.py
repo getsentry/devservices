@@ -22,6 +22,8 @@ from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
+from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -30,6 +32,7 @@ from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 
@@ -60,7 +63,7 @@ def down(args: Namespace) -> None:
     try:
         service = find_matching_service(service_name)
     except ConfigNotFoundError as e:
-        capture_exception(e)
+        capture_exception(e, level="info")
         console.failure(
             f"{str(e)}. Please specify a service (i.e. `devservices down sentry`) or run the command from a directory with a devservices configuration."
         )
@@ -81,7 +84,7 @@ def down(args: Namespace) -> None:
     active_services = starting_services.union(started_services)
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
-        exit(0)
+        return  # Since exit(0) is captured as an internal_error by sentry
 
     active_starting_modes = state.get_active_modes_for_service(
         service.name, StateTables.STARTING_SERVICES
@@ -122,33 +125,25 @@ def down(args: Namespace) -> None:
         # Check if any service depends on the service we are trying to bring down
         # TODO: We should also take into account the active modes of the other services (this is not trivial to do)
         other_started_services = active_services.difference({service.name})
+        services_with_local_runtime = state.get_services_by_runtime(
+            ServiceRuntime.LOCAL
+        )
         dependent_service_name = None
-        for other_started_service in other_started_services:
-            other_service = find_matching_service(other_started_service)
-            other_service_active_starting_modes = state.get_active_modes_for_service(
-                other_service.name, StateTables.STARTING_SERVICES
+        # We can ignore checking if anything relies on the service
+        # if it is a locally running service
+        if service.name not in services_with_local_runtime:
+            dependent_service_name = _get_dependent_service(
+                service, other_started_services, state
             )
-            other_service_active_started_modes = state.get_active_modes_for_service(
-                other_service.name, StateTables.STARTED_SERVICES
-            )
-            other_service_active_modes = (
-                other_service_active_starting_modes
-                or other_service_active_started_modes
-            )
-            dependency_graph = construct_dependency_graph(
-                other_service, other_service_active_modes
-            )
-            # If the service we are trying to bring down is in the dependency graph of another service, we should not bring it down
-            if service.name in dependency_graph.graph:
-                dependent_service_name = other_started_service
-                break
 
         # If no other service depends on the service we are trying to bring down, we can bring it down
         if dependent_service_name is None:
             try:
-                _down(service, remote_dependencies, list(mode_dependencies), status)
+                bring_down_service(
+                    service, remote_dependencies, list(mode_dependencies), status
+                )
             except DockerComposeError as dce:
-                capture_exception(dce)
+                capture_exception(dce, level="info")
                 status.failure(f"Failed to stop {service.name}: {dce.stderr}")
                 exit(1)
         else:
@@ -163,16 +158,7 @@ def down(args: Namespace) -> None:
         console.success(f"{service.name} stopped")
 
 
-def _bring_down_dependency(
-    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
-) -> subprocess.CompletedProcess[str]:
-    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought down
-    for dependency in cmd.services:
-        status.info(f"Stopping {dependency}")
-    return run_cmd(cmd.full_command, current_env)
-
-
-def _down(
+def bring_down_service(
     service: Service,
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
@@ -190,6 +176,17 @@ def _down(
     current_env[
         DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
     ] = relative_local_dependency_directory
+    state = State()
+    # We want to ignore any dependencies that are set to run locally
+    locally_running_services = state.get_services_by_runtime(ServiceRuntime.LOCAL)
+    mode_dependencies = [
+        dep for dep in mode_dependencies if dep not in locally_running_services
+    ]
+    remote_dependencies = {
+        dep
+        for dep in remote_dependencies
+        if dep.service_name not in locally_running_services
+    }
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=list(remote_dependencies),
@@ -209,3 +206,42 @@ def _down(
         ]
         for future in concurrent.futures.as_completed(futures):
             cmd_outputs.append(future.result())
+
+
+def _get_dependent_service(
+    service: Service,
+    other_started_services: set[str],
+    state: State,
+) -> str | None:
+    for other_started_service in other_started_services:
+        other_service = find_matching_service(other_started_service)
+        other_service_active_starting_modes = state.get_active_modes_for_service(
+            other_service.name, StateTables.STARTING_SERVICES
+        )
+        other_service_active_started_modes = state.get_active_modes_for_service(
+            other_service.name, StateTables.STARTED_SERVICES
+        )
+        other_service_active_modes = (
+            other_service_active_starting_modes or other_service_active_started_modes
+        )
+        dependency_graph = construct_dependency_graph(
+            other_service, other_service_active_modes
+        )
+        # If the service we are trying to bring down is in the dependency graph of another service,
+        # we should not bring it down
+        if (
+            DependencyNode(name=service.name, dependency_type=DependencyType.SERVICE)
+            in dependency_graph.graph
+        ):
+            return other_started_service
+
+    return None
+
+
+def _bring_down_dependency(
+    cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
+) -> subprocess.CompletedProcess[str]:
+    # TODO: Get rid of these constants, we need a smarter way to determine the containers being brought down
+    for dependency in cmd.services:
+        status.info(f"Stopping {dependency}")
+    return run_cmd(cmd.full_command, current_env)

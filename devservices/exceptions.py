@@ -123,6 +123,25 @@ class DependencyNotInstalledError(DependencyError):
         return f"Dependency not installed correctly: {self.repo_name} ({self.repo_link}) on {self.branch}"
 
 
+class CannotToggleNonRemoteServiceError(Exception):
+    """Raised when a non-remote service is attempted to be toggled."""
+
+    def __init__(self, service_name: str):
+        self.service_name = service_name
+
+    def __str__(self) -> str:
+        return f"Cannot toggle {self.service_name} because it is not a remote service. This is likely because of a naming conflict."
+
+
+class GitError(Exception):
+    """Base class for git related errors."""
+
+    def __init__(self, command: str, returncode: int, stderr: str):
+        self.command = command
+        self.returncode = returncode
+        self.stderr = stderr
+
+
 class GitConfigError(Exception):
     """Base class for git config related errors."""
 
@@ -144,3 +163,27 @@ class ContainerHealthcheckFailedError(Exception):
 
     def __str__(self) -> str:
         return f"Container {self.container_name} did not become healthy within {self.timeout} seconds."
+
+
+class SupervisorError(Exception):
+    """Base exception for supervisor-related errors."""
+
+    pass
+
+
+class SupervisorConfigError(SupervisorError):
+    """Raised when there's an error with the supervisor configuration."""
+
+    pass
+
+
+class SupervisorConnectionError(SupervisorError):
+    """Raised when unable to connect to the supervisor XML-RPC server."""
+
+    pass
+
+
+class SupervisorProcessError(SupervisorError):
+    """Raised when there's an error with a supervisor process."""
+
+    pass
