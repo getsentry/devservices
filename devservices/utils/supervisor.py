@@ -117,18 +117,18 @@ class SupervisorManager:
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to stop supervisor: {e.faultString}")
 
-    def start_program(self, program_name: str) -> None:
+    def start_process(self, process_name: str) -> None:
         try:
-            self._get_rpc_client().supervisor.startProcess(program_name)
+            self._get_rpc_client().supervisor.startProcess(process_name)
         except xmlrpc.client.Fault as e:
             raise SupervisorProcessError(
-                f"Failed to start program {program_name}: {e.faultString}"
+                f"Failed to start program {process_name}: {e.faultString}"
             )
 
-    def stop_program(self, program_name: str) -> None:
+    def stop_process(self, process_name: str) -> None:
         try:
-            self._get_rpc_client().supervisor.stopProcess(program_name)
+            self._get_rpc_client().supervisor.stopProcess(process_name)
         except xmlrpc.client.Fault as e:
             raise SupervisorProcessError(
-                f"Failed to stop program {program_name}: {e.faultString}"
+                f"Failed to stop program {process_name}: {e.faultString}"
             )

@@ -160,45 +160,45 @@ def test_stop_supervisor_daemon_failure(
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_start_program_success(
+def test_start_process_success(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
-    supervisor_manager.start_program("test_program")
+    supervisor_manager.start_process("test_program")
     supervisor_manager._get_rpc_client().supervisor.startProcess.assert_called_once_with(
         "test_program"
     )
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_start_program_failure(
+def test_start_process_failure(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     mock_rpc_client.return_value.supervisor.startProcess.side_effect = (
         xmlrpc.client.Fault(1, "Error")
     )
     with pytest.raises(SupervisorProcessError):
-        supervisor_manager.start_program("test_program")
+        supervisor_manager.start_process("test_program")
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_stop_program_success(
+def test_stop_process_success(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
-    supervisor_manager.stop_program("test_program")
+    supervisor_manager.stop_process("test_program")
     supervisor_manager._get_rpc_client().supervisor.stopProcess.assert_called_once_with(
         "test_program"
     )
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_stop_program_failure(
+def test_stop_process_failure(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     mock_rpc_client.return_value.supervisor.stopProcess.side_effect = (
         xmlrpc.client.Fault(1, "Error")
     )
     with pytest.raises(SupervisorProcessError):
-        supervisor_manager.stop_program("test_program")
+        supervisor_manager.stop_process("test_program")
 
 
 def test_extend_config_file(
