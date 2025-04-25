@@ -17,7 +17,8 @@ from devservices.utils.console import Console
 
 
 class SupervisorProcessState(IntEnum):
-    """Supervisor process states.
+    """
+    Supervisor process states.
 
     https://supervisord.org/subprocess.html#process-states
     """
