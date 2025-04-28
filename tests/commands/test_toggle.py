@@ -45,7 +45,11 @@ def test_toggle_config_not_found(
 ) -> None:
     mock_find_matching_service.side_effect = ConfigNotFoundError("Config not found")
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
-        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
+        toggle(
+            Namespace(
+                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
+            )
+        )
 
     mock_find_matching_service.assert_called_once_with(None)
     captured = capsys.readouterr()
@@ -63,7 +67,11 @@ def test_toggle_config_error(
         pytest.raises(SystemExit),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
+        toggle(
+            Namespace(
+                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
+            )
+        )
 
     mock_find_matching_service.assert_called_once_with(None)
     captured = capsys.readouterr()
@@ -78,7 +86,11 @@ def test_toggle_service_not_found(
 ) -> None:
     mock_find_matching_service.side_effect = ServiceNotFoundError("Service not found")
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
-        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
+        toggle(
+            Namespace(
+                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
+            )
+        )
 
     mock_find_matching_service.assert_called_once_with(None)
     captured = capsys.readouterr()
@@ -118,7 +130,11 @@ def test_toggle_nothing_running(
 
         state = State()
 
-        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
+        toggle(
+            Namespace(
+                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
+            )
+        )
 
         assert state.get_service_runtime("example-service") == ServiceRuntime.LOCAL
 
@@ -133,7 +149,7 @@ def test_toggle_nothing_running(
             Namespace(
                 service_name=None,
                 debug=False,
-                runtime=ServiceRuntime.CONTAINERIZED,
+                runtime=ServiceRuntime.CONTAINERIZED.value,
             )
         )
 
@@ -186,7 +202,7 @@ def test_toggle_nothing_running_same_runtime(
             Namespace(
                 service_name=None,
                 debug=False,
-                runtime=ServiceRuntime.CONTAINERIZED,
+                runtime=ServiceRuntime.CONTAINERIZED.value,
             )
         )
 
@@ -338,7 +354,11 @@ def test_toggle_dependent_service_running(
             "other-service", "default", StateTables.STARTED_SERVICES
         )
 
-        toggle(Namespace(service_name=None, debug=False, runtime=ServiceRuntime.LOCAL))
+        toggle(
+            Namespace(
+                service_name=None, debug=False, runtime=ServiceRuntime.LOCAL.value
+            )
+        )
 
         assert state.get_service_runtime("example-service") == ServiceRuntime.LOCAL
 
@@ -452,7 +472,7 @@ def test_toggle_cannot_toggle_non_remote_service(
                 Namespace(
                     service_name="example-service",
                     debug=False,
-                    runtime=ServiceRuntime.LOCAL,
+                    runtime=ServiceRuntime.LOCAL.value,
                 )
             )
 

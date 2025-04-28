@@ -71,10 +71,10 @@ def toggle(args: Namespace) -> None:
     state = State()
     current_runtime = state.get_service_runtime(service.name)
     if desired_runtime is None:
-        desired_runtime = get_opposite_runtime(current_runtime)
+        desired_runtime = get_opposite_runtime(current_runtime).value
     if current_runtime == desired_runtime:
         console.warning(
-            f"{service.name} is already running in {desired_runtime.value} runtime"
+            f"{service.name} is already running in {desired_runtime} runtime"
         )
         return
     if desired_runtime == ServiceRuntime.LOCAL:
@@ -89,9 +89,7 @@ def toggle(args: Namespace) -> None:
 
     final_runtime = state.get_service_runtime(service.name)
     if final_runtime == desired_runtime:
-        console.success(
-            f"{service.name} is now running in {desired_runtime.value} runtime"
-        )
+        console.success(f"{service.name} is now running in {desired_runtime} runtime")
 
 
 def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
