@@ -8,6 +8,8 @@ import subprocess
 import xmlrpc.client
 from enum import IntEnum
 
+from supervisor.options import ServerOptions
+
 from devservices.constants import DEVSERVICES_SUPERVISOR_CONFIG_DIR
 from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorConnectionError
@@ -170,6 +172,16 @@ class SupervisorManager:
             raise SupervisorProcessError(
                 f"Failed to stop program {program_name}: {e.faultString}"
             )
+
+    def get_program_command(self, program_name: str) -> str:
+        opts = ServerOptions()
+        opts.configfile = self.config_file_path
+        opts.process_config()
+        for group in opts.process_group_configs:
+            for proc in group.process_configs:
+                if proc.name == program_name and isinstance(proc.command, str):
+                    return proc.command
+        raise SupervisorConfigError(f"Program {program_name} not found in config")
 
     def tail_program_logs(self, program_name: str) -> None:
         if not self._is_program_running(program_name):

@@ -18,6 +18,7 @@ class Color:
 MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
 DEVSERVICES_DIR_NAME = "devservices"
 CONFIG_FILE_NAME = "config.yml"
+PROGRAMS_CONF_FILE_NAME = "programs.conf"
 DOCKER_CONFIG_DIR = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
 DOCKER_USER_PLUGIN_DIR = os.path.join(DOCKER_CONFIG_DIR, "cli-plugins/")
 

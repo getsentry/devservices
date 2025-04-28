@@ -308,6 +308,24 @@ supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
         )
 
 
+def test_get_program_command_success(
+    supervisor_manager: SupervisorManager, tmp_path: Path
+) -> None:
+    assert (
+        supervisor_manager.get_program_command("test_program")
+        == "python test_program.py"
+    )
+
+
+def test_get_program_command_program_not_found(
+    supervisor_manager: SupervisorManager, tmp_path: Path
+) -> None:
+    with pytest.raises(
+        SupervisorConfigError, match="Program nonexistent_program not found in config"
+    ):
+        supervisor_manager.get_program_command("nonexistent_program")
+
+
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
 def tail_program_logs_success(
