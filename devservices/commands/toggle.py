@@ -40,7 +40,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.add_argument(
         "runtime",
         help="Runtime to use for the service",
-        choices=[ServiceRuntime.CONTAINERIZED, ServiceRuntime.LOCAL],
+        choices=[runtime.value for runtime in ServiceRuntime],
         nargs="?",
         default=None,
     )
@@ -74,7 +74,7 @@ def toggle(args: Namespace) -> None:
         desired_runtime = get_opposite_runtime(current_runtime)
     if current_runtime == desired_runtime:
         console.warning(
-            f"{service.name} is already running in {desired_runtime} runtime"
+            f"{service.name} is already running in {desired_runtime.value} runtime"
         )
         return
     if desired_runtime == ServiceRuntime.LOCAL:
@@ -89,7 +89,9 @@ def toggle(args: Namespace) -> None:
 
     final_runtime = state.get_service_runtime(service.name)
     if final_runtime == desired_runtime:
-        console.success(f"{service.name} is now running in {desired_runtime} runtime")
+        console.success(
+            f"{service.name} is now running in {desired_runtime.value} runtime"
+        )
 
 
 def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
@@ -105,7 +107,7 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
     if service_to_transition.name in active_services:
         state.update_service_runtime(service_to_transition.name, ServiceRuntime.LOCAL)
         console.success(
-            f"{service_to_transition.name} is now running in {ServiceRuntime.LOCAL} runtime"
+            f"{service_to_transition.name} is now running in {ServiceRuntime.LOCAL.value} runtime"
         )
         return
 
@@ -196,7 +198,7 @@ def restart_dependent_services(
     console = Console()
     with Status(
         on_start=lambda: console.warning(
-            f"Restarting dependent services to ensure {service_name} is running in a {ServiceRuntime.CONTAINERIZED} runtime"
+            f"Restarting dependent services to ensure {service_name} is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
         ),
     ) as status:
         for dependent_service in dependent_services:

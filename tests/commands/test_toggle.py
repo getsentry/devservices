@@ -125,7 +125,7 @@ def test_toggle_nothing_running(
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is now running in {ServiceRuntime.LOCAL} runtime"
+            f"example-service is now running in {ServiceRuntime.LOCAL.value} runtime"
             in captured.out.strip()
         )
 
@@ -144,7 +144,7 @@ def test_toggle_nothing_running(
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is now running in {ServiceRuntime.CONTAINERIZED} runtime"
+            f"example-service is now running in {ServiceRuntime.CONTAINERIZED.value} runtime"
             in captured.out.strip()
         )
 
@@ -197,7 +197,7 @@ def test_toggle_nothing_running_same_runtime(
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is already running in {ServiceRuntime.CONTAINERIZED} runtime"
+            f"example-service is already running in {ServiceRuntime.CONTAINERIZED.value} runtime"
             in captured.out.strip()
         )
 
@@ -518,7 +518,7 @@ def test_handle_transition_to_local_runtime_currently_running_standalone(
         captured = capsys.readouterr()
 
         assert (
-            f"example-service is now running in {ServiceRuntime.LOCAL} runtime"
+            f"example-service is now running in {ServiceRuntime.LOCAL.value} runtime"
             in captured.out.strip()
         )
 
@@ -920,7 +920,7 @@ def test_restart_dependent_services_single_dependent_service_single_mode(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
@@ -958,7 +958,7 @@ def test_restart_dependent_services_single_dependent_service_multiple_modes(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
@@ -998,7 +998,7 @@ def test_restart_dependent_services_multiple_dependent_services_single_mode(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
@@ -1055,7 +1055,7 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
     captured = capsys.readouterr()
 
     assert (
-        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED} runtime"
+        f"Restarting dependent services to ensure example-service is running in a {ServiceRuntime.CONTAINERIZED.value} runtime"
         in captured.out.strip()
     )
     assert "Restarting dependent-service in mode default" in captured.out.strip()
