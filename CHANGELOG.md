@@ -1,3 +1,12 @@
+## 1.1.1
+
+### Various fixes & improvements
+
+- feat: vendor docker-compose binaries (#263) by @joshuarli
+- feat(supervisor): Add tailing logs function (#257) by @hubertdeng123
+- chore(toggle): Add documentation for toggle (#261) by @IanWoodard
+- chore(supervisor): Add some socket tests (#259) by @hubertdeng123
+
 ## 1.1.0
 
 ### Various fixes & improvements
