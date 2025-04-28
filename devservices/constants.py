@@ -43,7 +43,9 @@ DEVSERVICES_RELEASES_URL = (
 # We mirror this in our GCP bucket since GitHub downloads can be flaky at times.
 # gsutil cp docker-compose-darwin-aarch64 gs://sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-darwin-aarch64
 # gsutil cp docker-compose-linux-x86_64 gs://sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-linux-x86_64
-DOCKER_COMPOSE_DOWNLOAD_URL = "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose"
+DOCKER_COMPOSE_DOWNLOAD_URL = (
+    "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose"
+)
 
 DEVSERVICES_DOWNLOAD_URL = "https://github.com/getsentry/devservices/releases/download"
 BINARY_PERMISSIONS = 0o755
