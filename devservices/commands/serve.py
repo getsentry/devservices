@@ -10,7 +10,8 @@ from argparse import Namespace
 from sentry_sdk import capture_exception
 
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROCESSES_CONF_FILE_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
+from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import SupervisorConfigError
 from devservices.utils.console import Console
@@ -40,15 +41,19 @@ def serve(args: Namespace) -> None:
             f"{str(e)}. Please run the command from a directory with a valid devservices configuration."
         )
         return
+    except ConfigError as e:
+        capture_exception(e)
+        console.failure(str(e))
+        exit(1)
 
-    processes_config_path = os.path.join(
-        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROCESSES_CONF_FILE_NAME}"
+    programs_config_path = os.path.join(
+        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
     )
-    if not os.path.exists(processes_config_path):
-        console.failure(f"No processes.conf file found in {processes_config_path}.")
+    if not os.path.exists(programs_config_path):
+        console.failure(f"No programs.conf file found in {programs_config_path}.")
         return
     manager = SupervisorManager(
-        processes_config_path,
+        programs_config_path,
         service_name=service.name,
     )
 

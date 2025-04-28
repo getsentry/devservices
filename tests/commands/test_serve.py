@@ -11,9 +11,9 @@ import pytest
 from devservices.commands.serve import serve
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROCESSES_CONF_FILE_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from testing.utils import create_config_file
-from testing.utils import create_processes_conf_file
+from testing.utils import create_programs_conf_file
 
 
 @patch("devservices.commands.serve.pty.spawn")
@@ -41,13 +41,13 @@ def test_serve_success(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-    processes_config = """
+    programs_config = """
 [program:devserver]
 command=run devserver
 autostart=true
 autorestart=true
 """
-    create_processes_conf_file(service_path, processes_config)
+    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(extra=[])
 
@@ -90,13 +90,13 @@ def test_serve_devservices_config_not_found(
     out, err = capsys.readouterr()
     assert (
         out
-        == f"\x1b[0;31mNo processes.conf file found in {service_path}/{DEVSERVICES_DIR_NAME}/{PROCESSES_CONF_FILE_NAME}.\x1b[0m\n"
+        == f"\x1b[0;31mNo programs.conf file found in {service_path}/{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}.\x1b[0m\n"
     )
     mock_pty_spawn.assert_not_called()
 
 
 @patch("devservices.commands.serve.pty.spawn")
-def test_serve_processes_conf_not_found(
+def test_serve_programs_conf_not_found(
     mock_pty_spawn: Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -143,13 +143,13 @@ def test_serve_devserver_command_not_found(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-    processes_config = """
+    programs_config = """
 [program:consumer]
 command=run consumer
 autostart=true
 autorestart=true
 """
-    create_processes_conf_file(service_path, processes_config)
+    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(extra=[])
 

@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 
 TESTING_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -26,10 +27,10 @@ def create_config_file(
         yaml.dump(config, f, sort_keys=False, default_flow_style=False)
 
 
-def create_processes_conf_file(tmp_path: Path, config: str) -> None:
+def create_programs_conf_file(tmp_path: Path, config: str) -> None:
     devservices_dir = Path(tmp_path, DEVSERVICES_DIR_NAME)
     devservices_dir.mkdir(parents=True, exist_ok=True)
-    tmp_file = Path(devservices_dir, "processes.conf")
+    tmp_file = Path(devservices_dir, PROGRAMS_CONF_FILE_NAME)
     with tmp_file.open("w") as f:
         f.write(config)
 
