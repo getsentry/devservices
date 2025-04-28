@@ -216,7 +216,7 @@ def test_install_docker_compose_macos_arm64(
     mock_tempdir.return_value.__enter__.return_value = "tempdir"
     install_docker_compose()
     mock_urlretrieve.assert_called_once_with(
-        "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-darwin-aarch64",
+        "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-darwin-aarch64",
         "tempdir/docker-compose",
     )
     mock_chmod.assert_called_once_with("tempdir/docker-compose", 0o755)
@@ -249,7 +249,7 @@ def test_install_docker_compose_linux_x86(
     mock_tempdir.return_value.__enter__.return_value = "tempdir"
     install_docker_compose()
     mock_urlretrieve.assert_called_once_with(
-        "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64",
+        "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-linux-x86_64",
         "tempdir/docker-compose",
     )
     mock_chmod.assert_called_once_with("tempdir/docker-compose", 0o755)
@@ -286,7 +286,7 @@ def test_install_docker_compose_custom_docker_config_dir(
     ):
         install_docker_compose()
     mock_urlretrieve.assert_called_once_with(
-        "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-darwin-aarch64",
+        "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-darwin-aarch64",
         "tempdir/docker-compose",
     )
     mock_chmod.assert_called_once_with("tempdir/docker-compose", 0o755)

@@ -1,3 +1,26 @@
+## 1.1.1
+
+### Various fixes & improvements
+
+- feat: vendor docker-compose binaries (#263) by @joshuarli
+- feat(supervisor): Add tailing logs function (#257) by @hubertdeng123
+- chore(toggle): Add documentation for toggle (#261) by @IanWoodard
+- chore(supervisor): Add some socket tests (#259) by @hubertdeng123
+
+## 1.1.0
+
+### Various fixes & improvements
+
+- feat(toggle): add toggle command (#256) by @IanWoodard
+- feat(supervisor): Generate supervisor config file to local dir (#252) by @hubertdeng123
+- fix(up): Only show skipped message once (#254) by @IanWoodard
+- fix(status): Fixing status indentation (#253) by @IanWoodard
+- ref(status): Revamp status command (#251) by @IanWoodard
+- feat(supervisor): Add initial supervisor logic (#250) by @hubertdeng123
+- ref(up): Add info about local runtime in up (#249) by @IanWoodard
+- fix healthcheck bug (#247) by @hubertdeng123
+- ref(dependency-graph): Adding more context to the dependency graph (#248) by @IanWoodard
+
 ## 1.0.18
 
 ### Various fixes & improvements

@@ -6,6 +6,7 @@ import os
 import socket
 import subprocess
 import xmlrpc.client
+from enum import IntEnum
 
 from supervisor.options import ServerOptions
 
@@ -14,6 +15,24 @@ from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorConnectionError
 from devservices.exceptions import SupervisorError
 from devservices.exceptions import SupervisorProcessError
+from devservices.utils.console import Console
+
+
+class SupervisorProcessState(IntEnum):
+    """
+    Supervisor process states.
+
+    https://supervisord.org/subprocess.html#process-states
+    """
+
+    STOPPED = 0
+    STARTING = 10
+    RUNNING = 20
+    BACKOFF = 30
+    STOPPING = 40
+    EXITED = 100
+    FATAL = 200
+    UNKNOWN = 1000
 
 
 class UnixSocketHTTPConnection(http.client.HTTPConnection):
@@ -103,6 +122,21 @@ class SupervisorManager:
                 f"Failed to connect to supervisor XML-RPC server: {e.errmsg}"
             )
 
+    def _is_program_running(self, program_name: str) -> bool:
+        try:
+            client = self._get_rpc_client()
+            process_info = client.supervisor.getProcessInfo(program_name)
+            if not isinstance(process_info, dict):
+                return False
+
+            state = process_info.get("state")
+            if not isinstance(state, int):
+                return False
+            return state == SupervisorProcessState.RUNNING
+        except xmlrpc.client.Fault:
+            # If we can't get the process info, assume it's not running
+            return False
+
     def start_supervisor_daemon(self) -> None:
         try:
             subprocess.run(["supervisord", "-c", self.config_file_path], check=True)
@@ -120,6 +154,8 @@ class SupervisorManager:
             raise SupervisorError(f"Failed to stop supervisor: {e.faultString}")
 
     def start_program(self, program_name: str) -> None:
+        if self._is_program_running(program_name):
+            return
         try:
             self._get_rpc_client().supervisor.startProcess(program_name)
         except xmlrpc.client.Fault as e:
@@ -128,6 +164,8 @@ class SupervisorManager:
             )
 
     def stop_program(self, program_name: str) -> None:
+        if not self._is_program_running(program_name):
+            return
         try:
             self._get_rpc_client().supervisor.stopProcess(program_name)
         except xmlrpc.client.Fault as e:
@@ -144,3 +182,27 @@ class SupervisorManager:
                 if proc.name == program_name and isinstance(proc.command, str):
                     return proc.command
         raise SupervisorConfigError(f"Program {program_name} not found in config")
+
+    def tail_program_logs(self, program_name: str) -> None:
+        if not self._is_program_running(program_name):
+            console = Console()
+            console.failure(f"Program {program_name} is not running")
+            return
+
+        try:
+            # Use supervisorctl tail command
+            subprocess.run(
+                [
+                    "supervisorctl",
+                    "-c",
+                    self.config_file_path,
+                    "tail",
+                    "-f",
+                    program_name,
+                ],
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise SupervisorError(f"Failed to tail logs for {program_name}: {str(e)}")
+        except KeyboardInterrupt:
+            pass
