@@ -305,7 +305,7 @@ def run_cmd(
     logger = logging.getLogger(LOGGER_NAME)
     cmd_pretty = shlex.join(cmd)
 
-    while retries >= 0:
+    while True:
         try:
             logger.debug(f"Running command: {cmd_pretty}")
             proc = subprocess.run(
@@ -313,20 +313,15 @@ def run_cmd(
             )
             return proc
         except subprocess.CalledProcessError as e:
-            if retries == 0:
-                raise DockerComposeError(
-                    command=cmd_pretty,
-                    returncode=e.returncode,
-                    stdout=e.stdout,
-                    stderr=e.stderr,
-                ) from e
-
             err = DockerComposeError(
                 command=cmd_pretty,
                 returncode=e.returncode,
                 stdout=e.stdout,
                 stderr=e.stderr,
             )
+            if retries == 0:
+                raise err
+
             print(
                 f"""
 Error: {err}
@@ -337,5 +332,3 @@ Retrying in {retry_initial_wait}s ({retries} retries left)...
             time.sleep(retry_initial_wait)
             retries -= 1
             retry_initial_wait *= retry_exp
-
-    return proc
