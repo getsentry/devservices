@@ -157,7 +157,9 @@ def up(args: Namespace) -> None:
 def _pull_dependency_images(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
 ) -> None:
-    run_cmd(cmd.full_command, current_env)
+    run_cmd(
+        cmd.full_command, current_env, retries=4, retry_initial_wait=5.0, retry_exp=2.0
+    )
     for dependency in cmd.services:
         status.info(f"Pulled image for {dependency}")
 

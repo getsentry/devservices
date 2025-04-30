@@ -5,7 +5,9 @@ import logging
 import os
 import platform
 import re
+import shlex
 import subprocess
+import time
 from typing import cast
 from typing import NamedTuple
 
@@ -290,15 +292,50 @@ def get_docker_compose_commands_to_run(
     return docker_compose_commands
 
 
-def run_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def run_cmd(
+    cmd: list[str],
+    env: dict[str, str],
+    retries: int = 0,
+    retry_initial_wait: float = 5.0,
+    retry_exp: float = 2.0,
+) -> subprocess.CompletedProcess[str]:
+    if retries < 0:
+        raise ValueError("Retries cannot be negative")
+
     logger = logging.getLogger(LOGGER_NAME)
-    try:
-        logger.debug("Running command: %s", " ".join(cmd))
-        return subprocess.run(cmd, check=True, capture_output=True, text=True, env=env)
-    except subprocess.CalledProcessError as e:
-        raise DockerComposeError(
-            command=" ".join(cmd),
-            returncode=e.returncode,
-            stdout=e.stdout,
-            stderr=e.stderr,
-        ) from e
+    cmd_pretty = shlex.join(cmd)
+
+    while retries >= 0:
+        try:
+            logger.debug(f"Running command: {cmd_pretty}")
+            proc = subprocess.run(
+                cmd, check=True, capture_output=True, text=True, env=env
+            )
+            return proc
+        except subprocess.CalledProcessError as e:
+            if retries == 0:
+                raise DockerComposeError(
+                    command=cmd_pretty,
+                    returncode=e.returncode,
+                    stdout=e.stdout,
+                    stderr=e.stderr,
+                ) from e
+
+            err = DockerComposeError(
+                command=cmd_pretty,
+                returncode=e.returncode,
+                stdout=e.stdout,
+                stderr=e.stderr,
+            )
+            print(
+                f"""
+Error: {err}
+
+Retrying in {retry_initial_wait}s ({retries} retries left)...
+"""
+            )
+            time.sleep(retry_initial_wait)
+            retries -= 1
+            retry_initial_wait *= retry_exp
+
+    return proc
