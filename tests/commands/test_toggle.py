@@ -1218,6 +1218,7 @@ def test_bring_down_containerized_service_no_remote_dependencies(
         ),
         set(),
         ["clickhouse"],
+        True,
         mock.ANY,
     )
 
@@ -1350,6 +1351,7 @@ def test_bring_down_containerized_service_with_remote_dependency(
                     ),
                 },
                 ["clickhouse", "redis"],
+                True,
                 mock.ANY,
             ),
         ]
@@ -1443,6 +1445,7 @@ def test_bring_down_containerized_service_get_non_shared_remote_dependencies_err
             ),
         ),
         set(),
+        exclude_local=True,
     )
 
     captured = capsys.readouterr()

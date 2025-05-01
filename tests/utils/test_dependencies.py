@@ -33,6 +33,7 @@ from devservices.utils.dependencies import install_dependency
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
@@ -2050,11 +2051,17 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
         ),
     ),
 )
+@pytest.mark.parametrize("exclude_local", [True, False])
 def test_get_non_shared_remote_dependencies_no_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
     tmp_path: Path,
+    exclude_local: bool,
 ) -> None:
+    """
+    Test that in the case no shared dependencies are present, the list of non-shared remote dependencies
+    should be the same, regardless of the exclude_local flag.
+    """
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
@@ -2089,6 +2096,7 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
                 )
             ]
         ),
+        exclude_local=exclude_local,
     )
     assert len(non_shared_remote_dependencies) == 1
     assert non_shared_remote_dependencies == {
@@ -2120,16 +2128,31 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
         config=ServiceConfig(
             version=0.1,
             service_name="service-2",
-            dependencies={},
-            modes={"default": []},
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                )
+            },
+            modes={"default": ["dependency-1"]},
         ),
     ),
 )
+@pytest.mark.parametrize("exclude_local", [True, False])
 def test_get_non_shared_remote_dependencies_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
     tmp_path: Path,
+    exclude_local: bool,
 ) -> None:
+    """
+    Test that when a dependency is shared with another running service,
+    it should not be included in the list of non-shared remote dependencies.
+    """
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
@@ -2164,12 +2187,25 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
                 )
             ]
         ),
+        exclude_local=exclude_local,
     )
     assert len(non_shared_remote_dependencies) == 0
     mock_find_matching_service.assert_called_once_with("service-2")
-    mock_get_installed_remote_dependencies.assert_called_once_with([])
+    mock_get_installed_remote_dependencies.assert_called_once_with(
+        [
+            Dependency(
+                description="dependency-1",
+                remote=RemoteConfig(
+                    repo_name="dependency-1",
+                    repo_link="file://path/to/dependency-1",
+                    branch="main",
+                ),
+            )
+        ]
+    )
 
 
+# Implies that dependency-3 depends on dependency-1
 @mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(
@@ -2185,7 +2221,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
 @mock.patch(
     "devservices.utils.dependencies.find_matching_service",
     return_value=Service(
-        name="service-1",
+        name="service-2",
         repo_path="/path/to/service-2",
         config=ServiceConfig(
             version=0.1,
@@ -2212,11 +2248,18 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
         ),
     ),
 )
-def test_get_non_shared_remote_dependencies_complex(
+@pytest.mark.parametrize("exclude_local", [True, False])
+def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
     tmp_path: Path,
+    exclude_local: bool,
 ) -> None:
+    """
+    Test that when service-2 depends on dependency-3, which in turn depends on dependency-1,
+    dependency-1 should be considered shared between service-1 and service-2, while dependency-2
+    remains non-shared, regardless of the exclude_local flag since nothing is using a local runtime.
+    """
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
         state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
@@ -2264,8 +2307,8 @@ def test_get_non_shared_remote_dependencies_complex(
                 ),
             ]
         ),
+        exclude_local=exclude_local,
     )
-    assert len(non_shared_remote_dependencies) == 1
     assert non_shared_remote_dependencies == {
         InstalledRemoteDependency(
             service_name="dependency-2",
@@ -2287,6 +2330,149 @@ def test_get_non_shared_remote_dependencies_complex(
             )
         ]
     )
+
+
+@mock.patch(
+    "devservices.utils.dependencies.get_installed_remote_dependencies",
+    return_value=set(),
+)
+@mock.patch(
+    "devservices.utils.dependencies.find_matching_service",
+    return_value=Service(
+        name="service-2",
+        repo_path="/path/to/service-2",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="service-2",
+            dependencies={
+                "dependency-3": Dependency(
+                    description="dependency-3",
+                    remote=RemoteConfig(
+                        repo_name="dependency-3",
+                        repo_link="file://path/to/dependency-3",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={"default": ["dependency-3"]},
+        ),
+    ),
+)
+@pytest.mark.parametrize("exclude_local", [True, False])
+def test_get_non_shared_remote_dependencies_with_local_runtime_dependency(
+    mock_find_matching_service: mock.Mock,
+    mock_get_installed_remote_dependencies: mock.Mock,
+    tmp_path: Path,
+    exclude_local: bool,
+) -> None:
+    """
+    Test that depending on the exclude_local flag, a service with a local runtime dependency
+    should or should not be included in the list of non-shared remote dependencies.
+    """
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
+        state.update_service_entry("service-2", "default", StateTables.STARTED_SERVICES)
+        state.update_service_runtime("service-2", ServiceRuntime.LOCAL)
+    service_to_stop = Service(
+        name="service-1",
+        repo_path="/path/to/service-1",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="service-1",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                ),
+                "service-2": Dependency(
+                    description="service-2",
+                    remote=RemoteConfig(
+                        repo_name="service-2",
+                        repo_link="file://path/to/service-2",
+                        branch="main",
+                    ),
+                ),
+            },
+            modes={"default": ["dependency-1", "service-2"]},
+        ),
+    )
+    non_shared_remote_dependencies = get_non_shared_remote_dependencies(
+        service_to_stop,
+        set(
+            [
+                InstalledRemoteDependency(
+                    service_name="dependency-1",
+                    repo_path="/path/to/dependency-1",
+                    mode="default",
+                ),
+                InstalledRemoteDependency(
+                    service_name="service-2",
+                    repo_path="/path/to/service-2",
+                    mode="default",
+                ),
+            ]
+        ),
+        exclude_local=exclude_local,
+    )
+    # If exclude_local is True, we don't include service-2 in the list of non-shared remote dependencies
+    # because it is a service that is a dependency of service-1, but is also running alongside it, so in we don't want to bring it down,
+    # unless we explictly want to bring down dependencies with local runtimes, via the --exclude-local flag.
+    expected_non_shared_remote_dependencies = (
+        {
+            InstalledRemoteDependency(
+                service_name="dependency-1",
+                repo_path="/path/to/dependency-1",
+                mode="default",
+            )
+        }
+        if exclude_local
+        else {
+            InstalledRemoteDependency(
+                service_name="dependency-1",
+                repo_path="/path/to/dependency-1",
+                mode="default",
+            ),
+            InstalledRemoteDependency(
+                service_name="service-2",
+                repo_path="/path/to/service-2",
+                mode="default",
+            ),
+        }
+    )
+    assert non_shared_remote_dependencies == expected_non_shared_remote_dependencies
+    mock_find_matching_service.assert_called_once_with("service-2")
+    mock_get_installed_remote_dependencies.assert_called_once_with(
+        [
+            Dependency(
+                description="dependency-3",
+                remote=RemoteConfig(
+                    repo_name="dependency-3",
+                    repo_link="file://path/to/dependency-3",
+                    branch="main",
+                ),
+            )
+        ]
+    )
+    # if exclude_local:
+    #     mock_get_installed_remote_dependencies.assert_called_once_with(
+    #         [
+    #             Dependency(
+    #                 description="dependency-3",
+    #                 remote=RemoteConfig(
+    #                     repo_name="dependency-3",
+    #                     repo_link="file://path/to/dependency-3",
+    #                     branch="main",
+    #                 ),
+    #             )
+    #         ]
+    #     )
+    # else:
+    #     mock_get_installed_remote_dependencies.assert_not_called()
 
 
 @mock.patch("devservices.utils.dependencies.install_dependencies", return_value=[])
