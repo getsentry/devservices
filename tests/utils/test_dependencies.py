@@ -2458,21 +2458,6 @@ def test_get_non_shared_remote_dependencies_with_local_runtime_dependency(
             )
         ]
     )
-    # if exclude_local:
-    #     mock_get_installed_remote_dependencies.assert_called_once_with(
-    #         [
-    #             Dependency(
-    #                 description="dependency-3",
-    #                 remote=RemoteConfig(
-    #                     repo_name="dependency-3",
-    #                     repo_link="file://path/to/dependency-3",
-    #                     branch="main",
-    #                 ),
-    #             )
-    #         ]
-    #     )
-    # else:
-    #     mock_get_installed_remote_dependencies.assert_not_called()
 
 
 @mock.patch("devservices.utils.dependencies.install_dependencies", return_value=[])
