@@ -1445,7 +1445,7 @@ def test_bring_down_containerized_service_get_non_shared_remote_dependencies_err
             ),
         ),
         set(),
-        exclude_local=True,
+        True,
     )
 
     captured = capsys.readouterr()
