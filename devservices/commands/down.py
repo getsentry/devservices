@@ -221,13 +221,11 @@ def bring_down_service(
 
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=list(
-            {
-                dep
-                for dep in remote_dependencies
-                if dep.service_name not in dependencies_with_local_runtimes
-            }
-        ),
+        remote_dependencies=[
+            dep
+            for dep in remote_dependencies
+            if dep.service_name not in dependencies_with_local_runtimes
+        ],
         current_env=current_env,
         command="stop",
         options=[],
