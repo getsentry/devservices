@@ -153,24 +153,24 @@ class SupervisorManager:
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to stop supervisor: {e.faultString}")
 
-    def start_program(self, program_name: str) -> None:
-        if self._is_program_running(program_name):
+    def start_process(self, name: str) -> None:
+        if self._is_program_running(name):
             return
         try:
-            self._get_rpc_client().supervisor.startProcess(program_name)
+            self._get_rpc_client().supervisor.startProcess(name)
         except xmlrpc.client.Fault as e:
             raise SupervisorProcessError(
-                f"Failed to start program {program_name}: {e.faultString}"
+                f"Failed to start process {name}: {e.faultString}"
             )
 
-    def stop_program(self, program_name: str) -> None:
-        if not self._is_program_running(program_name):
+    def stop_process(self, name: str) -> None:
+        if not self._is_program_running(name):
             return
         try:
-            self._get_rpc_client().supervisor.stopProcess(program_name)
+            self._get_rpc_client().supervisor.stopProcess(name)
         except xmlrpc.client.Fault as e:
             raise SupervisorProcessError(
-                f"Failed to stop program {program_name}: {e.faultString}"
+                f"Failed to stop process {name}: {e.faultString}"
             )
 
     def get_program_command(self, program_name: str) -> str:
