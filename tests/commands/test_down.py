@@ -59,7 +59,7 @@ def test_down_starting(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
 
         with (
             mock.patch(
@@ -139,7 +139,7 @@ def test_down_started(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
 
         with (
             mock.patch(
@@ -195,7 +195,7 @@ def test_down_no_config_file(
 ) -> None:
     os.chdir(tmp_path)
 
-    args = Namespace(service_name=None, debug=False)
+    args = Namespace(service_name=None, debug=False, exclude_local=False)
 
     with pytest.raises(SystemExit):
         down(args)
@@ -243,7 +243,7 @@ def test_down_error(
     create_config_file(tmp_path, config)
     os.chdir(tmp_path)
 
-    args = Namespace(service_name=None, debug=False)
+    args = Namespace(service_name=None, debug=False, exclude_local=False)
 
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
@@ -300,7 +300,7 @@ def test_down_mode_simple(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
 
         with (
             mock.patch(
@@ -351,7 +351,7 @@ def test_down_config_error(
     find_matching_service_mock: mock.Mock, capsys: pytest.CaptureFixture[str]
 ) -> None:
     find_matching_service_mock.side_effect = ConfigError("Config error")
-    args = Namespace(service_name="example-service", debug=False)
+    args = Namespace(service_name="example-service", debug=False, exclude_local=False)
 
     with pytest.raises(SystemExit):
         down(args)
@@ -366,7 +366,7 @@ def test_down_service_not_found_error(
     find_matching_service_mock: mock.Mock, capsys: pytest.CaptureFixture[str]
 ) -> None:
     find_matching_service_mock.side_effect = ServiceNotFoundError("Service not found")
-    args = Namespace(service_name="example-service", debug=False)
+    args = Namespace(service_name="example-service", debug=False, exclude_local=False)
 
     with pytest.raises(SystemExit):
         down(args)
@@ -476,7 +476,7 @@ def test_down_overlapping_services(
             "other-service", "default", StateTables.STARTED_SERVICES
         )
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
 
         with mock.patch(
             "devservices.commands.down._bring_down_dependency"
@@ -664,7 +664,7 @@ def test_down_does_not_stop_service_being_used_by_another_service(
             "other-service", "default", StateTables.STARTED_SERVICES
         )
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
 
         with mock.patch(
             "devservices.commands.down._bring_down_dependency"
@@ -837,7 +837,7 @@ def test_down_does_not_stop_nested_service_being_used_by_another_service(
             "grandparent-service", "default", StateTables.STARTED_SERVICES
         )
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
 
         with mock.patch(
             "devservices.commands.down._bring_down_dependency"
@@ -938,7 +938,7 @@ def test_down_overlapping_non_remote_services(
         )
         state.update_service_entry("redis", "default", StateTables.STARTED_SERVICES)
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
 
         with mock.patch(
             "devservices.commands.down._bring_down_dependency"
@@ -976,13 +976,15 @@ def test_down_overlapping_non_remote_services(
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")
-def test_down_does_bring_down_service_if_set_to_local_with_dependent_service_running(
+@pytest.mark.parametrize("exclude_local", [True, False])
+def test_down_local_service_with_dependent_service_running(
     mock_remove_service_entry: mock.Mock,
     tmp_path: Path,
+    exclude_local: bool,
 ) -> None:
     """
-    Test that the down command does allow the user to stop a service that is set
-    to use local runtime even if a service that normally depends on it is running.
+    Test that based on the exclude_local flag, the down command will bring down
+    a service that is set to local runtime, even if a service that depends on it is running.
     """
     with (
         mock.patch(
@@ -1123,7 +1125,7 @@ def test_down_does_bring_down_service_if_set_to_local_with_dependent_service_run
         )
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=exclude_local)
 
         with (
             mock.patch(
@@ -1163,13 +1165,16 @@ def test_down_does_bring_down_service_if_set_to_local_with_dependent_service_run
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")
-def test_down_does_not_bring_down_dependency_if_set_to_local(
+@pytest.mark.parametrize("exclude_local", [True, False])
+def test_down_shared_and_local_dependencies(
     mock_remove_service_entry: mock.Mock,
     tmp_path: Path,
+    exclude_local: bool,
 ) -> None:
     """
-    Test that the down command doesn't stop dependencies that are set
-    to use local runtime.
+    Test that based on the exclude_local flag, the down command will bring down
+    either all dependencies, or none in the case that there is a local dependency
+    as well as a remote shared dependency.
     """
     with (
         mock.patch(
@@ -1273,9 +1278,12 @@ def test_down_does_not_bring_down_dependency_if_set_to_local(
         state.update_service_entry(
             "other-service", "default", StateTables.STARTED_SERVICES
         )
+        state.update_service_entry(
+            "local-runtime-service", "default", StateTables.STARTED_SERVICES
+        )
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
-        args = Namespace(service_name=None, debug=False)
+        args = Namespace(service_name=None, debug=False, exclude_local=exclude_local)
 
         with (
             mock.patch(
@@ -1284,27 +1292,35 @@ def test_down_does_not_bring_down_dependency_if_set_to_local(
         ):
             down(args)
 
-        # local-runtime-service is not brought down since it is set to runtime LOCAL
-        # this means it should be brought down separately by the user
-        mock_bring_down_dependency.assert_called_once_with(
-            DockerComposeCommand(
-                full_command=[
-                    "docker",
-                    "compose",
-                    "-p",
-                    "redis",
-                    "-f",
-                    f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    "stop",
-                    "redis",
-                ],
-                project_name="redis",
-                config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                services=["redis"],
-            ),
-            mock.ANY,
-            mock.ANY,
-        )
+        if exclude_local:
+            # local-runtime-service is not brought down since it is set to runtime LOCAL
+            # this means it should be brought down separately by the user. Since redis is shared,
+            # it won't be brought down either.
+            mock_bring_down_dependency.assert_not_called()
+        else:
+            mock_bring_down_dependency.assert_has_calls(
+                [
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "local-runtime-service",
+                                "-f",
+                                f"{local_runtime_service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "stop",
+                                "clickhouse",
+                            ],
+                            project_name="local-runtime-service",
+                            config_path=f"{local_runtime_service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["clickhouse"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                ]
+            )
 
         mock_remove_service_entry.assert_has_calls(
             [

@@ -223,6 +223,7 @@ def bring_down_containerized_service(
 ) -> None:
     """Bring down a containerized service running within another service."""
     console = Console()
+    exclude_local = True
     with Status(
         lambda: console.warning(f"Stopping {service.name}"),
     ) as status:
@@ -242,7 +243,7 @@ def bring_down_containerized_service(
             exit(1)
         try:
             remote_dependencies = get_non_shared_remote_dependencies(
-                service, remote_dependencies
+                service, remote_dependencies, exclude_local
             )
         except DependencyError as de:
             capture_exception(de)
@@ -252,7 +253,11 @@ def bring_down_containerized_service(
             exit(1)
         try:
             bring_down_service(
-                service, remote_dependencies, sorted(list(mode_dependencies)), status
+                service,
+                remote_dependencies,
+                sorted(list(mode_dependencies)),
+                exclude_local,
+                status,
             )
         except DockerComposeError as dce:
             capture_exception(dce, level="info")
