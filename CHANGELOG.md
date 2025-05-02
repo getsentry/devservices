@@ -1,3 +1,9 @@
+## 1.1.4
+
+### Various fixes & improvements
+
+- Revert "add devenv and frozen requirements (#255)" (#270) by @hubertdeng123
+
 ## 1.1.3
 
 ### Various fixes & improvements
