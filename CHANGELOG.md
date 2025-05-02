@@ -1,3 +1,9 @@
+## 1.1.3
+
+### Various fixes & improvements
+
+- add supervisor to pyproject toml (#269) by @hubertdeng123
+
 ## 1.1.2
 
 ### Various fixes & improvements
