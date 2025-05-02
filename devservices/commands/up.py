@@ -101,14 +101,14 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
         services_with_local_runtime = state.get_services_by_runtime(
             ServiceRuntime.LOCAL
         )
-        skipped_services = set()
+        local_runtime_dependency_names = set()
         for service_with_local_runtime in services_with_local_runtime:
             if (
                 mode in modes
                 and service_with_local_runtime != service.name
                 and service_with_local_runtime in modes[mode]
             ):
-                skipped_services.add(service_with_local_runtime)
+                local_runtime_dependency_names.add(service_with_local_runtime)
                 if args.exclude_local:
                     status.warning(
                         f"Skipping '{service_with_local_runtime}' as it is set to run locally"
@@ -139,9 +139,9 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
             if (
                 service_with_local_runtime
                 in [dep.service_name for dep in remote_dependencies]
-                and service_with_local_runtime not in skipped_services
+                and service_with_local_runtime not in local_runtime_dependency_names
             ):
-                skipped_services.add(service_with_local_runtime)
+                local_runtime_dependency_names.add(service_with_local_runtime)
                 if args.exclude_local:
                     status.warning(
                         f"Skipping '{service_with_local_runtime}' as it is set to run locally"
@@ -155,19 +155,19 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
             for dep in remote_dependencies
             if dep.service_name not in services_with_local_runtime
         }
+        if not args.exclude_local and len(local_runtime_dependency_names) > 0:
+            status.warning("Starting dependencies with local runtimes...")
+            for local_runtime_dependency_name in local_runtime_dependency_names:
+                up(
+                    Namespace(
+                        service_name=local_runtime_dependency_name,
+                        mode=mode,
+                        exclude_local=True,
+                    ),
+                    status,
+                )
+            status.warning(f"Continuing with service '{service.name}'")
         try:
-            if not args.exclude_local:
-                status.warning("Starting dependencies with local runtimes...")
-                for skipped_service in skipped_services:
-                    up(
-                        Namespace(
-                            service_name=skipped_service,
-                            mode=mode,
-                            exclude_local=True,
-                        ),
-                        status,
-                    )
-                status.warning(f"Continuing with service '{service.name}'")
             _up(service, [mode], remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce, level="info")
