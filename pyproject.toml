@@ -12,6 +12,7 @@ dependencies = [
     "sentry-devenv",
     "sentry-sdk",
     "packaging",
+    "supervisor",
 ]
 
 [project.optional-dependencies]
