@@ -18,6 +18,7 @@ class Color:
 MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
 DEVSERVICES_DIR_NAME = "devservices"
 CONFIG_FILE_NAME = "config.yml"
+PROGRAMS_CONF_FILE_NAME = "programs.conf"
 DOCKER_CONFIG_DIR = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
 DOCKER_USER_PLUGIN_DIR = os.path.join(DOCKER_CONFIG_DIR, "cli-plugins/")
 
@@ -25,6 +26,7 @@ DEVSERVICES_CACHE_DIR = os.path.expanduser("~/.cache/sentry-devservices")
 DEVSERVICES_LOCAL_DIR = os.path.expanduser("~/.local/share/sentry-devservices")
 DEVSERVICES_DEPENDENCIES_CACHE_DIR = os.path.join(DEVSERVICES_CACHE_DIR, "dependencies")
 DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY = "DEVSERVICES_DEPENDENCIES_CACHE_DIR"
+DEVSERVICES_SUPERVISOR_CONFIG_DIR = os.path.join(DEVSERVICES_LOCAL_DIR, "supervisor")
 STATE_DB_FILE = os.path.join(DEVSERVICES_LOCAL_DIR, "state")
 DEVSERVICES_ORCHESTRATOR_LABEL = "orchestrator=devservices"
 
@@ -38,7 +40,14 @@ DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS = {
 DEVSERVICES_RELEASES_URL = (
     "https://api.github.com/repos/getsentry/devservices/releases/latest"
 )
-DOCKER_COMPOSE_DOWNLOAD_URL = "https://github.com/docker/compose/releases/download"
+
+# We mirror this in our GCP bucket since GitHub downloads can be flaky at times.
+# gsutil cp docker-compose-darwin-aarch64 gs://sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-darwin-aarch64
+# gsutil cp docker-compose-linux-x86_64 gs://sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-linux-x86_64
+DOCKER_COMPOSE_DOWNLOAD_URL = (
+    "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose"
+)
+
 DEVSERVICES_DOWNLOAD_URL = "https://github.com/getsentry/devservices/releases/download"
 BINARY_PERMISSIONS = 0o755
 MAX_LOG_LINES = "100"

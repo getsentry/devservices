@@ -9,7 +9,7 @@ from devservices.constants import DEVSERVICES_LOCAL_DIR
 from devservices.constants import STATE_DB_FILE
 
 
-class ServiceRuntime(Enum):
+class ServiceRuntime(str, Enum):
     LOCAL = "local"
     CONTAINERIZED = "containerized"
 
@@ -159,7 +159,7 @@ class State:
             f"""
             INSERT OR REPLACE INTO {StateTables.SERVICE_RUNTIME.value} (service_name, runtime) VALUES (?, ?)
         """,
-            (service_name, runtime.value),
+            (service_name, runtime),
         )
         self.conn.commit()
 
@@ -169,7 +169,7 @@ class State:
             f"""
             SELECT service_name FROM {StateTables.SERVICE_RUNTIME.value} WHERE runtime = ?
         """,
-            (runtime.value,),
+            (runtime,),
         )
         return [row[0] for row in cursor.fetchall()]
 

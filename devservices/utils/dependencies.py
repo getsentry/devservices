@@ -39,6 +39,7 @@ from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
+from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 
@@ -279,7 +280,9 @@ def verify_local_dependencies(dependencies: list[Dependency]) -> bool:
 
 
 def get_non_shared_remote_dependencies(
-    service_to_stop: Service, remote_dependencies: set[InstalledRemoteDependency]
+    service_to_stop: Service,
+    remote_dependencies: set[InstalledRemoteDependency],
+    exclude_local: bool,
 ) -> set[InstalledRemoteDependency]:
     state = State()
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
@@ -291,6 +294,7 @@ def get_non_shared_remote_dependencies(
 
     active_modes: dict[str, list[str]] = dict()
     for active_service in active_services:
+        # TODO: We probably shouldn't use an OR here, but an AND
         starting_modes = state.get_active_modes_for_service(
             active_service, StateTables.STARTING_SERVICES
         )
@@ -303,9 +307,15 @@ def get_non_shared_remote_dependencies(
     base_running_service_names: set[str] = set()
     for started_service_name in active_services:
         started_service = find_matching_service(started_service_name)
-        for dependency_name in service_to_stop.config.dependencies.keys():
-            if dependency_name == started_service.config.service_name:
-                base_running_service_names.add(started_service_name)
+        started_service_runtime = state.get_service_runtime(started_service_name)
+        if exclude_local or started_service_runtime != ServiceRuntime.LOCAL:
+            # TODO: In theory, we should only be able to run the base-service when a dependent service is running if
+            # 1. the dependent service is using a mode that doesn't include the base-service
+            # 2. the base-service is using a local runtime
+            # But we don't restrict the other cases currently
+            for dependency_name in service_to_stop.config.dependencies.keys():
+                if dependency_name == started_service.config.service_name:
+                    base_running_service_names.add(started_service_name)
 
         started_service_modes = active_modes[started_service_name]
         # Only consider the dependencies of the modes that are running

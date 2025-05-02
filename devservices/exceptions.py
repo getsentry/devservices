@@ -123,6 +123,16 @@ class DependencyNotInstalledError(DependencyError):
         return f"Dependency not installed correctly: {self.repo_name} ({self.repo_link}) on {self.branch}"
 
 
+class CannotToggleNonRemoteServiceError(Exception):
+    """Raised when a non-remote service is attempted to be toggled."""
+
+    def __init__(self, service_name: str):
+        self.service_name = service_name
+
+    def __str__(self) -> str:
+        return f"Cannot toggle {self.service_name} because it is not a remote service. This is likely because of a naming conflict."
+
+
 class GitError(Exception):
     """Base class for git related errors."""
 
