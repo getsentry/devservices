@@ -73,7 +73,7 @@ def reset(args: Namespace) -> None:
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
     active_service_names = starting_services.union(started_services)
 
-    # TODO: Should we add threading here to speed up the process?
+    # TODO: We should add threading here to speed up the process
     for active_service_name in active_service_names:
         active_service = find_matching_service(active_service_name)
         starting_active_modes = state.get_active_modes_for_service(
