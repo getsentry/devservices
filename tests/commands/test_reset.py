@@ -23,8 +23,7 @@ def test_reset_docker_daemon_not_running(
     mock_get_matching_containers: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = Namespace()
-    args.service_name = "test-service"
+    args = Namespace(service_name="test-service")
 
     reset(args)
 
@@ -91,8 +90,7 @@ def test_reset_no_matching_volumes(
     mock_get_matching_containers: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = Namespace()
-    args.service_name = "test-service"
+    args = Namespace(service_name="test-service")
 
     with pytest.raises(SystemExit):
         reset(args)
@@ -159,8 +157,7 @@ def test_reset_with_service_name_container_removal_error(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = Namespace()
-    args.service_name = "redis"
+    args = Namespace(service_name="redis")
     service_path = tmp_path / "code" / "test-service"
     config = {
         "x-sentry-service-config": {
@@ -232,8 +229,7 @@ def test_reset_with_service_name_volume_removal_error(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = Namespace()
-    args.service_name = "redis"
+    args = Namespace(service_name="redis")
     service_path = tmp_path / "code" / "test-service"
     config = {
         "x-sentry-service-config": {
@@ -300,8 +296,7 @@ def test_reset_with_service_name(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = Namespace()
-    args.service_name = "redis"
+    args = Namespace(service_name="redis")
     service_path = tmp_path / "code" / "test-service"
     config = {
         "x-sentry-service-config": {
@@ -367,8 +362,7 @@ def test_reset_with_multiple_services_depending_on_same_service(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = Namespace()
-    args.service_name = "redis"
+    args = Namespace(service_name="redis")
     service_1_path = tmp_path / "code" / "test-service-1"
     service_1_config = {
         "x-sentry-service-config": {
@@ -459,8 +453,7 @@ def test_reset_with_multiple_services_depending_on_different_service(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    args = Namespace()
-    args.service_name = "clickhouse"
+    args = Namespace(service_name="clickhouse")
     service_1_path = tmp_path / "code" / "test-service-1"
     service_1_config = {
         "x-sentry-service-config": {

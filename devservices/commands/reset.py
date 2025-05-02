@@ -13,6 +13,8 @@ from devservices.exceptions import DockerError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
+from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import DependencyType
 from devservices.utils.docker import get_matching_containers
 from devservices.utils.docker import get_volumes_for_containers
 from devservices.utils.docker import remove_docker_resources
@@ -82,7 +84,10 @@ def reset(args: Namespace) -> None:
         )
         active_modes = starting_active_modes or started_active_modes
         dependency_graph = construct_dependency_graph(active_service, active_modes)
-        if service_name in dependency_graph.graph:
+        if (
+            DependencyNode(name=service_name, dependency_type=DependencyType.COMPOSE)
+            in dependency_graph.graph
+        ):
             console.warning(
                 f"Bringing down {active_service_name} in order to safely reset {service_name}"
             )
