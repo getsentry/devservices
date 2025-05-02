@@ -768,6 +768,9 @@ def test_up_mode_simple(
         mock_check_all_containers_healthy.assert_called_once()
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
+        assert (
+            "Starting dependencies with local runtimes..." not in captured.out.strip()
+        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
 
@@ -851,6 +854,9 @@ def test_up_mode_does_not_exist(
 
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
+        assert (
+            "Starting dependencies with local runtimes..." not in captured.out.strip()
+        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
         assert "Starting 'example-service' in mode: 'test'" not in captured.out.strip()
         assert "Starting clickhouse" not in captured.out.strip()
         assert "Starting redis" not in captured.out.strip()
@@ -957,6 +963,9 @@ def test_up_multiple_modes(
 
         captured = capsys.readouterr()
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
+        assert (
+            "Starting dependencies with local runtimes..." not in captured.out.strip()
+        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
 
@@ -1122,6 +1131,9 @@ def test_up_multiple_modes_overlapping_running_service(
         captured = capsys.readouterr()
         assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
         assert "Retrieving dependencies" in captured.out.strip()
+        assert (
+            "Starting dependencies with local runtimes..." not in captured.out.strip()
+        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
         assert "Starting clickhouse" in captured.out.strip()
 
 
@@ -1495,12 +1507,22 @@ def test_up_dependency_set_to_local(
         captured = capsys.readouterr()
         if exclude_local:
             assert (
+                "Starting dependencies with local runtimes..."
+                not in captured.out.strip()
+            ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+            assert (
                 captured.out.strip().count(
                     "Skipping 'local-runtime-service' as it is set to run locally"
                 )
                 == 1
             )
         else:
+            assert (
+                captured.out.strip().count(
+                    "Starting dependencies with local runtimes..."
+                )
+                == 1
+            ), "This should be printed since we have dependencies with local runtimes"
             assert (
                 captured.out.strip().count(
                     "Skipping 'local-runtime-service' as it is set to run locally"
@@ -1798,6 +1820,10 @@ def test_up_nested_dependency_set_to_local(
         captured = capsys.readouterr()
         if exclude_local:
             assert (
+                "Starting dependencies with local runtimes..."
+                not in captured.out.strip()
+            ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+            assert (
                 captured.out.strip().count(
                     "Skipping 'local-runtime-service' as it is set to run locally"
                 )
@@ -1805,11 +1831,12 @@ def test_up_nested_dependency_set_to_local(
             )
         else:
             assert (
-                captured.out.strip().count(
-                    "Skipping 'local-runtime-service' as it is set to run locally"
-                )
-                == 0
-            )
+                "Starting dependencies with local runtimes..." in captured.out.strip()
+            ), "This should be printed since we have dependencies with local runtimes"
+            assert (
+                "Skipping 'local-runtime-service' as it is set to run locally"
+                not in captured.out.strip()
+            ), "This shouldn't be printed since local-runtime-service is being brought up"
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
@@ -1991,11 +2018,9 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
 
         captured = capsys.readouterr()
         assert (
-            captured.out.strip().count(
-                "Skipping 'local-runtime-service' as it is set to run locally"
-            )
-            == 0
-        )
+            "Skipping 'local-runtime-service' as it is set to run locally"
+            not in captured.out.strip()
+        ), "This shouldn't be printed since local-runtime-service is not being brought up"
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
@@ -2180,8 +2205,9 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
 
         captured = capsys.readouterr()
         assert (
-            captured.out.strip().count(
-                "Skipping 'local-runtime-service' as it is set to run locally"
-            )
-            == 0
-        )
+            "Starting dependencies with local runtimes..." not in captured.out.strip()
+        ), "This shouldn't be printed since other-service isn't being brought up in a mode that includes local-runtime-service"
+        assert (
+            "Skipping 'local-runtime-service' as it is set to run locally"
+            not in captured.out.strip()
+        ), "This shouldn't be printed since other-service isn't being brought up in a mode that includes local-runtime-service"
