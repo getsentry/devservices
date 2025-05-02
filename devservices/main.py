@@ -24,6 +24,7 @@ from devservices.commands import list_dependencies
 from devservices.commands import list_services
 from devservices.commands import logs
 from devservices.commands import purge
+from devservices.commands import reset
 from devservices.commands import serve
 from devservices.commands import status
 from devservices.commands import toggle
@@ -150,6 +151,7 @@ def main() -> None:
     purge.add_parser(subparsers)
     serve.add_parser(subparsers)
     toggle.add_parser(subparsers)
+    reset.add_parser(subparsers)
 
     args = parser.parse_args()
 
