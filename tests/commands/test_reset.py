@@ -195,7 +195,9 @@ def test_reset_with_service_name_container_removal_error(
         [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=redis"]
     )
     mock_get_volumes_for_containers.assert_called_once_with(["redis"])
-    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
+    mock_down.assert_called_once_with(
+        Namespace(service_name="test-service", exclude_local=True)
+    )
     mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
     mock_remove_docker_resources.assert_not_called()
 
@@ -267,7 +269,9 @@ def test_reset_with_service_name_volume_removal_error(
         [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=redis"]
     )
     mock_get_volumes_for_containers.assert_called_once_with(["redis"])
-    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
+    mock_down.assert_called_once_with(
+        Namespace(service_name="test-service", exclude_local=True)
+    )
     mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
     mock_remove_docker_resources.assert_called_once_with("volume", ["redis-volume"])
 
@@ -333,7 +337,9 @@ def test_reset_with_service_name(
         [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=redis"]
     )
     mock_get_volumes_for_containers.assert_called_once_with(["redis"])
-    mock_down.assert_called_once_with(Namespace(service_name="test-service"))
+    mock_down.assert_called_once_with(
+        Namespace(service_name="test-service", exclude_local=True)
+    )
     mock_stop_containers.assert_called_once_with(["redis"], should_remove=True)
     mock_remove_docker_resources.assert_called_once_with("volume", ["redis-volume"])
 
@@ -419,8 +425,8 @@ def test_reset_with_multiple_services_depending_on_same_service(
     mock_get_volumes_for_containers.assert_called_once_with(["redis"])
     mock_down.assert_has_calls(
         [
-            mock.call(Namespace(service_name="test-service-1")),
-            mock.call(Namespace(service_name="test-service-2")),
+            mock.call(Namespace(service_name="test-service-1", exclude_local=True)),
+            mock.call(Namespace(service_name="test-service-2", exclude_local=True)),
         ],
         any_order=True,
     )
@@ -508,7 +514,9 @@ def test_reset_with_multiple_services_depending_on_different_service(
         [DEVSERVICES_ORCHESTRATOR_LABEL, "com.docker.compose.service=clickhouse"]
     )
     mock_get_volumes_for_containers.assert_called_once_with(["clickhouse"])
-    mock_down.assert_called_once_with(Namespace(service_name="test-service-1"))
+    mock_down.assert_called_once_with(
+        Namespace(service_name="test-service-1", exclude_local=True)
+    )
     mock_stop_containers.assert_called_once_with(["clickhouse"], should_remove=True)
     mock_remove_docker_resources.assert_called_once_with(
         "volume", ["clickhouse-volume"]

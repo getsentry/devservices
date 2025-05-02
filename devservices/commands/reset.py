@@ -91,7 +91,7 @@ def reset(args: Namespace) -> None:
             console.warning(
                 f"Bringing down {active_service_name} in order to safely reset {service_name}"
             )
-            down(Namespace(service_name=active_service_name))
+            down(Namespace(service_name=active_service_name, exclude_local=True))
 
     with Status(
         lambda: console.warning(f"Resetting docker volumes for {service_name}"),
