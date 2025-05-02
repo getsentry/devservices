@@ -56,10 +56,16 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         help="Mode to use for the service",
         default="default",
     )
+    parser.add_argument(
+        "--exclude-local",
+        help="Exclude dependencies with local runtime from being started",
+        action="store_true",
+        default=False,
+    )
     parser.set_defaults(func=up)
 
 
-def up(args: Namespace) -> None:
+def up(args: Namespace, existing_status: Status | None = None) -> None:
     """Bring up a service and its dependencies."""
     console = Console()
     service_name = args.service_name
@@ -85,8 +91,12 @@ def up(args: Namespace) -> None:
     state = State()
 
     with Status(
-        lambda: console.warning(f"Starting '{service.name}' in mode: '{mode}'"),
-        lambda: console.success(f"{service.name} started"),
+        lambda: console.warning(f"Starting '{service.name}' in mode: '{mode}'")
+        if existing_status is None
+        else existing_status.warning(f"Starting '{service.name}' in mode: '{mode}'"),
+        lambda: console.success(f"{service.name} started")
+        if existing_status is None
+        else existing_status.success(f"{service.name} started"),
     ) as status:
         services_with_local_runtime = state.get_services_by_runtime(
             ServiceRuntime.LOCAL
@@ -99,9 +109,10 @@ def up(args: Namespace) -> None:
                 and service_with_local_runtime in modes[mode]
             ):
                 skipped_services.add(service_with_local_runtime)
-                status.warning(
-                    f"Skipping '{service_with_local_runtime}' as it is set to run locally"
-                )
+                if args.exclude_local:
+                    status.warning(
+                        f"Skipping '{service_with_local_runtime}' as it is set to run locally"
+                    )
         try:
             status.info("Retrieving dependencies")
             remote_dependencies = install_and_verify_dependencies(
@@ -131,9 +142,10 @@ def up(args: Namespace) -> None:
                 and service_with_local_runtime not in skipped_services
             ):
                 skipped_services.add(service_with_local_runtime)
-                status.warning(
-                    f"Skipping '{service_with_local_runtime}' as it is set to run locally"
-                )
+                if args.exclude_local:
+                    status.warning(
+                        f"Skipping '{service_with_local_runtime}' as it is set to run locally"
+                    )
         # We want to ignore any dependencies that are set to run locally
         mode_dependencies = [
             dep for dep in mode_dependencies if dep not in services_with_local_runtime
@@ -144,6 +156,18 @@ def up(args: Namespace) -> None:
             if dep.service_name not in services_with_local_runtime
         }
         try:
+            if not args.exclude_local:
+                status.warning("Starting dependencies with local runtimes...")
+                for skipped_service in skipped_services:
+                    up(
+                        Namespace(
+                            service_name=skipped_service,
+                            mode=mode,
+                            exclude_local=True,
+                        ),
+                        status,
+                    )
+                status.warning(f"Continuing with service '{service.name}'")
             _up(service, [mode], remote_dependencies, mode_dependencies, status)
         except DockerComposeError as dce:
             capture_exception(dce, level="info")

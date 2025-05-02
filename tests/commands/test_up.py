@@ -72,7 +72,9 @@ def test_up_simple(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=False
+        )
 
         with (
             mock.patch(
@@ -206,7 +208,9 @@ def test_up_dependency_error(
         create_config_file(tmp_path, config)
         os.chdir(tmp_path)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=False
+        )
 
         with pytest.raises(SystemExit):
             up(args)
@@ -242,7 +246,7 @@ def test_up_no_config_file(
 ) -> None:
     os.chdir(tmp_path)
 
-    args = Namespace(service_name=None, debug=False)
+    args = Namespace(service_name=None, debug=False, exclude_local=False)
 
     with pytest.raises(SystemExit):
         up(args)
@@ -301,7 +305,9 @@ def test_up_error(
     create_config_file(tmp_path, config)
     os.chdir(tmp_path)
 
-    args = Namespace(service_name=None, debug=False, mode="default")
+    args = Namespace(
+        service_name=None, debug=False, mode="default", exclude_local=False
+    )
 
     with pytest.raises(SystemExit):
         up(args)
@@ -385,7 +391,9 @@ def test_up_docker_compose_container_lookup_error(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=False
+        )
 
         with (
             pytest.raises(SystemExit),
@@ -532,7 +540,9 @@ def test_up_docker_compose_container_healthcheck_failed(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=False
+        )
 
         with (
             pytest.raises(SystemExit),
@@ -671,7 +681,9 @@ def test_up_mode_simple(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False, mode="test")
+        args = Namespace(
+            service_name=None, debug=False, mode="test", exclude_local=False
+        )
 
         with (
             mock.patch(
@@ -796,7 +808,9 @@ def test_up_mode_does_not_exist(
         create_config_file(service_path, config)
         os.chdir(service_path)
 
-        args = Namespace(service_name=None, debug=False, mode="test")
+        args = Namespace(
+            service_name=None, debug=False, mode="test", exclude_local=False
+        )
 
         with (
             pytest.raises(SystemExit),
@@ -882,7 +896,9 @@ def test_up_multiple_modes(
             "example-service", "default", StateTables.STARTED_SERVICES
         )
 
-        args = Namespace(service_name=None, debug=False, mode="test")
+        args = Namespace(
+            service_name=None, debug=False, mode="test", exclude_local=False
+        )
         with (
             mock.patch(
                 "devservices.commands.up._pull_dependency_images",
@@ -1037,7 +1053,12 @@ def test_up_multiple_modes_overlapping_running_service(
             "other-service", "default", StateTables.STARTED_SERVICES
         )
 
-        args = Namespace(service_name="example-service", debug=False, mode="test")
+        args = Namespace(
+            service_name="example-service",
+            debug=False,
+            mode="test",
+            exclude_local=False,
+        )
 
         with (
             mock.patch(
@@ -1112,7 +1133,9 @@ def test_up_config_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     find_matching_service_mock.side_effect = ConfigError("Config error")
-    args = Namespace(service_name="example-service", debug=False, mode="test")
+    args = Namespace(
+        service_name="example-service", debug=False, mode="test", exclude_local=False
+    )
 
     with pytest.raises(SystemExit):
         up(args)
@@ -1131,7 +1154,9 @@ def test_up_service_not_found_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     find_matching_service_mock.side_effect = ServiceNotFoundError("Service not found")
-    args = Namespace(service_name="example-service", debug=False, mode="test")
+    args = Namespace(
+        service_name="example-service", debug=False, mode="test", exclude_local=False
+    )
 
     with pytest.raises(SystemExit):
         up(args)
@@ -1143,14 +1168,15 @@ def test_up_service_not_found_error(
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
-def test_up_does_not_bring_up_dependency_if_set_to_local(
+@pytest.mark.parametrize("exclude_local", [True, False])
+def test_up_dependency_set_to_local(
     mock_update_service_entry: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    exclude_local: bool,
 ) -> None:
     """
-    Test that we do not bring up a dependency if it is set to LOCAL runtime and assuming the mode contains it,
-    it should write a warning to the console, informing the user that the dependency is set to run locally.
+    Test that depending on the exclude_local flag, we will not bring up a dependency if it is set to LOCAL runtime.
     """
     with (
         mock.patch(
@@ -1253,7 +1279,9 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
         state = State()
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=exclude_local
+        )
 
         with (
             mock.patch(
@@ -1265,74 +1293,232 @@ def test_up_does_not_bring_up_dependency_if_set_to_local(
         ):
             up(args)
 
-        mock_pull_dependency_images.assert_called_once_with(
-            DockerComposeCommand(
-                full_command=[
-                    "docker",
-                    "compose",
-                    "-p",
-                    "redis",
-                    "-f",
-                    f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    "pull",
-                    "redis",
-                ],
-                project_name="redis",
-                config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                services=["redis"],
-            ),
-            mock.ANY,
-            mock.ANY,
-        )
+        if exclude_local:
+            mock_pull_dependency_images.assert_called_once_with(
+                DockerComposeCommand(
+                    full_command=[
+                        "docker",
+                        "compose",
+                        "-p",
+                        "redis",
+                        "-f",
+                        f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "pull",
+                        "redis",
+                    ],
+                    project_name="redis",
+                    config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    services=["redis"],
+                ),
+                mock.ANY,
+                mock.ANY,
+            )
+        else:
+            mock_pull_dependency_images.assert_has_calls(
+                [
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "redis",
+                                "-f",
+                                f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "pull",
+                                "redis",
+                            ],
+                            project_name="redis",
+                            config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["redis"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "local-runtime-service",
+                                "-f",
+                                f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "pull",
+                                "clickhouse",
+                            ],
+                            project_name="local-runtime-service",
+                            config_path=f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["clickhouse"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "redis",
+                                "-f",
+                                f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "pull",
+                                "redis",
+                            ],
+                            project_name="redis",
+                            config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["redis"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                ]
+            )
 
-        # local-runtime-service is not started since it is set to runtime LOCAL
-        # this means it should be brought up separately by the user
-        mock_bring_up_dependency.assert_called_once_with(
-            DockerComposeCommand(
-                full_command=[
-                    "docker",
-                    "compose",
-                    "-p",
-                    "redis",
-                    "-f",
-                    f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    "up",
-                    "redis",
-                    "-d",
-                ],
-                project_name="redis",
-                config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                services=["redis"],
-            ),
-            mock.ANY,
-            mock.ANY,
-        )
+        if exclude_local:
+            # local-runtime-service is not started since it is set to runtime LOCAL
+            # this means it should be brought up separately by the user
+            mock_bring_up_dependency.assert_called_once_with(
+                DockerComposeCommand(
+                    full_command=[
+                        "docker",
+                        "compose",
+                        "-p",
+                        "redis",
+                        "-f",
+                        f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "redis",
+                        "-d",
+                    ],
+                    project_name="redis",
+                    config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    services=["redis"],
+                ),
+                mock.ANY,
+                mock.ANY,
+            )
+        else:
+            mock_bring_up_dependency.assert_has_calls(
+                [
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "redis",
+                                "-f",
+                                f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "up",
+                                "redis",
+                                "-d",
+                            ],
+                            project_name="redis",
+                            config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["redis"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "local-runtime-service",
+                                "-f",
+                                f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "up",
+                                "clickhouse",
+                                "-d",
+                            ],
+                            project_name="local-runtime-service",
+                            config_path=f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["clickhouse"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "redis",
+                                "-f",
+                                f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "up",
+                                "redis",
+                                "-d",
+                            ],
+                            project_name="redis",
+                            config_path=f"{tmp_path}/dependency-dir/v1/redis/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["redis"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                ]
+            )
 
-        mock_update_service_entry.assert_has_calls(
-            [
-                mock.call("other-service", "default", StateTables.STARTING_SERVICES),
-                mock.call("other-service", "default", StateTables.STARTED_SERVICES),
-            ]
-        )
+        if exclude_local:
+            mock_update_service_entry.assert_has_calls(
+                [
+                    mock.call(
+                        "other-service", "default", StateTables.STARTING_SERVICES
+                    ),
+                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                ]
+            )
+        else:
+            mock_update_service_entry.assert_has_calls(
+                [
+                    mock.call(
+                        "other-service", "default", StateTables.STARTING_SERVICES
+                    ),
+                    mock.call(
+                        "local-runtime-service",
+                        "default",
+                        StateTables.STARTING_SERVICES,
+                    ),
+                    mock.call(
+                        "local-runtime-service", "default", StateTables.STARTED_SERVICES
+                    ),
+                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                ]
+            )
 
         captured = capsys.readouterr()
-        assert (
-            captured.out.strip().count(
-                "Skipping 'local-runtime-service' as it is set to run locally"
+        if exclude_local:
+            assert (
+                captured.out.strip().count(
+                    "Skipping 'local-runtime-service' as it is set to run locally"
+                )
+                == 1
             )
-            == 1
-        )
+        else:
+            assert (
+                captured.out.strip().count(
+                    "Skipping 'local-runtime-service' as it is set to run locally"
+                )
+                == 0
+            )
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
-def test_up_does_not_bring_up_nested_dependency_if_set_to_local(
+@pytest.mark.parametrize("exclude_local", [True, False])
+def test_up_nested_dependency_set_to_local(
     mock_update_service_entry: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    exclude_local: bool,
 ) -> None:
     """
-    Test that we do not bring up a nesteddependency if it is set to LOCAL runtime and assuming the mode contains it,
-    it should write a warning to the console, informing the user that the dependency is set to run locally.
+    Test that depending on the exclude_local flag, we either bring up a nested dependency or not that has a local runtime.
     """
     with (
         mock.patch(
@@ -1370,6 +1556,9 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local(
         run_git_command(
             ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
         )
+
+        local_runtime_service_path = tmp_path / "code" / "local-runtime-service"
+        create_config_file(local_runtime_service_path, local_runtime_config)
 
         child_service_repo_path = create_mock_git_repo(
             "blank_repo", tmp_path / "child-service"
@@ -1432,7 +1621,9 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local(
         state = State()
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=exclude_local
+        )
 
         with (
             mock.patch(
@@ -1444,74 +1635,194 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local(
         ):
             up(args)
 
-        mock_pull_dependency_images.assert_called_once_with(
-            DockerComposeCommand(
-                full_command=[
-                    "docker",
-                    "compose",
-                    "-p",
-                    "child-service",
-                    "-f",
-                    f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    "pull",
-                    "child-service",
-                ],
-                project_name="child-service",
-                config_path=f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                services=["child-service"],
-            ),
-            mock.ANY,
-            mock.ANY,
-        )
+        if exclude_local:
+            mock_pull_dependency_images.assert_called_once_with(
+                DockerComposeCommand(
+                    full_command=[
+                        "docker",
+                        "compose",
+                        "-p",
+                        "child-service",
+                        "-f",
+                        f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "pull",
+                        "child-service",
+                    ],
+                    project_name="child-service",
+                    config_path=f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    services=["child-service"],
+                ),
+                mock.ANY,
+                mock.ANY,
+            )
+        else:
+            mock_pull_dependency_images.assert_has_calls(
+                [
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "local-runtime-service",
+                                "-f",
+                                f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "pull",
+                                "redis",
+                            ],
+                            project_name="local-runtime-service",
+                            config_path=f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["redis"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "child-service",
+                                "-f",
+                                f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "pull",
+                                "child-service",
+                            ],
+                            project_name="child-service",
+                            config_path=f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["child-service"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                ]
+            )
 
-        # local-runtime-service is not started since it is set to runtime LOCAL
-        # this means it should be brought up separately by the user
-        mock_bring_up_dependency.assert_called_once_with(
-            DockerComposeCommand(
-                full_command=[
-                    "docker",
-                    "compose",
-                    "-p",
-                    "child-service",
-                    "-f",
-                    f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    "up",
-                    "child-service",
-                    "-d",
-                ],
-                project_name="child-service",
-                config_path=f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                services=["child-service"],
-            ),
-            mock.ANY,
-            mock.ANY,
-        )
+        if exclude_local:
+            # local-runtime-service is not started since it is set to runtime LOCAL
+            # this means it should be brought up separately by the user
+            mock_bring_up_dependency.assert_called_once_with(
+                DockerComposeCommand(
+                    full_command=[
+                        "docker",
+                        "compose",
+                        "-p",
+                        "child-service",
+                        "-f",
+                        f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                        "up",
+                        "child-service",
+                        "-d",
+                    ],
+                    project_name="child-service",
+                    config_path=f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    services=["child-service"],
+                ),
+                mock.ANY,
+                mock.ANY,
+            )
+        else:
+            mock_bring_up_dependency.assert_has_calls(
+                [
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "local-runtime-service",
+                                "-f",
+                                f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "up",
+                                "redis",
+                                "-d",
+                            ],
+                            project_name="local-runtime-service",
+                            config_path=f"{tmp_path}/code/local-runtime-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["redis"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                    mock.call(
+                        DockerComposeCommand(
+                            full_command=[
+                                "docker",
+                                "compose",
+                                "-p",
+                                "child-service",
+                                "-f",
+                                f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                                "up",
+                                "child-service",
+                                "-d",
+                            ],
+                            project_name="child-service",
+                            config_path=f"{tmp_path}/dependency-dir/v1/child-service/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                            services=["child-service"],
+                        ),
+                        mock.ANY,
+                        mock.ANY,
+                    ),
+                ]
+            )
 
-        mock_update_service_entry.assert_has_calls(
-            [
-                mock.call("other-service", "default", StateTables.STARTING_SERVICES),
-                mock.call("other-service", "default", StateTables.STARTED_SERVICES),
-            ]
-        )
+        if exclude_local:
+            mock_update_service_entry.assert_has_calls(
+                [
+                    mock.call(
+                        "other-service", "default", StateTables.STARTING_SERVICES
+                    ),
+                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                ]
+            )
+        else:
+            mock_update_service_entry.assert_has_calls(
+                [
+                    mock.call(
+                        "other-service", "default", StateTables.STARTING_SERVICES
+                    ),
+                    mock.call(
+                        "local-runtime-service",
+                        "default",
+                        StateTables.STARTING_SERVICES,
+                    ),
+                    mock.call(
+                        "local-runtime-service", "default", StateTables.STARTED_SERVICES
+                    ),
+                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                ]
+            )
 
         captured = capsys.readouterr()
-        assert (
-            captured.out.strip().count(
-                "Skipping 'local-runtime-service' as it is set to run locally"
+        if exclude_local:
+            assert (
+                captured.out.strip().count(
+                    "Skipping 'local-runtime-service' as it is set to run locally"
+                )
+                == 1
             )
-            == 1
-        )
+        else:
+            assert (
+                captured.out.strip().count(
+                    "Skipping 'local-runtime-service' as it is set to run locally"
+                )
+                == 0
+            )
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
+@pytest.mark.parametrize("exclude_local", [True, False])
 def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_not_contain_it(
     mock_update_service_entry: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    exclude_local: bool,
 ) -> None:
     """
     Test that we do not bring up a nested dependency if it is set to LOCAL runtime and assuming the mode does not contain it,
-    it should NOT write a warning to the console.
+    it should NOT write a warning to the console, no matter if exclude_local is True or False.
     """
     with (
         mock.patch(
@@ -1614,7 +1925,9 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
         state = State()
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=exclude_local
+        )
 
         with (
             mock.patch(
@@ -1686,14 +1999,16 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
+@pytest.mark.parametrize("exclude_local", [True, False])
 def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_contain_it(
     mock_update_service_entry: mock.Mock,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    exclude_local: bool,
 ) -> None:
     """
     Test that we do not bring up a dependency if it is set to LOCAL runtime especially if the mode does not contain it,
-    and assuming the mode does not contain it, it should NOT write a warning to the console.
+    and assuming the mode does not contain it, it should NOT write a warning to the console, no matter if exclude_local is True or False.
     """
     with (
         mock.patch(
@@ -1799,7 +2114,9 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
         state = State()
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
-        args = Namespace(service_name=None, debug=False, mode="default")
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=exclude_local
+        )
 
         with (
             mock.patch(
