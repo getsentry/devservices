@@ -83,7 +83,7 @@ def down(args: Namespace) -> None:
         exit(1)
 
     modes = service.config.modes
-    exclude_local = args.exclude_local
+    exclude_local = getattr(args, "exclude_local", False)
 
     state = State()
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
