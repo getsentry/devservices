@@ -1,3 +1,15 @@
+## 1.1.2
+
+### Various fixes & improvements
+
+- add devenv and frozen requirements (#255) by @joshuarli
+- chore(versioning): Bumping min python version to 3.11 (#268) by @hubertdeng123
+- ref(toggle): Auto bring up/down local runtimes services (#267) by @IanWoodard
+- change terminology of program vs process (#262) by @hubertdeng123
+- fix(toggle): Fixing toggle enums again (#265) by @IanWoodard
+- feat(serve): Add initial serve command (#258) by @hubertdeng123
+- fix(toggle): Fixing toggle formatting with enums (#264) by @IanWoodard
+
 ## 1.1.1
 
 ### Various fixes & improvements
