@@ -934,6 +934,7 @@ def test_restart_dependent_services_single_dependent_service_single_mode(
             service_name="dependent-service",
             mode="default",
             debug=False,
+            exclude_local=True,
         )
     )
 
@@ -963,6 +964,7 @@ def test_restart_dependent_services_single_dependent_service_multiple_modes(
                     service_name="dependent-service",
                     mode="default",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
             mock.call(
@@ -970,6 +972,7 @@ def test_restart_dependent_services_single_dependent_service_multiple_modes(
                     service_name="dependent-service",
                     mode="other-mode",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
         ]
@@ -1003,6 +1006,7 @@ def test_restart_dependent_services_multiple_dependent_services_single_mode(
                     service_name="dependent-service",
                     mode="default",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
             mock.call(
@@ -1010,6 +1014,7 @@ def test_restart_dependent_services_multiple_dependent_services_single_mode(
                     service_name="other-dependent-service",
                     mode="default",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
         ]
@@ -1046,6 +1051,7 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
                     service_name="dependent-service",
                     mode="default",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
             mock.call(
@@ -1053,6 +1059,7 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
                     service_name="dependent-service",
                     mode="other-mode",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
             mock.call(
@@ -1060,6 +1067,7 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
                     service_name="other-dependent-service",
                     mode="default",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
             mock.call(
@@ -1067,6 +1075,7 @@ def test_restart_dependent_services_multiple_dependent_services_multiple_modes(
                     service_name="other-dependent-service",
                     mode="other-mode",
                     debug=False,
+                    exclude_local=True,
                 )
             ),
         ]

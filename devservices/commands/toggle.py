@@ -206,6 +206,7 @@ def restart_dependent_services(
                     service_name=dependent_service,
                     mode=mode,
                     debug=False,
+                    exclude_local=True,
                 )
                 try:
                     up(args)

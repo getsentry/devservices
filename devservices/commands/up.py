@@ -87,6 +87,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
 
     modes = service.config.modes
     mode = args.mode
+    exclude_local = getattr(args, "exclude_local", False)
 
     state = State()
 
@@ -109,7 +110,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                 and service_with_local_runtime in modes[mode]
             ):
                 local_runtime_dependency_names.add(service_with_local_runtime)
-                if args.exclude_local:
+                if exclude_local:
                     status.warning(
                         f"Skipping '{service_with_local_runtime}' as it is set to run locally"
                     )
@@ -142,7 +143,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                 and service_with_local_runtime not in local_runtime_dependency_names
             ):
                 local_runtime_dependency_names.add(service_with_local_runtime)
-                if args.exclude_local:
+                if exclude_local:
                     status.warning(
                         f"Skipping '{service_with_local_runtime}' as it is set to run locally"
                     )
@@ -155,7 +156,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
             for dep in remote_dependencies
             if dep.service_name not in services_with_local_runtime
         }
-        if not args.exclude_local and len(local_runtime_dependency_names) > 0:
+        if not exclude_local and len(local_runtime_dependency_names) > 0:
             status.warning("Starting dependencies with local runtimes...")
             for local_runtime_dependency_name in local_runtime_dependency_names:
                 up(
