@@ -138,6 +138,18 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
                 service_to_transition,
                 [service_to_transition_dependency_config.remote.mode],
             )
+            console.warning(f"Restarting {service_to_transition.name} in default mode")
+            # This behavior matches the default behavior of up as it
+            # will bring up dependencies with local runtimes automatically
+            # in the default mode. If the user wants to run it in a different
+            # mode, they can switch to that mode manually.
+            up(
+                Namespace(
+                    service_name=service_to_transition.name,
+                    mode="default",
+                    exclude_local=False,
+                )
+            )
             break
     state.update_service_runtime(service_to_transition.name, ServiceRuntime.LOCAL)
 
