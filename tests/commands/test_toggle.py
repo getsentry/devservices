@@ -218,9 +218,11 @@ def test_toggle_nothing_running_same_runtime(
         )
 
 
+@mock.patch("devservices.commands.toggle.up")
 @mock.patch("devservices.commands.down._bring_down_dependency")
 def test_toggle_dependent_service_running(
     mock_bring_down_dependency: mock.Mock,
+    mock_up: mock.Mock,
     tmp_path: Path,
 ) -> None:
     with (
@@ -382,6 +384,14 @@ def test_toggle_dependent_service_running(
             ),
             mock.ANY,
             mock.ANY,
+        )
+
+        mock_up.assert_called_once_with(
+            Namespace(
+                service_name="example-service",
+                mode="default",
+                exclude_local=False,
+            )
         )
 
 
