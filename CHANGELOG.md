@@ -1,3 +1,12 @@
+## 1.1.5
+
+### Various fixes & improvements
+
+- feat(toggle): Updating toggling active dependency to be consistent (#273) by @IanWoodard
+- fix(up/down): Fixing the exclude-local flag for up/down (#272) by @IanWoodard
+- fix(up): Cleaning up 'up' local runtime logic (#271) by @IanWoodard
+- feat(reset): Adding reset command (#219) by @IanWoodard
+
 ## 1.1.4
 
 ### Various fixes & improvements
