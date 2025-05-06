@@ -201,6 +201,7 @@ def _up(
             )
         ),
     )
+
     # Pull all images in parallel
     status.info("Pulling images")
     pull_commands = get_docker_compose_commands_to_run(
