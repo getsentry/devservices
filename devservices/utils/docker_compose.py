@@ -306,7 +306,7 @@ def run_cmd(
     console = Console()
     cmd_pretty = shlex.join(cmd)
 
-    while True:
+    while retries >= 0:
         try:
             logger.debug(f"Running command: {cmd_pretty}")
             proc = subprocess.run(
