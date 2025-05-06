@@ -303,6 +303,7 @@ def run_cmd(
         raise ValueError("Retries cannot be negative")
 
     logger = logging.getLogger(LOGGER_NAME)
+    console = Console()
     cmd_pretty = shlex.join(cmd)
 
     while True:
@@ -322,7 +323,7 @@ def run_cmd(
             if retries == 0:
                 raise err
 
-            print(
+            console.warning(
                 f"""
 Error: {err}
 
