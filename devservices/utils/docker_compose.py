@@ -312,7 +312,6 @@ def run_cmd(
             proc = subprocess.run(
                 cmd, check=True, capture_output=True, text=True, env=env
             )
-            return proc
         except subprocess.CalledProcessError as e:
             err = DockerComposeError(
                 command=cmd_pretty,
@@ -333,3 +332,5 @@ Retrying in {retry_initial_wait}s ({retries} retries left)...
             time.sleep(retry_initial_wait)
             retries -= 1
             retry_initial_wait *= retry_exp
+
+    return proc
