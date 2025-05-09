@@ -306,6 +306,7 @@ def run_cmd(
     console = Console()
     cmd_pretty = shlex.join(cmd)
 
+    proc = None
     retries += 1  # initial try
 
     while retries > 0:
@@ -335,3 +336,6 @@ Retrying in {retry_initial_wait}s ({retries} retries left)...
             time.sleep(retry_initial_wait)
             retry_initial_wait *= retry_exp
 
+    # make mypy happy
+    assert proc is not None
+    return proc
