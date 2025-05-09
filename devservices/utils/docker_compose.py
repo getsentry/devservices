@@ -316,6 +316,7 @@ def run_cmd(
             proc = subprocess.run(
                 cmd, check=True, capture_output=True, text=True, env=env
             )
+            return proc
         except subprocess.CalledProcessError as e:
             err = DockerComposeError(
                 command=cmd_pretty,
