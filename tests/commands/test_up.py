@@ -405,7 +405,7 @@ def test_up_pull_error_timeout(
         ) as mock_subprocess_run:
             up(args)
 
-    # assert multiple failled calls
+    # assert multiple failed calls
     assert (
         mock_subprocess_run.mock_calls
         == [
@@ -427,6 +427,7 @@ def test_up_pull_error_timeout(
                 env=mock.ANY,
             )
         ]
+        # default is 4 retries (5 tries total)
         * 5
     )
 

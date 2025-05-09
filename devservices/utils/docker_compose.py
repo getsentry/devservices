@@ -306,7 +306,10 @@ def run_cmd(
     console = Console()
     cmd_pretty = shlex.join(cmd)
 
-    while retries >= 0:
+    retries += 1  # initial try
+
+    while retries > 0:
+        retries -= 1
         try:
             logger.debug(f"Running command: {cmd_pretty}")
             proc = subprocess.run(
@@ -330,7 +333,5 @@ Retrying in {retry_initial_wait}s ({retries} retries left)...
 """
             )
             time.sleep(retry_initial_wait)
-            retries -= 1
             retry_initial_wait *= retry_exp
 
-    return proc
