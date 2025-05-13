@@ -5,12 +5,15 @@ from dataclasses import dataclass
 from dataclasses import fields
 
 import yaml
+from supervisor.options import ServerOptions
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
+from devservices.utils.supervisor import SupervisorManager
 
 VALID_VERSIONS = [0.1]
 
@@ -86,6 +89,10 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
 
         docker_compose_services = config.get("services", {}).keys()
 
+        supervisor_programs = load_supervisor_programs_from_file(
+            repo_path, service_config_data.get("service_name")
+        )
+
         valid_dependency_keys = {field.name for field in fields(Dependency)}
 
         dependencies = {}
@@ -113,9 +120,10 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             if (
                 dependency.remote is None
                 and dependency_name not in docker_compose_services
+                and dependency_name not in supervisor_programs
             ):
                 raise ConfigValidationError(
-                    f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services"
+                    f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services or programs file"
                 )
 
         service_config = ServiceConfig(
@@ -126,3 +134,16 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
         )
 
         return service_config
+
+
+def load_supervisor_programs_from_file(repo_path: str, service_name: str) -> set[str]:
+    programs_config_path = os.path.join(
+        repo_path, DEVSERVICES_DIR_NAME, PROGRAMS_CONF_FILE_NAME
+    )
+    if not os.path.exists(programs_config_path):
+        return set()
+    manager = SupervisorManager(programs_config_path, service_name=service_name)
+    opts = ServerOptions()
+    opts.configfile = manager.config_file_path
+    opts.process_config()
+    return set([program.name for program in opts.process_group_configs])

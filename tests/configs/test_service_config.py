@@ -10,6 +10,7 @@ from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
 from testing.utils import create_config_file
+from testing.utils import create_programs_conf_file
 
 
 @pytest.mark.parametrize(
@@ -412,3 +413,66 @@ def test_load_service_config_from_file_invalid_yaml_tag(tmp_path: Path) -> None:
         str(e.value)
         == f"Error parsing config file: could not determine a constructor for the tag 'tag:yaml.org,2002:invalid_tag'\n  in \"{tmp_path / 'devservices' / 'config.yml'}\", line 7, column 19"
     )
+
+
+def test_load_service_config_from_file_no_programs_file(tmp_path: Path) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "example-dependency": {
+                    "description": "Example dependency",
+                },
+                "example-program": {
+                    "description": "Example program",
+                },
+            },
+            "modes": {"default": ["example-dependency", "example-program"]},
+        },
+        "services": {
+            "example-dependency": {
+                "image": "example-dependency",
+            }
+        },
+    }
+    create_config_file(tmp_path, config)
+
+    with pytest.raises(ConfigValidationError) as e:
+        load_service_config_from_file(str(tmp_path))
+    assert (
+        str(e.value)
+        == "Dependency 'example-program' is not remote but is not defined in docker-compose services or programs file"
+    )
+
+
+def test_load_service_config_from_file_valid_programs_file(tmp_path: Path) -> None:
+    service_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "example-dependency": {
+                    "description": "Example dependency",
+                },
+                "example-program": {
+                    "description": "Example program",
+                },
+            },
+            "modes": {"default": ["example-dependency", "example-program"]},
+        },
+        "services": {
+            "example-dependency": {
+                "image": "example-dependency",
+            }
+        },
+    }
+    create_config_file(tmp_path, service_config)
+
+    programs_config = """[program:example-program]
+command=echo "Hello, World!"
+autostart=true
+"""
+    create_programs_conf_file(tmp_path, programs_config)
+
+    load_service_config_from_file(str(tmp_path))
