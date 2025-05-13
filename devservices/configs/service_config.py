@@ -3,12 +3,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from dataclasses import fields
-from enum import Enum
 
 import yaml
 from supervisor.options import ServerOptions
 
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigNotFoundError
@@ -17,11 +17,6 @@ from devservices.exceptions import ConfigValidationError
 from devservices.utils.supervisor import SupervisorManager
 
 VALID_VERSIONS = [0.1]
-
-
-class DependencyType(Enum):
-    DOCKER_COMPOSE = "docker-compose"
-    SUPERVISOR = "supervisor"
 
 
 @dataclass
@@ -35,8 +30,8 @@ class RemoteConfig:
 @dataclass
 class Dependency:
     description: str
+    dependency_type: DependencyType
     remote: RemoteConfig | None = None
-    dependency_type: str | None = None
 
 
 @dataclass
@@ -111,32 +106,31 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
                     raise ConfigParseError(
                         f"Unexpected key(s) in dependency '{key}': {unexpected_keys}"
                     )
+                if value.get("remote") is None:
+                    if key in supervisor_programs:
+                        dependency_type = DependencyType.SUPERVISOR
+                    elif key in docker_compose_services:
+                        dependency_type = DependencyType.COMPOSE
+                    else:
+                        raise ConfigValidationError(
+                            f"Dependency '{key}' is not remote but is not defined in docker-compose services or programs file"
+                        )
+                else:
+                    dependency_type = DependencyType.SERVICE
+
                 dependencies[key] = Dependency(
                     description=value.get("description"),
-                    remote=RemoteConfig(**value.get("remote"))
-                    if "remote" in value
-                    else None,
+                    remote=(
+                        RemoteConfig(**value.get("remote"))
+                        if "remote" in value
+                        else None
+                    ),
+                    dependency_type=dependency_type,
                 )
         except TypeError as type_error:
             raise ConfigParseError(
                 f"Error parsing service dependencies: {type_error}"
             ) from type_error
-
-        # Validate that all non-remote dependencies are defined in docker-compose services
-        for dependency_name, dependency in dependencies.items():
-            if dependency.remote is None:
-                if dependency_name in supervisor_programs:
-                    dependencies[
-                        dependency_name
-                    ].dependency_type = DependencyType.SUPERVISOR.value
-                elif dependency_name in docker_compose_services:
-                    dependencies[
-                        dependency_name
-                    ].dependency_type = DependencyType.DOCKER_COMPOSE.value
-                else:
-                    raise ConfigValidationError(
-                        f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services or programs file"
-                    )
 
         service_config = ServiceConfig(
             version=service_config_data.get("version"),

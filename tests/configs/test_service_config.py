@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from devservices.configs.service_config import DependencyType
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.configs.service_config import load_supervisor_programs_from_file
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
@@ -23,7 +23,7 @@ from testing.utils import create_programs_conf_file
             {"example-dependency": {"description": "Example dependency"}},
             {"default": ["example-dependency"]},
             {
-                "example-dependency": DependencyType.DOCKER_COMPOSE.value,
+                "example-dependency": DependencyType.COMPOSE,
             },
         ),
         (
@@ -44,8 +44,8 @@ from testing.utils import create_programs_conf_file
             },
             {"default": ["example-dependency-1", "example-dependency-2"]},
             {
-                "example-dependency-1": None,
-                "example-dependency-2": DependencyType.DOCKER_COMPOSE.value,
+                "example-dependency-1": DependencyType.SERVICE,
+                "example-dependency-2": DependencyType.COMPOSE,
             },
         ),
         (
@@ -66,8 +66,8 @@ from testing.utils import create_programs_conf_file
             },
             {"default": ["example-dependency-1"], "custom": ["example-dependency-2"]},
             {
-                "example-dependency-1": None,
-                "example-dependency-2": DependencyType.DOCKER_COMPOSE.value,
+                "example-dependency-1": DependencyType.SERVICE,
+                "example-dependency-2": DependencyType.COMPOSE,
             },
         ),
     ],
@@ -493,11 +493,11 @@ autostart=true
     service_config = load_service_config_from_file(str(tmp_path))
     assert (
         service_config.dependencies["example-program"].dependency_type
-        == DependencyType.SUPERVISOR.value
+        == DependencyType.SUPERVISOR
     )
     assert (
         service_config.dependencies["example-dependency"].dependency_type
-        == DependencyType.DOCKER_COMPOSE.value
+        == DependencyType.COMPOSE
     )
 
 

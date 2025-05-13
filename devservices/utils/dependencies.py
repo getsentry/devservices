@@ -10,7 +10,6 @@ from collections import deque
 from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from enum import Enum
 from typing import TextIO
 from typing import TypeGuard
 
@@ -24,6 +23,7 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import LOGGER_NAME
@@ -53,11 +53,6 @@ RELEVANT_GIT_CONFIG_KEYS = [
     "protocol.version",
     "extensions.partialclone",
 ]
-
-
-class DependencyType(str, Enum):
-    SERVICE = "service"
-    COMPOSE = "compose"
 
 
 @dataclass(frozen=True, eq=True)
@@ -751,6 +746,7 @@ def construct_dependency_graph(service: Service, modes: list[str]) -> Dependency
         for mode in modes:
             service_mode_dependencies.update(service_config.modes.get(mode, []))
         for dependency_name, dependency in service_config.dependencies.items():
+            print(dependency_name, dependency)
             # Skip the dependency if it's not in the modes (since it may not be installed and we don't care about it)
             if dependency_name not in service_mode_dependencies:
                 continue
@@ -761,9 +757,11 @@ def construct_dependency_graph(service: Service, modes: list[str]) -> Dependency
                 ),
                 DependencyNode(
                     name=dependency_name,
-                    dependency_type=DependencyType.SERVICE
-                    if _has_remote_config(dependency.remote)
-                    else DependencyType.COMPOSE,
+                    dependency_type=(
+                        DependencyType.SERVICE
+                        if _has_remote_config(dependency.remote)
+                        else dependency.dependency_type
+                    ),
                 ),
             )
             if _has_remote_config(dependency.remote):
