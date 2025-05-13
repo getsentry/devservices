@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from devservices.configs.service_config import load_service_config_from_file
+from devservices.configs.service_config import load_supervisor_programs_from_file
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
@@ -476,3 +477,19 @@ autostart=true
     create_programs_conf_file(tmp_path, programs_config)
 
     load_service_config_from_file(str(tmp_path))
+
+
+def test_load_supervisor_programs_from_file_no_programs_file(tmp_path: Path) -> None:
+    programs = load_supervisor_programs_from_file(str(tmp_path), "example-service")
+    assert programs == set()
+
+
+def test_load_supervisor_programs_from_file_valid_programs_file(tmp_path: Path) -> None:
+    programs_config = """[program:example-program]
+command=echo "Hello, World!"
+autostart=true
+"""
+    create_programs_conf_file(tmp_path, programs_config)
+
+    programs = load_supervisor_programs_from_file(str(tmp_path), "example-service")
+    assert programs == {"example-program"}
