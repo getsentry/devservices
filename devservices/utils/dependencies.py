@@ -746,7 +746,6 @@ def construct_dependency_graph(service: Service, modes: list[str]) -> Dependency
         for mode in modes:
             service_mode_dependencies.update(service_config.modes.get(mode, []))
         for dependency_name, dependency in service_config.dependencies.items():
-            print(dependency_name, dependency)
             # Skip the dependency if it's not in the modes (since it may not be installed and we don't care about it)
             if dependency_name not in service_mode_dependencies:
                 continue
