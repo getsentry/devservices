@@ -15,6 +15,7 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
@@ -23,7 +24,6 @@ from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import DependencyNode
-from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import GitConfigManager
@@ -203,6 +203,7 @@ def test_verify_local_dependencies_no_remote_dependencies(tmp_path: Path) -> Non
     ):
         dependency = Dependency(
             description="Test dependency",
+            dependency_type=DependencyType.COMPOSE,
         )
         assert verify_local_dependencies([dependency])
 
@@ -221,6 +222,7 @@ def test_verify_local_dependencies_with_remote_dependencies(tmp_path: Path) -> N
         dependency = Dependency(
             description="Test dependency",
             remote=remote_config,
+            dependency_type=DependencyType.COMPOSE,
         )
         assert not verify_local_dependencies([dependency])
 
@@ -255,6 +257,7 @@ def test_get_installed_remote_dependencies_single_dep_not_installed(
                 branch="main",
                 repo_link=f"file://{tmp_path / 'test-repo'}",
             ),
+            dependency_type=DependencyType.SERVICE,
         )
         with pytest.raises(DependencyNotInstalledError):
             get_installed_remote_dependencies(dependencies=[mock_dependency])
@@ -273,6 +276,7 @@ def test_get_installed_remote_dependencies_single_dep_installed(tmp_path: Path) 
                 branch="main",
                 repo_link=f"file://{tmp_path / 'test-repo'}",
             ),
+            dependency_type=DependencyType.SERVICE,
         )
         installed_remote_dependencies_initial = install_dependencies([mock_dependency])
         installed_remote_dependencies = get_installed_remote_dependencies(
@@ -1963,6 +1967,7 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
                 branch="main",
                 repo_link=f"file://{repo_a_path}",
             ),
+            dependency_type=DependencyType.SERVICE,
         )
         repo_b_dependency = Dependency(
             description="repo b",
@@ -1971,6 +1976,7 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
                 branch="main",
                 repo_link=f"file://{repo_b_path}",
             ),
+            dependency_type=DependencyType.SERVICE,
         )
         dependencies = [repo_a_dependency, repo_b_dependency]
 
@@ -2080,6 +2086,7 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 )
             },
             modes={"default": ["dependency-1"]},
@@ -2136,6 +2143,7 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 )
             },
             modes={"default": ["dependency-1"]},
@@ -2171,6 +2179,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 )
             },
             modes={"default": ["dependency-1"]},
@@ -2200,6 +2209,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
                     repo_link="file://path/to/dependency-1",
                     branch="main",
                 ),
+                dependency_type=DependencyType.SERVICE,
             )
         ]
     )
@@ -2234,6 +2244,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
                         repo_link="file://path/to/dependency-3",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "dependency-4": Dependency(
                     description="dependency-4",
@@ -2242,6 +2253,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
                         repo_link="file://path/to/dependency-4",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={"default": ["dependency-3"], "other": ["dependency-4"]},
@@ -2278,6 +2290,7 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "dependency-2": Dependency(
                     description="dependency-2",
@@ -2286,6 +2299,7 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
                         repo_link="file://path/to/dependency-2",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={"default": ["dependency-1", "dependency-2"]},
@@ -2327,6 +2341,7 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
                     repo_link="file://path/to/dependency-3",
                     branch="main",
                 ),
+                dependency_type=DependencyType.SERVICE,
             )
         ]
     )
@@ -2352,6 +2367,7 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
                         repo_link="file://path/to/dependency-3",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={"default": ["dependency-3"]},
@@ -2388,6 +2404,7 @@ def test_get_non_shared_remote_dependencies_with_local_runtime_dependency(
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "service-2": Dependency(
                     description="service-2",
@@ -2396,6 +2413,7 @@ def test_get_non_shared_remote_dependencies_with_local_runtime_dependency(
                         repo_link="file://path/to/service-2",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={"default": ["dependency-1", "service-2"]},
@@ -2455,6 +2473,7 @@ def test_get_non_shared_remote_dependencies_with_local_runtime_dependency(
                     repo_link="file://path/to/dependency-3",
                     branch="main",
                 ),
+                dependency_type=DependencyType.SERVICE,
             )
         ]
     )
@@ -2478,6 +2497,7 @@ def test_install_and_verify_dependencies_simple(
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "dependency-2": Dependency(
                     description="dependency-2",
@@ -2486,6 +2506,7 @@ def test_install_and_verify_dependencies_simple(
                         repo_link="file://path/to/dependency-2",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={"default": ["dependency-1", "dependency-2"]},
@@ -2519,6 +2540,7 @@ def test_install_and_verify_dependencies_mode_simple(
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "dependency-2": Dependency(
                     description="dependency-2",
@@ -2527,6 +2549,7 @@ def test_install_and_verify_dependencies_mode_simple(
                         repo_link="file://path/to/dependency-2",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={
@@ -2557,6 +2580,7 @@ def test_install_and_verify_dependencies_mode_does_not_exist(tmp_path: Path) -> 
                         repo_link="file://path/to/dependency-1",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "dependency-2": Dependency(
                     description="dependency-2",
@@ -2565,6 +2589,7 @@ def test_install_and_verify_dependencies_mode_does_not_exist(tmp_path: Path) -> 
                         repo_link="file://path/to/dependency-2",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={"default": ["dependency-1", "dependency-2"]},
@@ -2615,6 +2640,7 @@ def test_construct_dependency_graph_simple(
                         repo_link=f"file://{dependency_service_repo_path}",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={
@@ -2729,9 +2755,11 @@ def test_construct_dependency_graph_one_nested_dependency(
                         repo_link=f"file://{parent_service_repo_path}",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "grandparent-service": Dependency(
                     description="grandparent-service",
+                    dependency_type=DependencyType.COMPOSE,
                 ),
             },
             modes={
@@ -2877,9 +2905,11 @@ def test_construct_dependency_graph_shared_dependency(
                         repo_link=f"file://{parent_service_repo_path}",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "grandparent-service": Dependency(
                     description="grandparent-service",
+                    dependency_type=DependencyType.COMPOSE,
                 ),
                 "child-service": Dependency(
                     description="child-service",
@@ -2888,6 +2918,7 @@ def test_construct_dependency_graph_shared_dependency(
                         repo_link=f"file://{child_service_repo_path}",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
             },
             modes={
@@ -3037,9 +3068,11 @@ def test_construct_dependency_graph_non_self_reference(
                         repo_link=f"file://{parent_service_repo_path}",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "grandparent-service-container": Dependency(
                     description="grandparent-service-container",
+                    dependency_type=DependencyType.COMPOSE,
                 ),
             },
             modes={
@@ -3252,6 +3285,7 @@ def test_construct_dependency_graph_complex(
                         repo_link=f"file://{child_service_repo_path}",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "grandparent-service": Dependency(
                     description="grandparent-service",
@@ -3260,9 +3294,11 @@ def test_construct_dependency_graph_complex(
                         repo_link=f"file://{grandparent_service_repo_path}",
                         branch="main",
                     ),
+                    dependency_type=DependencyType.SERVICE,
                 ),
                 "complex-service": Dependency(
                     description="complex-service",
+                    dependency_type=DependencyType.COMPOSE,
                 ),
             },
             modes={
