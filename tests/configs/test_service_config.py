@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from devservices.configs.service_config import DependencyType
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.configs.service_config import load_supervisor_programs_from_file
 from devservices.exceptions import ConfigNotFoundError
@@ -15,12 +16,15 @@ from testing.utils import create_programs_conf_file
 
 
 @pytest.mark.parametrize(
-    "service_name, dependencies, modes",
+    "service_name, dependencies, modes, dependency_types",
     [
         (
             "example-service",
             {"example-dependency": {"description": "Example dependency"}},
             {"default": ["example-dependency"]},
+            {
+                "example-dependency": DependencyType.DOCKER_COMPOSE.value,
+            },
         ),
         (
             "example-service",
@@ -39,6 +43,10 @@ from testing.utils import create_programs_conf_file
                 },
             },
             {"default": ["example-dependency-1", "example-dependency-2"]},
+            {
+                "example-dependency-1": None,
+                "example-dependency-2": DependencyType.DOCKER_COMPOSE.value,
+            },
         ),
         (
             "example-service",
@@ -57,6 +65,10 @@ from testing.utils import create_programs_conf_file
                 },
             },
             {"default": ["example-dependency-1"], "custom": ["example-dependency-2"]},
+            {
+                "example-dependency-1": None,
+                "example-dependency-2": DependencyType.DOCKER_COMPOSE.value,
+            },
         ),
     ],
 )
@@ -65,6 +77,7 @@ def test_load_service_config_from_file(
     service_name: str,
     dependencies: dict[str, dict[str, object]],
     modes: dict[str, list[str]],
+    dependency_types: dict[str, DependencyType],
 ) -> None:
     config = {
         "x-sentry-service-config": {
@@ -90,6 +103,7 @@ def test_load_service_config_from_file(
             key: {
                 "description": value["description"],
                 "remote": value.get("remote"),
+                "dependency_type": dependency_types[key],
             }
             for key, value in dependencies.items()
         },
@@ -448,7 +462,7 @@ def test_load_service_config_from_file_no_programs_file(tmp_path: Path) -> None:
 
 
 def test_load_service_config_from_file_valid_programs_file(tmp_path: Path) -> None:
-    service_config = {
+    devservices_config = {
         "x-sentry-service-config": {
             "version": 0.1,
             "service_name": "example-service",
@@ -468,7 +482,7 @@ def test_load_service_config_from_file_valid_programs_file(tmp_path: Path) -> No
             }
         },
     }
-    create_config_file(tmp_path, service_config)
+    create_config_file(tmp_path, devservices_config)
 
     programs_config = """[program:example-program]
 command=echo "Hello, World!"
@@ -476,7 +490,15 @@ autostart=true
 """
     create_programs_conf_file(tmp_path, programs_config)
 
-    load_service_config_from_file(str(tmp_path))
+    service_config = load_service_config_from_file(str(tmp_path))
+    assert (
+        service_config.dependencies["example-program"].dependency_type
+        == DependencyType.SUPERVISOR.value
+    )
+    assert (
+        service_config.dependencies["example-dependency"].dependency_type
+        == DependencyType.DOCKER_COMPOSE.value
+    )
 
 
 def test_load_supervisor_programs_from_file_no_programs_file(tmp_path: Path) -> None:

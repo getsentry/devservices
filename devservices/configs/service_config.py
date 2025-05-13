@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from dataclasses import fields
+from enum import Enum
 
 import yaml
 from supervisor.options import ServerOptions
@@ -18,6 +19,11 @@ from devservices.utils.supervisor import SupervisorManager
 VALID_VERSIONS = [0.1]
 
 
+class DependencyType(Enum):
+    DOCKER_COMPOSE = "docker-compose"
+    SUPERVISOR = "supervisor"
+
+
 @dataclass
 class RemoteConfig:
     repo_name: str
@@ -30,6 +36,7 @@ class RemoteConfig:
 class Dependency:
     description: str
     remote: RemoteConfig | None = None
+    dependency_type: str | None = None
 
 
 @dataclass
@@ -117,14 +124,19 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
 
         # Validate that all non-remote dependencies are defined in docker-compose services
         for dependency_name, dependency in dependencies.items():
-            if (
-                dependency.remote is None
-                and dependency_name not in docker_compose_services
-                and dependency_name not in supervisor_programs
-            ):
-                raise ConfigValidationError(
-                    f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services or programs file"
-                )
+            if dependency.remote is None:
+                if dependency_name in supervisor_programs:
+                    dependencies[
+                        dependency_name
+                    ].dependency_type = DependencyType.SUPERVISOR.value
+                elif dependency_name in docker_compose_services:
+                    dependencies[
+                        dependency_name
+                    ].dependency_type = DependencyType.DOCKER_COMPOSE.value
+                else:
+                    raise ConfigValidationError(
+                        f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services or programs file"
+                    )
 
         service_config = ServiceConfig(
             version=service_config_data.get("version"),
