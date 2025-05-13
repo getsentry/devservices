@@ -17,6 +17,7 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import CannotToggleNonRemoteServiceError
 from devservices.exceptions import ConfigNotFoundError
@@ -333,6 +334,7 @@ def test_toggle_dependent_service_running(
                                 branch="main",
                                 mode="default",
                             ),
+                            dependency_type=DependencyType.SERVICE,
                         ),
                         "example-service": Dependency(
                             description="Example service",
@@ -342,6 +344,7 @@ def test_toggle_dependent_service_running(
                                 branch="main",
                                 mode="default",
                             ),
+                            dependency_type=DependencyType.SERVICE,
                         ),
                     },
                     modes={"default": ["redis", "example-service"]},
@@ -416,6 +419,7 @@ def test_toggle_to_local_runtime_no_runtime_specified(
                     "clickhouse": Dependency(
                         description="Clickhouse",
                         remote=None,
+                        dependency_type=DependencyType.COMPOSE,
                     ),
                 },
                 modes={"default": ["clickhouse"]},
@@ -439,6 +443,7 @@ def test_toggle_to_local_runtime_no_runtime_specified(
                         "clickhouse": Dependency(
                             description="Clickhouse",
                             remote=None,
+                            dependency_type=DependencyType.COMPOSE,
                         ),
                     },
                     modes={"default": ["clickhouse"]},
@@ -468,6 +473,7 @@ def test_toggle_cannot_toggle_non_remote_service(
                     "clickhouse": Dependency(
                         description="Clickhouse",
                         remote=None,
+                        dependency_type=DependencyType.COMPOSE,
                     ),
                 },
                 modes={"default": ["clickhouse"]},
@@ -497,6 +503,7 @@ def test_toggle_cannot_toggle_non_remote_service(
                         "clickhouse": Dependency(
                             description="Clickhouse",
                             remote=None,
+                            dependency_type=DependencyType.COMPOSE,
                         ),
                     },
                     modes={"default": ["clickhouse"]},
@@ -536,6 +543,7 @@ def test_handle_transition_to_local_runtime_currently_running_standalone(
                         "clickhouse": Dependency(
                             description="Clickhouse",
                             remote=None,
+                            dependency_type=DependencyType.COMPOSE,
                         ),
                     },
                     modes={"default": ["clickhouse"]},
@@ -616,6 +624,7 @@ def test_handle_transition_to_local_runtime_naming_conflict(
                         "clickhouse": Dependency(
                             description="Clickhouse",
                             remote=None,
+                            dependency_type=DependencyType.COMPOSE,
                         ),
                     },
                     modes={"default": ["clickhouse"]},
@@ -640,6 +649,7 @@ def test_handle_transition_to_local_runtime_naming_conflict(
                             "clickhouse": Dependency(
                                 description="Clickhouse",
                                 remote=None,
+                                dependency_type=DependencyType.COMPOSE,
                             ),
                         },
                         modes={"default": ["clickhouse"]},
@@ -694,6 +704,7 @@ def test_handle_transition_to_containerized_runtime_no_dependent_services(
                         "redis": Dependency(
                             description="Redis",
                             remote=None,
+                            dependency_type=DependencyType.COMPOSE,
                         ),
                     },
                     modes={"default": ["redis"]},
@@ -745,7 +756,11 @@ def test_handle_transition_to_containerized_runtime_with_service_running(
                     version=0.1,
                     service_name="redis",
                     dependencies={
-                        "redis": Dependency(description="Redis", remote=None),
+                        "redis": Dependency(
+                            description="Redis",
+                            remote=None,
+                            dependency_type=DependencyType.COMPOSE,
+                        ),
                     },
                     modes={"default": ["redis"]},
                 ),
@@ -872,6 +887,7 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                                 branch="main",
                                 mode="default",
                             ),
+                            dependency_type=DependencyType.SERVICE,
                         ),
                         "example-service": Dependency(
                             description="Example service",
@@ -881,6 +897,7 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                                 branch="main",
                                 mode="default",
                             ),
+                            dependency_type=DependencyType.SERVICE,
                         ),
                     },
                     modes={"default": ["redis", "example-service"]},
@@ -911,10 +928,12 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                                 branch="main",
                                 mode="default",
                             ),
+                            dependency_type=DependencyType.SERVICE,
                         ),
                         "clickhouse": Dependency(
                             description="Clickhouse",
                             remote=None,
+                            dependency_type=DependencyType.COMPOSE,
                         ),
                     },
                     modes={"default": ["redis", "clickhouse"]},
@@ -1162,6 +1181,7 @@ def test_bring_down_containerized_service_install_and_verify_dependencies_failur
                         "clickhouse": Dependency(
                             description="Clickhouse",
                             remote=None,
+                            dependency_type=DependencyType.COMPOSE,
                         ),
                     },
                     modes={"default": ["clickhouse"]},
@@ -1214,6 +1234,7 @@ def test_bring_down_containerized_service_no_remote_dependencies(
                     "clickhouse": Dependency(
                         description="Clickhouse",
                         remote=None,
+                        dependency_type=DependencyType.COMPOSE,
                     ),
                 },
                 modes={"default": ["clickhouse"]},
@@ -1230,7 +1251,11 @@ def test_bring_down_containerized_service_no_remote_dependencies(
                 version=0.1,
                 service_name="example-service",
                 dependencies={
-                    "clickhouse": Dependency(description="Clickhouse", remote=None),
+                    "clickhouse": Dependency(
+                        description="Clickhouse",
+                        remote=None,
+                        dependency_type=DependencyType.COMPOSE,
+                    ),
                 },
                 modes={"default": ["clickhouse"]},
             ),
@@ -1319,7 +1344,11 @@ def test_bring_down_containerized_service_with_remote_dependency(
                 version=0.1,
                 service_name="example-service",
                 dependencies={
-                    "clickhouse": Dependency(description="Clickhouse", remote=None),
+                    "clickhouse": Dependency(
+                        description="Clickhouse",
+                        remote=None,
+                        dependency_type=DependencyType.COMPOSE,
+                    ),
                     "redis": Dependency(
                         description="Redis",
                         remote=RemoteConfig(
@@ -1328,6 +1357,7 @@ def test_bring_down_containerized_service_with_remote_dependency(
                             branch="main",
                             mode="default",
                         ),
+                        dependency_type=DependencyType.SERVICE,
                     ),
                 },
                 modes={"default": ["clickhouse", "redis"]},
@@ -1347,7 +1377,9 @@ def test_bring_down_containerized_service_with_remote_dependency(
                         service_name="example-service",
                         dependencies={
                             "clickhouse": Dependency(
-                                description="Clickhouse", remote=None
+                                description="Clickhouse",
+                                remote=None,
+                                dependency_type=DependencyType.COMPOSE,
                             ),
                             "redis": Dependency(
                                 description="Redis",
@@ -1357,6 +1389,7 @@ def test_bring_down_containerized_service_with_remote_dependency(
                                     branch="main",
                                     mode="default",
                                 ),
+                                dependency_type=DependencyType.SERVICE,
                             ),
                         },
                         modes={"default": ["clickhouse", "redis"]},
@@ -1410,6 +1443,7 @@ def test_bring_down_containerized_service_get_non_shared_remote_dependencies_err
                                 branch="main",
                                 mode="default",
                             ),
+                            dependency_type=DependencyType.SERVICE,
                         ),
                     },
                     modes={"default": ["redis"]},
@@ -1434,6 +1468,7 @@ def test_bring_down_containerized_service_get_non_shared_remote_dependencies_err
                             branch="main",
                             mode="default",
                         ),
+                        dependency_type=DependencyType.SERVICE,
                     ),
                 },
                 modes={"default": ["redis"]},
@@ -1458,6 +1493,7 @@ def test_bring_down_containerized_service_get_non_shared_remote_dependencies_err
                             branch="main",
                             mode="default",
                         ),
+                        dependency_type=DependencyType.SERVICE,
                     ),
                 },
                 modes={"default": ["redis"]},
@@ -1519,7 +1555,9 @@ def test_bring_down_containerized_service_docker_compose_error(
                         service_name="example-service",
                         dependencies={
                             "clickhouse": Dependency(
-                                description="Clickhouse", remote=None
+                                description="Clickhouse",
+                                remote=None,
+                                dependency_type=DependencyType.COMPOSE,
                             ),
                         },
                         modes={"default": ["clickhouse"]},
