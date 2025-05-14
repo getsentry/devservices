@@ -755,12 +755,7 @@ def construct_dependency_graph(service: Service, modes: list[str]) -> Dependency
                     dependency_type=DependencyType.SERVICE,
                 ),
                 DependencyNode(
-                    name=dependency_name,
-                    dependency_type=(
-                        DependencyType.SERVICE
-                        if _has_remote_config(dependency.remote)
-                        else dependency.dependency_type
-                    ),
+                    name=dependency_name, dependency_type=dependency.dependency_type
                 ),
             )
             if _has_remote_config(dependency.remote):
