@@ -287,6 +287,32 @@ def test_load_service_config_from_file_remote_dependency_not_in_services(
     load_service_config_from_file(str(tmp_path))
 
 
+def test_load_service_config_from_file_no_matching_docker_compose_service(
+    tmp_path: Path,
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "example-dependency": {
+                    "description": "Example dependency",
+                },
+            },
+            "modes": {"default": ["example-dependency"]},
+        },
+        "services": {},
+    }
+    create_config_file(tmp_path, config)
+
+    with pytest.raises(ConfigValidationError) as e:
+        load_service_config_from_file(str(tmp_path))
+    assert (
+        str(e.value)
+        == "Dependency 'example-dependency' is not remote but is not defined in docker-compose services"
+    )
+
+
 def test_load_service_config_from_file_invalid_dependencies(tmp_path: Path) -> None:
     config = {
         "x-sentry-service-config": {
