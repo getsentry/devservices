@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from devservices.configs.service_config import ServiceConfig
+from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import get_local_services
@@ -32,13 +33,11 @@ def test_get_local_services_with_invalid_config(
         mock_repo_path = mock_code_root / "example"
         create_mock_git_repo("invalid_repo", mock_repo_path)
 
-        local_services = get_local_services(str(mock_code_root))
+        with pytest.raises(ConfigParseError):
+            local_services = get_local_services(str(mock_code_root))
+            assert not local_services
         captured = capsys.readouterr()
-        assert not local_services
-        assert (
-            "example was found with an invalid config: Error parsing config file:"
-            in captured.out
-        )
+        assert "example was found with an invalid config" in captured.out
 
 
 def test_get_local_services_with_valid_config(tmp_path: Path) -> None:

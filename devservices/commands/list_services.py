@@ -4,6 +4,9 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from sentry_sdk import capture_exception
+
+from devservices.exceptions import ConfigError
 from devservices.utils.console import Console
 from devservices.utils.devenv import get_coderoot
 from devservices.utils.services import get_local_services
@@ -29,7 +32,12 @@ def list_services(args: Namespace) -> None:
     console = Console()
     # Get all of the services installed locally
     coderoot = get_coderoot()
-    services = get_local_services(coderoot)
+    try:
+        services = get_local_services(coderoot)
+    except ConfigError as e:
+        capture_exception(e)
+        console.failure(str(e))
+        return
     state = State()
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))

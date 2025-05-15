@@ -84,6 +84,8 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             )
         service_config_data = config.get("x-sentry-service-config")
 
+        docker_compose_services = config.get("services", {}).keys()
+
         valid_dependency_keys = {field.name for field in fields(Dependency)}
 
         dependencies = {}
@@ -105,6 +107,16 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             raise ConfigParseError(
                 f"Error parsing service dependencies: {type_error}"
             ) from type_error
+
+        # Validate that all non-remote dependencies are defined in docker-compose services
+        for dependency_name, dependency in dependencies.items():
+            if (
+                dependency.remote is None
+                and dependency_name not in docker_compose_services
+            ):
+                raise ConfigValidationError(
+                    f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services"
+                )
 
         service_config = ServiceConfig(
             version=service_config_data.get("version"),
