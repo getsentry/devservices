@@ -20,13 +20,13 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import DependencyGraph
 from devservices.utils.dependencies import DependencyNode
-from devservices.utils.dependencies import DependencyType
 from devservices.utils.services import Service
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
@@ -79,8 +79,14 @@ def test_get_status_json_results(
                 version=0.1,
                 service_name="test-service",
                 dependencies={
-                    "redis": Dependency(description="Redis"),
-                    "clickhouse": Dependency(description="Clickhouse"),
+                    "redis": Dependency(
+                        description="Redis",
+                        dependency_type=DependencyType.COMPOSE,
+                    ),
+                    "clickhouse": Dependency(
+                        description="Clickhouse",
+                        dependency_type=DependencyType.COMPOSE,
+                    ),
                 },
                 modes={"default": ["redis", "clickhouse"], "test": ["redis"]},
             ),
@@ -541,8 +547,14 @@ def test_handle_started_service(
                 version=0.1,
                 service_name="test-service",
                 dependencies={
-                    "redis": Dependency(description="Redis"),
-                    "clickhouse": Dependency(description="Clickhouse"),
+                    "redis": Dependency(
+                        description="Redis",
+                        dependency_type=DependencyType.COMPOSE,
+                    ),
+                    "clickhouse": Dependency(
+                        description="Clickhouse",
+                        dependency_type=DependencyType.COMPOSE,
+                    ),
                 },
                 modes={"default": ["redis", "clickhouse"], "test": ["redis"]},
             ),

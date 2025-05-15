@@ -12,6 +12,7 @@ from devservices.commands.logs import logs
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
@@ -42,8 +43,12 @@ def test_logs_no_specified_service_not_running(
                 version=0.1,
                 service_name="example-service",
                 dependencies={
-                    "redis": Dependency(description="Redis"),
-                    "clickhouse": Dependency(description="Clickhouse"),
+                    "redis": Dependency(
+                        description="Redis", dependency_type=DependencyType.COMPOSE
+                    ),
+                    "clickhouse": Dependency(
+                        description="Clickhouse", dependency_type=DependencyType.COMPOSE
+                    ),
                 },
                 modes={"default": ["redis", "clickhouse"]},
             ),
@@ -98,8 +103,12 @@ def test_logs_no_specified_service_success(
                 version=0.1,
                 service_name="example-service",
                 dependencies={
-                    "redis": Dependency(description="Redis"),
-                    "clickhouse": Dependency(description="Clickhouse"),
+                    "redis": Dependency(
+                        description="Redis", dependency_type=DependencyType.COMPOSE
+                    ),
+                    "clickhouse": Dependency(
+                        description="Clickhouse", dependency_type=DependencyType.COMPOSE
+                    ),
                 },
                 modes={"default": ["redis", "clickhouse"]},
             ),

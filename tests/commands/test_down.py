@@ -13,6 +13,7 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
@@ -632,6 +633,7 @@ def test_down_does_not_stop_service_being_used_by_another_service(
                     dependencies={
                         "redis": Dependency(
                             description="Redis",
+                            dependency_type=DependencyType.SERVICE,
                             remote=RemoteConfig(
                                 repo_name="redis",
                                 repo_link=f"file://{redis_repo_path}",
@@ -641,6 +643,7 @@ def test_down_does_not_stop_service_being_used_by_another_service(
                         ),
                         "example-service": Dependency(
                             description="Example service",
+                            dependency_type=DependencyType.SERVICE,
                             remote=RemoteConfig(
                                 repo_name="example-service",
                                 repo_link=f"file://{example_repo_path}",
@@ -814,6 +817,7 @@ def test_down_does_not_stop_nested_service_being_used_by_another_service(
                     dependencies={
                         "parent-service": Dependency(
                             description="Parent service",
+                            dependency_type=DependencyType.SERVICE,
                             remote=RemoteConfig(
                                 repo_name="parent-service",
                                 repo_link=f"file://{parent_repo_path}",
@@ -1094,6 +1098,7 @@ def test_down_local_service_with_dependent_service_running(
                     dependencies={
                         "redis": Dependency(
                             description="Redis",
+                            dependency_type=DependencyType.SERVICE,
                             remote=RemoteConfig(
                                 repo_name="redis",
                                 repo_link=f"file://{redis_repo_path}",
@@ -1103,6 +1108,7 @@ def test_down_local_service_with_dependent_service_running(
                         ),
                         "local-runtime-service": Dependency(
                             description="Local runtime service",
+                            dependency_type=DependencyType.SERVICE,
                             remote=RemoteConfig(
                                 repo_name="local-runtime-service",
                                 repo_link=f"file://{local_runtime_repo_path}",
