@@ -7,12 +7,14 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from freezegun import freeze_time
 
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorConnectionError
 from devservices.exceptions import SupervisorError
 from devservices.exceptions import SupervisorProcessError
+from devservices.utils.supervisor import SupervisorDaemonState
 from devservices.utils.supervisor import SupervisorManager
 from devservices.utils.supervisor import SupervisorProcessState
 from devservices.utils.supervisor import UnixSocketHTTPConnection
@@ -158,13 +160,43 @@ def test_is_program_running_failure(
 
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
 def test_start_supervisor_daemon_success(
-    mock_subprocess_run: mock.MagicMock, supervisor_manager: SupervisorManager
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
 ) -> None:
+    mock_rpc_client.return_value.supervisor.getState.side_effect = [
+        SupervisorConnectionError("Connection refused"),
+        {
+            "statecode": SupervisorDaemonState.RUNNING,
+            "statename": "RUNNING",
+        },
+    ]
     supervisor_manager.start_supervisor_daemon()
     mock_subprocess_run.assert_called_once_with(
         ["supervisord", "-c", supervisor_manager.config_file_path], check=True
     )
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch(
+    "devservices.utils.supervisor.xmlrpc.client.ServerProxy",
+    return_value=mock.MagicMock(),
+)
+def test_start_supervisor_daemon_already_running(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    mock_rpc_client.return_value.supervisor.getState.return_value = {
+        "statecode": SupervisorDaemonState.RUNNING,
+        "statename": "RUNNING",
+    }
+    supervisor_manager.start_supervisor_daemon()
+    assert mock_rpc_client.return_value.supervisor.getState.call_count == 2
+    assert mock_rpc_client.return_value.supervisor.restart.call_count == 1
+    assert mock_subprocess_run.call_count == 0
 
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
@@ -404,3 +436,75 @@ def test_tail_program_logs_keyboard_interrupt(
         ],
         check=True,
     )
+
+
+@mock.patch("xmlrpc.client.ServerProxy", return_value=mock.MagicMock())
+@mock.patch("devservices.utils.supervisor.time.sleep")
+def test_wait_for_supervisor_ready_success(
+    mock_sleep: mock.MagicMock,
+    mock_rpc_client: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    # Mock client that returns a running state
+    mock_rpc_client.return_value.supervisor.getState.return_value = {
+        "statename": "RUNNING",
+        "statecode": SupervisorDaemonState.RUNNING,
+    }
+    mock_rpc_client.return_value = supervisor_manager._get_rpc_client()
+    # Should not raise an exception
+    supervisor_manager._wait_for_supervisor_ready()
+
+    # Should not have needed to sleep
+    mock_sleep.assert_not_called()
+
+
+@mock.patch("xmlrpc.client.ServerProxy", return_value=mock.MagicMock())
+@mock.patch("devservices.utils.supervisor.time.sleep")
+def test_wait_for_supervisor_ready_retries(
+    mock_sleep: mock.MagicMock,
+    mock_rpc_client: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    # First attempt fails with connection error, second has wrong state, third succeeds
+    call1 = SupervisorConnectionError("Connection refused")
+    call2 = {"statename": "RUNNING", "statecode": SupervisorDaemonState.RESTARTING}
+    call3 = {"statename": "RUNNING", "statecode": SupervisorDaemonState.RUNNING}
+
+    mock_rpc_client.return_value.supervisor.getState.side_effect = [
+        call1,
+        call2,
+        call3,
+    ]
+
+    with freeze_time() as frozen_time:
+        mock_sleep.side_effect = lambda x: frozen_time.tick(x)
+        supervisor_manager._wait_for_supervisor_ready()
+
+    assert mock_sleep.call_count == 2
+
+    assert mock_rpc_client.return_value.supervisor.getState.call_count == 3
+
+
+@mock.patch("xmlrpc.client.ServerProxy")
+@mock.patch("devservices.utils.supervisor.time.sleep")
+def test_wait_for_supervisor_ready_timeout(
+    mock_sleep: mock.MagicMock,
+    mock_rpc_client: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    mock_rpc_client.return_value.supervisor.getState.side_effect = (
+        SupervisorConnectionError("Connection refused")
+    )
+
+    with (
+        freeze_time() as frozen_time,
+        pytest.raises(
+            SupervisorError, match="Supervisor didn't become ready within 5 seconds"
+        ),
+    ):
+        mock_sleep.side_effect = lambda x: frozen_time.tick(x)
+        supervisor_manager._wait_for_supervisor_ready(5, 1)
+
+    assert mock_sleep.call_count == 5
+
+    assert mock_rpc_client.return_value.supervisor.getState.call_count == 5

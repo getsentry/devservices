@@ -15,6 +15,7 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ContainerHealthcheckFailedError
@@ -22,6 +23,8 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorConfigError
+from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
@@ -38,6 +41,7 @@ from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
+from devservices.utils.supervisor import SupervisorManager
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -151,6 +155,15 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
         mode_dependencies = [
             dep for dep in mode_dependencies if dep not in services_with_local_runtime
         ]
+
+        supervisor_programs = [
+            dep
+            for dep in mode_dependencies
+            if dep in service.config.dependencies
+            and service.config.dependencies[dep].dependency_type
+            == DependencyType.SUPERVISOR
+        ]
+
         remote_dependencies = {
             dep
             for dep in remote_dependencies
@@ -169,12 +182,18 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                 )
             status.warning(f"Continuing with service '{service.name}'")
         try:
-            _up(service, [mode], remote_dependencies, mode_dependencies, status)
+            bring_up_docker_compose_services(
+                service, [mode], remote_dependencies, mode_dependencies, status
+            )
         except DockerComposeError as dce:
             capture_exception(dce, level="info")
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
-    # TODO: We should factor in healthchecks here before marking service as running
+    try:
+        bring_up_supervisor_programs(supervisor_programs, service, status)
+    except SupervisorError as se:
+        status.failure(str(se))
+        exit(1)
     state.remove_service_entry(service.name, StateTables.STARTING_SERVICES)
     state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES)
 
@@ -195,7 +214,7 @@ def _bring_up_dependency(
     run_cmd(cmd.full_command, current_env)
 
 
-def _up(
+def bring_up_docker_compose_services(
     service: Service,
     modes: list[str],
     remote_dependencies: set[InstalledRemoteDependency],
@@ -284,6 +303,31 @@ def _up(
     except ContainerHealthcheckFailedError as e:
         status.failure(str(e))
         exit(1)
+
+
+def bring_up_supervisor_programs(
+    supervisor_programs: list[str], service: Service, status: Status
+) -> None:
+    if len(supervisor_programs) == 0:
+        return
+    programs_config_path = os.path.join(
+        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
+    )
+    if not os.path.exists(programs_config_path):
+        raise SupervisorConfigError(
+            f"No programs.conf file found in {programs_config_path}."
+        )
+    manager = SupervisorManager(
+        programs_config_path,
+        service_name=service.name,
+    )
+
+    status.info("Starting supervisor daemon")
+    manager.start_supervisor_daemon()
+
+    for program in supervisor_programs:
+        status.info(f"Starting {program}")
+        manager.start_process(program)
 
 
 def _create_devservices_network() -> None:
