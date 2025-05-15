@@ -5,6 +5,7 @@ import http.client
 import os
 import socket
 import subprocess
+import time
 import xmlrpc.client
 from enum import IntEnum
 
@@ -33,6 +34,19 @@ class SupervisorProcessState(IntEnum):
     EXITED = 100
     FATAL = 200
     UNKNOWN = 1000
+
+
+class SupervisorDaemonState(IntEnum):
+    """
+    Supervisor daemon states.
+
+    https://supervisord.org/api.html#supervisor.rpcinterface.SupervisorNamespaceRPCInterface.getState
+    """
+
+    FATAL = 2
+    RUNNING = 1
+    RESTARTING = 0
+    SHUTDOWN = -1
 
 
 class UnixSocketHTTPConnection(http.client.HTTPConnection):
@@ -137,9 +151,51 @@ class SupervisorManager:
             # If we can't get the process info, assume it's not running
             return False
 
+    def _wait_for_supervisor_ready(
+        self, timeout: int = 10, interval: float = 0.5
+    ) -> None:
+        for _ in range(int(timeout / interval)):
+            try:
+                client = self._get_rpc_client()
+                state = client.supervisor.getState()
+                # Unfortunately supervisor is untyped, so we need to assert the types
+                assert isinstance(state, dict)
+                assert "statecode" in state
+                if state.get("statecode") == SupervisorDaemonState.RUNNING:
+                    return
+                time.sleep(interval)
+            except (
+                SupervisorConnectionError,
+                socket.error,
+                ConnectionRefusedError,
+                xmlrpc.client.Fault,
+            ):
+                time.sleep(interval)
+
+        raise SupervisorError(
+            f"Supervisor didn't become ready within {timeout} seconds"
+        )
+
     def start_supervisor_daemon(self) -> None:
+        # Check if supervisor is already running by attempting to connect to it
+        try:
+            client = self._get_rpc_client()
+            client.supervisor.getState()
+            # Supervisor is already running, restart it since config may have changed
+            client.supervisor.restart()
+
+            # Wait for supervisor to be ready after restart
+            self._wait_for_supervisor_ready()
+            return
+        except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
+            # Supervisor is not running, so we need to start it
+            pass
+
         try:
             subprocess.run(["supervisord", "-c", self.config_file_path], check=True)
+
+            # Wait for supervisor to be ready after starting
+            self._wait_for_supervisor_ready()
         except subprocess.CalledProcessError as e:
             raise SupervisorError(f"Failed to start supervisor: {str(e)}")
         except FileNotFoundError:
