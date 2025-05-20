@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "pyyaml",
     "sentry-devenv",
-    "sentry-sdk==3.0.0a1",
+    "sentry-sdk",
     "packaging",
     "supervisor",
 ]
