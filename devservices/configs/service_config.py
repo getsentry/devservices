@@ -139,7 +139,7 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
                 and dependency_name not in docker_compose_services
             ):
                 raise ConfigValidationError(
-                    f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services"
+                    f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services or programs file"
                 )
 
         service_config = ServiceConfig(
