@@ -1,3 +1,10 @@
+## 1.1.6
+
+### Various fixes & improvements
+
+- chore: Make `devservices` forward compatible with Python SDK 3.0.0 (#277) by @antonpirker
+- feat: exponentially retry pulling (#266) by @joshuarli
+
 ## 1.1.5
 
 ### Various fixes & improvements
