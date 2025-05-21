@@ -161,7 +161,7 @@ def test_list_running_services_config_error(
 
         assert (
             captured.out
-            == "\x1b[0;33mexample-service was found with an invalid config\x1b[0m\n\x1b[0;31mDependency 'clickhouse' is not remote but is not defined in docker-compose services\x1b[0m\n"
+            == "\x1b[0;33mexample-service was found with an invalid config\x1b[0m\n\x1b[0;31mDependency 'clickhouse' is not remote but is not defined in docker-compose services or programs file\x1b[0m\n"
         )
 
 

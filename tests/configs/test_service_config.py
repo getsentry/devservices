@@ -325,7 +325,7 @@ def test_load_service_config_from_file_no_matching_docker_compose_service(
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == "Dependency 'example-dependency' is not remote but is not defined in docker-compose services"
+        == "Dependency 'example-dependency' is not remote but is not defined in docker-compose services or programs file"
     )
 
 
