@@ -3,13 +3,14 @@ from __future__ import annotations
 import os
 import sqlite3
 from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from devservices.constants import DEVSERVICES_LOCAL_DIR
 from devservices.constants import STATE_DB_FILE
 
 
-class ServiceRuntime(str, Enum):
+class ServiceRuntime(StrEnum):
     LOCAL = "local"
     CONTAINERIZED = "containerized"
 

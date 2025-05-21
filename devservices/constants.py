@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
-from enum import Enum
+from enum import StrEnum
 
 
 class Color:
@@ -16,7 +16,7 @@ class Color:
     RESET = "\033[0m"
 
 
-class DependencyType(str, Enum):
+class DependencyType(StrEnum):
     SERVICE = "service"
     COMPOSE = "compose"
     SUPERVISOR = "supervisor"
