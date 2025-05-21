@@ -6,19 +6,25 @@ from pathlib import Path
 import pytest
 
 from devservices.configs.service_config import load_service_config_from_file
+from devservices.configs.service_config import load_supervisor_programs_from_file
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
 from testing.utils import create_config_file
+from testing.utils import create_programs_conf_file
 
 
 @pytest.mark.parametrize(
-    "service_name, dependencies, modes",
+    "service_name, dependencies, modes, dependency_types",
     [
         (
             "example-service",
             {"example-dependency": {"description": "Example dependency"}},
             {"default": ["example-dependency"]},
+            {
+                "example-dependency": DependencyType.COMPOSE,
+            },
         ),
         (
             "example-service",
@@ -37,6 +43,10 @@ from testing.utils import create_config_file
                 },
             },
             {"default": ["example-dependency-1", "example-dependency-2"]},
+            {
+                "example-dependency-1": DependencyType.SERVICE,
+                "example-dependency-2": DependencyType.COMPOSE,
+            },
         ),
         (
             "example-service",
@@ -55,6 +65,10 @@ from testing.utils import create_config_file
                 },
             },
             {"default": ["example-dependency-1"], "custom": ["example-dependency-2"]},
+            {
+                "example-dependency-1": DependencyType.SERVICE,
+                "example-dependency-2": DependencyType.COMPOSE,
+            },
         ),
     ],
 )
@@ -63,6 +77,7 @@ def test_load_service_config_from_file(
     service_name: str,
     dependencies: dict[str, dict[str, object]],
     modes: dict[str, list[str]],
+    dependency_types: dict[str, DependencyType],
 ) -> None:
     config = {
         "x-sentry-service-config": {
@@ -88,6 +103,7 @@ def test_load_service_config_from_file(
             key: {
                 "description": value["description"],
                 "remote": value.get("remote"),
+                "dependency_type": dependency_types[key],
             }
             for key, value in dependencies.items()
         },
@@ -309,7 +325,7 @@ def test_load_service_config_from_file_no_matching_docker_compose_service(
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == "Dependency 'example-dependency' is not remote but is not defined in docker-compose services"
+        == "Dependency 'example-dependency' is not remote but is not defined in docker-compose services or programs file"
     )
 
 
@@ -438,3 +454,90 @@ def test_load_service_config_from_file_invalid_yaml_tag(tmp_path: Path) -> None:
         str(e.value)
         == f"Error parsing config file: could not determine a constructor for the tag 'tag:yaml.org,2002:invalid_tag'\n  in \"{tmp_path / 'devservices' / 'config.yml'}\", line 7, column 19"
     )
+
+
+def test_load_service_config_from_file_no_programs_file(tmp_path: Path) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "example-dependency": {
+                    "description": "Example dependency",
+                },
+                "example-program": {
+                    "description": "Example program",
+                },
+            },
+            "modes": {"default": ["example-dependency", "example-program"]},
+        },
+        "services": {
+            "example-dependency": {
+                "image": "example-dependency",
+            }
+        },
+    }
+    create_config_file(tmp_path, config)
+
+    with pytest.raises(ConfigValidationError) as e:
+        load_service_config_from_file(str(tmp_path))
+    assert (
+        str(e.value)
+        == "Dependency 'example-program' is not remote but is not defined in docker-compose services or programs file"
+    )
+
+
+def test_load_service_config_from_file_valid_programs_file(tmp_path: Path) -> None:
+    devservices_config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "example-dependency": {
+                    "description": "Example dependency",
+                },
+                "example-program": {
+                    "description": "Example program",
+                },
+            },
+            "modes": {"default": ["example-dependency", "example-program"]},
+        },
+        "services": {
+            "example-dependency": {
+                "image": "example-dependency",
+            }
+        },
+    }
+    create_config_file(tmp_path, devservices_config)
+
+    programs_config = """[program:example-program]
+command=echo "Hello, World!"
+autostart=true
+"""
+    create_programs_conf_file(tmp_path, programs_config)
+
+    service_config = load_service_config_from_file(str(tmp_path))
+    assert (
+        service_config.dependencies["example-program"].dependency_type
+        == DependencyType.SUPERVISOR
+    )
+    assert (
+        service_config.dependencies["example-dependency"].dependency_type
+        == DependencyType.COMPOSE
+    )
+
+
+def test_load_supervisor_programs_from_file_no_programs_file(tmp_path: Path) -> None:
+    programs = load_supervisor_programs_from_file(str(tmp_path), "example-service")
+    assert programs == set()
+
+
+def test_load_supervisor_programs_from_file_valid_programs_file(tmp_path: Path) -> None:
+    programs_config = """[program:example-program]
+command=echo "Hello, World!"
+autostart=true
+"""
+    create_programs_conf_file(tmp_path, programs_config)
+
+    programs = load_supervisor_programs_from_file(str(tmp_path), "example-service")
+    assert programs == {"example-program"}

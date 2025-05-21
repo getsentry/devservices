@@ -15,6 +15,7 @@ from sentry_sdk import capture_exception
 from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
@@ -27,7 +28,6 @@ from devservices.utils.console import Console
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import DependencyGraph
 from devservices.utils.dependencies import DependencyNode
-from devservices.utils.dependencies import DependencyType
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run

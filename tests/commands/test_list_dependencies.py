@@ -10,6 +10,7 @@ import pytest
 from devservices.commands.list_dependencies import list_dependencies
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.services import Service
@@ -115,8 +116,12 @@ def test_list_dependencies_with_dependencies(
             version=0.1,
             service_name="test-service",
             dependencies={
-                "redis": Dependency(description="Redis"),
-                "postgres": Dependency(description="Postgres"),
+                "redis": Dependency(
+                    description="Redis", dependency_type=DependencyType.COMPOSE
+                ),
+                "postgres": Dependency(
+                    description="Postgres", dependency_type=DependencyType.COMPOSE
+                ),
             },
             modes={"default": ["redis", "postgres"]},
         ),

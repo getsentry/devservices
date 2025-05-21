@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import timedelta
+from enum import StrEnum
 
 
 class Color:
@@ -13,6 +14,12 @@ class Color:
     UNDERLINE = "\033[4m"
     NEGATIVE = "\033[7m"
     RESET = "\033[0m"
+
+
+class DependencyType(StrEnum):
+    SERVICE = "service"
+    COMPOSE = "compose"
+    SUPERVISOR = "supervisor"
 
 
 MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
