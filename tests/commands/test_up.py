@@ -5,6 +5,7 @@ import subprocess
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
+from unittest.mock import call
 
 import pytest
 
@@ -343,6 +344,220 @@ def test_up_error(
     assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
     assert "Starting clickhouse" not in captured.out.strip()
     assert "Starting redis" not in captured.out.strip()
+
+
+@mock.patch("time.sleep")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch("devservices.utils.state.State.update_service_entry")
+@mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
+@mock.patch(
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
+)
+def test_up_pull_error_timeout(
+    mock_get_non_remote_services: mock.Mock,
+    mock_check_all_containers_healthy: mock.Mock,
+    mock_create_devservices_network: mock.Mock,
+    mock_update_service_entry: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    mock_sleep: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "redis": {"description": "Redis"},
+                "clickhouse": {"description": "Clickhouse"},
+            },
+            "modes": {"default": ["redis", "clickhouse"]},
+        },
+        "services": {
+            "redis": {"image": "redis:6.2.14-alpine"},
+            "clickhouse": {
+                "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+            },
+        },
+    }
+
+    create_config_file(tmp_path, config)
+    os.chdir(tmp_path)
+
+    args = Namespace(service_name=None, debug=False, mode="default")
+
+    with pytest.raises(SystemExit):
+        with mock.patch(
+            "devservices.utils.docker_compose.subprocess.run",
+            side_effect=[
+                subprocess.CalledProcessError(
+                    returncode=1, output="", stderr="TLS handshake timeout", cmd=""
+                ),
+                subprocess.CalledProcessError(
+                    returncode=1, output="", stderr="TLS handshake timeout", cmd=""
+                ),
+                subprocess.CalledProcessError(
+                    returncode=1, output="", stderr="TLS handshake timeout", cmd=""
+                ),
+                subprocess.CalledProcessError(
+                    returncode=1, output="", stderr="TLS handshake timeout", cmd=""
+                ),
+                subprocess.CalledProcessError(
+                    returncode=1, output="", stderr="TLS handshake timeout", cmd=""
+                ),
+            ],
+        ) as mock_subprocess_run:
+            up(args)
+
+    # assert multiple failed calls
+    assert (
+        mock_subprocess_run.mock_calls
+        == [
+            call(
+                [
+                    "docker",
+                    "compose",
+                    "-p",
+                    "example-service",
+                    "-f",
+                    f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    "pull",
+                    "clickhouse",
+                    "redis",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=mock.ANY,
+            )
+        ]
+        # default is 4 retries (5 tries total)
+        * 5
+    )
+
+    mock_create_devservices_network.assert_called_once()
+    mock_check_all_containers_healthy.assert_not_called()
+    # Capture the printed output
+    captured = capsys.readouterr()
+
+    assert (
+        "Failed to start example-service: TLS handshake timeout" in captured.out.strip()
+    )
+
+
+@mock.patch("time.sleep")
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch("devservices.utils.state.State.update_service_entry")
+@mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
+@mock.patch(
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
+)
+@mock.patch(
+    "devservices.commands.up.get_container_names_for_project",
+    return_value=["x", "y"],
+)
+def test_up_pull_error_eventual_success(
+    mock_get_container_names_for_project: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
+    mock_check_all_containers_healthy: mock.Mock,
+    mock_create_devservices_network: mock.Mock,
+    mock_update_service_entry: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    mock_sleep: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "redis": {"description": "Redis"},
+                "clickhouse": {"description": "Clickhouse"},
+            },
+            "modes": {"default": ["redis", "clickhouse"]},
+        },
+        "services": {
+            "redis": {"image": "redis:6.2.14-alpine"},
+            "clickhouse": {
+                "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+            },
+        },
+    }
+
+    create_config_file(tmp_path, config)
+    os.chdir(tmp_path)
+
+    args = Namespace(service_name=None, debug=False, mode="default")
+
+    with mock.patch(
+        "devservices.utils.docker_compose.subprocess.run",
+        side_effect=[
+            subprocess.CalledProcessError(
+                returncode=1, output="", stderr="TLS handshake timeout", cmd=""
+            ),
+            subprocess.CalledProcessError(
+                returncode=1, output="", stderr="TLS handshake timeout", cmd=""
+            ),
+            subprocess.CompletedProcess(
+                args=(),
+                returncode=0,
+            ),
+            subprocess.CompletedProcess(
+                args=(),
+                returncode=0,
+            ),
+        ],
+    ) as mock_subprocess_run:
+        up(args)
+
+    assert mock_subprocess_run.mock_calls == [
+        call(
+            [
+                "docker",
+                "compose",
+                "-p",
+                "example-service",
+                "-f",
+                f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                "pull",
+                "clickhouse",
+                "redis",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=mock.ANY,
+        )
+    ] * 3 + [
+        call(
+            [
+                "docker",
+                "compose",
+                "-p",
+                "example-service",
+                "-f",
+                f"{tmp_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                "up",
+                "clickhouse",
+                "redis",
+                "-d",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=mock.ANY,
+        )
+    ]
+
+    mock_create_devservices_network.assert_called_once()
+    captured = capsys.readouterr()
+
+    assert "example-service started" in captured.out.strip()
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")
