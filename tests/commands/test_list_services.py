@@ -123,6 +123,50 @@ def test_list_running_services_started(
 
 @mock.patch("devservices.utils.state.State.get_service_entries")
 @mock.patch("devservices.utils.state.State.get_active_modes_for_service")
+def test_list_running_services_config_error(
+    mock_get_active_modes_for_service: mock.Mock,
+    mock_get_service_entries: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        mock.patch(
+            "devservices.commands.list_services.get_coderoot",
+            return_value=str(tmp_path / "code"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        mock_get_service_entries.side_effect = [[], ["example-service"]]
+        mock_get_active_modes_for_service.side_effect = [[], ["default"]]
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {"description": "Clickhouse"},
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+            },
+        }
+        create_config_file(tmp_path / "code" / "example-service", config)
+
+        args = Namespace(service_name=None, all=False)
+        list_services(args)
+
+        captured = capsys.readouterr()
+
+        assert (
+            captured.out
+            == "\x1b[0;33mexample-service was found with an invalid config\x1b[0m\n\x1b[0;31mDependency 'clickhouse' is not remote but is not defined in docker-compose services\x1b[0m\n"
+        )
+
+
+@mock.patch("devservices.utils.state.State.get_service_entries")
+@mock.patch("devservices.utils.state.State.get_active_modes_for_service")
 def test_list_all_services(
     mock_get_active_modes_for_service: mock.Mock,
     mock_get_service_entries: mock.Mock,

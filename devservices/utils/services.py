@@ -30,9 +30,9 @@ def get_local_services(coderoot: str) -> list[Service]:
         repo_path = os.path.join(coderoot, repo)
         try:
             service_config = load_service_config_from_file(repo_path)
-        except (ConfigParseError, ConfigValidationError) as e:
-            console.warning(f"{repo} was found with an invalid config: {e}")
-            continue
+        except (ConfigParseError, ConfigValidationError):
+            console.warning(f"{repo} was found with an invalid config")
+            raise
         except ConfigNotFoundError:
             # Ignore repos that don't have devservices configs
             continue
