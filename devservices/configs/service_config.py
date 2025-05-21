@@ -108,6 +108,7 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
                     )
                 if value.get("remote") is None:
                     if key in supervisor_programs:
+                        print("lol")
                         dependency_type = DependencyType.SUPERVISOR
                     elif key in docker_compose_services:
                         dependency_type = DependencyType.COMPOSE
@@ -131,16 +132,6 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
             raise ConfigParseError(
                 f"Error parsing service dependencies: {type_error}"
             ) from type_error
-
-        # Validate that all non-remote dependencies are defined in docker-compose services
-        for dependency_name, dependency in dependencies.items():
-            if (
-                dependency.remote is None
-                and dependency_name not in docker_compose_services
-            ):
-                raise ConfigValidationError(
-                    f"Dependency '{dependency_name}' is not remote but is not defined in docker-compose services or programs file"
-                )
 
         service_config = ServiceConfig(
             version=service_config_data.get("version"),
