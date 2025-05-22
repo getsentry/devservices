@@ -15,11 +15,14 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorConfigError
+from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
@@ -35,6 +38,7 @@ from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
+from devservices.utils.supervisor import SupervisorManager
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -105,6 +109,14 @@ def down(args: Namespace) -> None:
         active_mode_dependencies = modes.get(active_mode, [])
         mode_dependencies.update(active_mode_dependencies)
 
+    supervisor_programs = [
+        dep
+        for dep in mode_dependencies
+        if dep in service.config.dependencies
+        and service.config.dependencies[dep].dependency_type
+        == DependencyType.SUPERVISOR
+    ]
+
     with Status(
         lambda: console.warning(f"Stopping {service.name}"),
     ) as status:
@@ -127,6 +139,12 @@ def down(args: Namespace) -> None:
             status.failure(
                 f"{str(de)}. If this error persists, try running `devservices purge`"
             )
+            exit(1)
+
+        try:
+            bring_down_supervisor_programs(supervisor_programs, service, status)
+        except SupervisorError as se:
+            status.failure(str(se))
             exit(1)
 
         # Check if any service depends on the service we are trying to bring down
@@ -285,3 +303,28 @@ def _bring_down_dependency(
     for dependency in cmd.services:
         status.info(f"Stopping {dependency}")
     return run_cmd(cmd.full_command, current_env)
+
+
+def bring_down_supervisor_programs(
+    supervisor_programs: list[str], service: Service, status: Status
+) -> None:
+    if len(supervisor_programs) == 0:
+        return
+    programs_config_path = os.path.join(
+        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
+    )
+    if not os.path.exists(programs_config_path):
+        raise SupervisorConfigError(
+            f"No programs.conf file found in {programs_config_path}."
+        )
+    manager = SupervisorManager(
+        programs_config_path,
+        service_name=service.name,
+    )
+
+    for program in supervisor_programs:
+        status.info(f"Stopping {program}")
+        manager.stop_process(program)
+
+    status.info("Stopping supervisor daemon")
+    manager.stop_supervisor_daemon()
