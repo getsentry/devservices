@@ -76,7 +76,7 @@ def before_send_transaction(event: Event, hint: Hint) -> Event:
 
 if not disable_sentry:
     init(
-        # dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
+        dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
         integrations=[ArgvIntegration()],
