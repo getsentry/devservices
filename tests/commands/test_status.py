@@ -952,8 +952,8 @@ def test_generate_supervisor_status_details_program_not_found() -> None:
 
     assert result == (
         f"{Color.BOLD}missing-program{Color.RESET}:\n"
-        "  Type: program\n"
-        "  Status: N/A (program not found)"
+        "  Type: process\n"
+        "  Status: N/A (process not found)"
     )
 
 
@@ -969,8 +969,8 @@ def test_generate_supervisor_status_details_empty_programs_list() -> None:
 
     assert result == (
         f"{Color.BOLD}test-program{Color.RESET}:\n"
-        "  Type: program\n"
-        "  Status: N/A (program not found)"
+        "  Type: process\n"
+        "  Status: N/A (process not found)"
     )
 
 
