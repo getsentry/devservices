@@ -106,16 +106,16 @@ def status(args: Namespace) -> None:
     programs_config_path = os.path.join(
         service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
     )
-    programs_status = []
+    processes_status = []
     if os.path.exists(programs_config_path):
         supervisor_manager = SupervisorManager(
             programs_config_path,
             service.name,
         )
-        programs_status = supervisor_manager.get_all_programs_status()
+        processes_status = supervisor_manager.get_all_process_info()
 
     try:
-        status_tree = get_status_for_service(service, programs_status)
+        status_tree = get_status_for_service(service, processes_status)
     except DependencyError as de:
         capture_exception(de)
         console.failure(
@@ -129,7 +129,9 @@ def status(args: Namespace) -> None:
     console.info(status_tree)
 
 
-def get_status_for_service(service: Service, programs_status: list[ProcessInfo]) -> str:
+def get_status_for_service(
+    service: Service, processes_status: list[ProcessInfo]
+) -> str:
     state = State()
 
     modes = service.config.modes
@@ -157,7 +159,7 @@ def get_status_for_service(service: Service, programs_status: list[ProcessInfo])
     docker_compose_service_to_status = parse_docker_compose_status(status_json_results)
     status_tree = generate_service_status_tree(
         service.name,
-        programs_status,
+        processes_status,
         dependency_graph,
         docker_compose_service_to_status,
     )
@@ -206,7 +208,7 @@ def get_status_json_results(
 
 def generate_service_status_tree(
     service_name: str,
-    programs_status: list[ProcessInfo],
+    processes_status: list[ProcessInfo],
     dependency_graph: DependencyGraph,
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str = "",
@@ -246,7 +248,7 @@ def generate_service_status_tree(
             output.append(
                 process_service_with_containerized_runtime(
                     dependency,
-                    programs_status,
+                    processes_status,
                     docker_compose_service_to_status,
                     indentation + BASE_INDENTATION,
                     dependency_graph,
@@ -281,7 +283,7 @@ def process_service_with_local_runtime(
 
 def process_service_with_containerized_runtime(
     dependency: DependencyNode,
-    programs_status: list[ProcessInfo],
+    processes_status: list[ProcessInfo],
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str,
     dependency_graph: DependencyGraph,
@@ -289,14 +291,14 @@ def process_service_with_containerized_runtime(
     if len(dependency_graph.graph[dependency]) > 0:
         return generate_service_status_tree(
             dependency.name,
-            programs_status,
+            processes_status,
             dependency_graph,
             docker_compose_service_to_status,
             indentation,
         )
     else:
         return generate_service_status_details(
-            dependency, programs_status, docker_compose_service_to_status, indentation
+            dependency, processes_status, docker_compose_service_to_status, indentation
         )
 
 
@@ -323,7 +325,7 @@ def parse_docker_compose_status(
 
 def generate_service_status_details(
     dependency: DependencyNode,
-    programs_status: list[ProcessInfo],
+    processes_status: list[ProcessInfo],
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str,
 ) -> str:
@@ -332,7 +334,7 @@ def generate_service_status_details(
     # Handle supervisor dependencies
     if dependency.dependency_type == DependencyType.SUPERVISOR:
         return generate_supervisor_status_details(
-            dependency, programs_status, indentation
+            dependency, processes_status, indentation
         )
 
     if dependency.name not in docker_compose_service_to_status:
@@ -398,40 +400,40 @@ def format_health(health: str) -> str:
 
 def generate_supervisor_status_details(
     dependency: DependencyNode,
-    programs_status: list[ProcessInfo],
+    processes_status: list[ProcessInfo],
     indentation: str,
 ) -> str:
     """Generate status details for supervisor dependencies."""
     output = [f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:"]
 
-    # Find the specific program in the status list
-    program_status = None
-    for program in programs_status:
-        if program["name"] == dependency.name:
-            program_status = program
+    # Find the specific process in the status list
+    process_info = None
+    for process_status in processes_status:
+        if process_status["name"] == dependency.name:
+            process_info = process_status
             break
 
-    if program_status is None:
+    if process_info is None:
         return "\n".join(
             [
                 *output,
-                f"{indentation}{BASE_INDENTATION}Type: program",
-                f"{indentation}{BASE_INDENTATION}Status: N/A (program not found)",
+                f"{indentation}{BASE_INDENTATION}Type: process",
+                f"{indentation}{BASE_INDENTATION}Status: N/A (process not found)",
             ]
         )
 
-    uptime_str = format_uptime(program_status["uptime"])
+    uptime_str = format_uptime(process_info["uptime"])
 
     details = [
         "Type: program",
-        f"Status: {program_status['state_name'].lower()}",
-        f"PID: {program_status['pid'] if program_status['pid'] > 0 else 'N/A'}",
+        f"Status: {process_info['state_name'].lower()}",
+        f"PID: {process_info['pid'] if process_info['pid'] > 0 else 'N/A'}",
         f"Uptime: {uptime_str}",
-        f"Group: {program_status['group'] or 'default'}",
+        f"Group: {process_info['group'] or 'default'}",
     ]
 
-    if program_status["description"]:
-        details.append(f"Description: {program_status['description']}")
+    if process_info["description"]:
+        details.append(f"Description: {process_info['description']}")
 
     output.extend(f"{indentation}{BASE_INDENTATION}{detail}" for detail in details)
 

@@ -1140,7 +1140,7 @@ autorestart=true
 
         # Set up mocks
         mock_get_status_json_results.return_value = mock_docker_status
-        mock_supervisor_manager.return_value.get_all_programs_status.return_value = (
+        mock_supervisor_manager.return_value.get_all_process_info.return_value = (
             mock_programs_status
         )
 

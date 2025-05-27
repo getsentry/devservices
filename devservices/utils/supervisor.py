@@ -278,7 +278,7 @@ class SupervisorManager:
         except KeyboardInterrupt:
             pass
 
-    def get_all_programs_status(self) -> list[ProcessInfo]:
+    def get_all_process_info(self) -> list[ProcessInfo]:
         """Get status information for all supervisor programs."""
         try:
             client = self._get_rpc_client()
@@ -288,7 +288,7 @@ class SupervisorManager:
             if not isinstance(all_process_info, list):
                 return []
 
-            programs_status = []
+            processes_status = []
             for process_info in all_process_info:
                 if not isinstance(process_info, dict):
                     continue
@@ -317,9 +317,9 @@ class SupervisorManager:
                     "stop_time": process_info.get("stop", 0),
                     "group": group,
                 }
-                programs_status.append(program_status)
+                processes_status.append(program_status)
 
-            return programs_status
+            return processes_status
 
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to get programs status: {e.faultString}")

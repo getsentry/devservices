@@ -512,7 +512,7 @@ def test_wait_for_supervisor_ready_timeout(
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_get_all_programs_status_success(
+def test_get_all_process_info_success(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     """Test successful retrieval of all programs status."""
@@ -542,7 +542,7 @@ def test_get_all_programs_status_success(
         mock_process_info
     )
 
-    result = supervisor_manager.get_all_programs_status()
+    result = supervisor_manager.get_all_process_info()
 
     assert len(result) == 2
 
@@ -576,19 +576,19 @@ def test_get_all_programs_status_success(
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_get_all_programs_status_empty_list(
+def test_get_all_process_info_empty_list(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     """Test handling of empty programs list."""
     mock_rpc_client.return_value.supervisor.getAllProcessInfo.return_value = []
 
-    result = supervisor_manager.get_all_programs_status()
+    result = supervisor_manager.get_all_process_info()
 
     assert result == []
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_get_all_programs_status_xmlrpc_fault(
+def test_get_all_process_info_xmlrpc_fault(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     mock_rpc_client.return_value.supervisor.getAllProcessInfo.side_effect = (
@@ -598,16 +598,16 @@ def test_get_all_programs_status_xmlrpc_fault(
     with pytest.raises(
         SupervisorError, match="Failed to get programs status: Test error"
     ):
-        supervisor_manager.get_all_programs_status()
+        supervisor_manager.get_all_process_info()
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_get_all_programs_status_connection_error(
+def test_get_all_process_info_connection_error(
     mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
 ) -> None:
     mock_rpc_client.side_effect = SupervisorConnectionError("Connection failed")
 
-    result = supervisor_manager.get_all_programs_status()
+    result = supervisor_manager.get_all_process_info()
 
     # Should return empty list when supervisor is not running
     assert result == []
