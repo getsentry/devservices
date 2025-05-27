@@ -8,6 +8,8 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import set_context
+from sentry_sdk import start_span
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
@@ -92,47 +94,58 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
     state = State()
 
     with Status(
-        lambda: console.warning(f"Starting '{service.name}' in mode: '{mode}'")
-        if existing_status is None
-        else existing_status.warning(f"Starting '{service.name}' in mode: '{mode}'"),
-        lambda: console.success(f"{service.name} started")
-        if existing_status is None
-        else existing_status.success(f"{service.name} started"),
+        lambda: (
+            console.warning(f"Starting '{service.name}' in mode: '{mode}'")
+            if existing_status is None
+            else existing_status.warning(f"Starting '{service.name}' in mode: '{mode}'")
+        ),
+        lambda: (
+            console.success(f"{service.name} started")
+            if existing_status is None
+            else existing_status.success(f"{service.name} started")
+        ),
     ) as status:
-        services_with_local_runtime = state.get_services_by_runtime(
-            ServiceRuntime.LOCAL
-        )
         local_runtime_dependency_names = set()
-        for service_with_local_runtime in services_with_local_runtime:
-            if (
-                mode in modes
-                and service_with_local_runtime != service.name
-                and service_with_local_runtime in modes[mode]
-            ):
-                local_runtime_dependency_names.add(service_with_local_runtime)
-                if exclude_local:
-                    status.warning(
-                        f"Skipping '{service_with_local_runtime}' as it is set to run locally"
-                    )
-        try:
-            status.info("Retrieving dependencies")
-            remote_dependencies = install_and_verify_dependencies(
-                service, force_update_dependencies=True, modes=[mode]
+        with start_span(
+            op="service.dependencies", name="Check local runtime dependencies"
+        ) as span:
+            services_with_local_runtime = state.get_services_by_runtime(
+                ServiceRuntime.LOCAL
             )
-        except DependencyError as de:
-            capture_exception(de)
-            status.failure(
-                f"{str(de)}. If this error persists, try running `devservices purge`"
+            for service_with_local_runtime in services_with_local_runtime:
+                if (
+                    mode in modes
+                    and service_with_local_runtime != service.name
+                    and service_with_local_runtime in modes[mode]
+                ):
+                    local_runtime_dependency_names.add(service_with_local_runtime)
+                    if exclude_local:
+                        status.warning(
+                            f"Skipping '{service_with_local_runtime}' as it is set to run locally"
+                        )
+            span.set_data("service_name", service.name)
+            span.set_data("mode", mode)
+            span.set_data(
+                "local_runtime_dependency_count", len(local_runtime_dependency_names)
             )
-            exit(1)
-        except ModeDoesNotExistError as mde:
-            status.failure(str(mde))
-            exit(1)
-        try:
-            _create_devservices_network()
-        except subprocess.CalledProcessError:
-            # Network already exists, ignore the error
-            pass
+            span.set_data(
+                "local_runtime_dependency_names", local_runtime_dependency_names
+            )
+
+        context_name = f"local_runtime_dependencies.{service.name}"
+        set_context(
+            context_name,
+            {
+                "service_name": service.name,
+                "mode": mode,
+                "exclude_local": exclude_local,
+                "count": len(local_runtime_dependency_names),
+                "names": list(local_runtime_dependency_names),
+            },
+        )
+
+        remote_dependencies = _install_service_dependencies(service, mode, status)
+        _create_devservices_network()
         # Add the service to the starting services table
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
         mode_dependencies = modes[mode]
@@ -168,15 +181,57 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                     status,
                 )
             status.warning(f"Continuing with service '{service.name}'")
-        try:
-            _up(service, [mode], remote_dependencies, mode_dependencies, status)
-        except DockerComposeError as dce:
-            capture_exception(dce, level="info")
-            status.failure(f"Failed to start {service.name}: {dce.stderr}")
-            exit(1)
+        with start_span(op="service.startup", name="Start service") as span:
+            span.set_data("service_name", service.name)
+            span.set_data("mode", mode)
+            try:
+                _up(service, [mode], remote_dependencies, mode_dependencies, status)
+            except DockerComposeError as dce:
+                capture_exception(dce, level="info")
+                status.failure(f"Failed to start {service.name}: {dce.stderr}")
+                exit(1)
     # TODO: We should factor in healthchecks here before marking service as running
     state.remove_service_entry(service.name, StateTables.STARTING_SERVICES)
     state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES)
+
+
+def _install_service_dependencies(
+    service: Service, mode: str, status: Status
+) -> set[InstalledRemoteDependency]:
+    with start_span(op="service.dependencies", name="Install dependencies") as span:
+        status.info("Retrieving dependencies")
+        span.set_data("service_name", service.name)
+        span.set_data("mode", mode)
+        try:
+            remote_dependencies = install_and_verify_dependencies(
+                service, force_update_dependencies=True, modes=[mode]
+            )
+            span.set_data("remote_dependency_count", len(remote_dependencies))
+            return remote_dependencies
+        except DependencyError as de:
+            capture_exception(de)
+            status.failure(
+                f"{str(de)}. If this error persists, try running `devservices purge`"
+            )
+            exit(1)
+        except ModeDoesNotExistError as mde:
+            status.failure(str(mde))
+            exit(1)
+
+
+def _create_devservices_network() -> None:
+    with start_span(op="service.network", name="Create devservices network") as span:
+        try:
+            subprocess.run(
+                ["docker", "network", "create", "devservices"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+            span.set_data("network_created", True)
+        except subprocess.CalledProcessError:
+            # Network already exists, ignore the error
+            span.set_data("network_created", False)
 
 
 def _pull_dependency_images(
@@ -285,12 +340,3 @@ def _up(
     except ContainerHealthcheckFailedError as e:
         status.failure(str(e))
         exit(1)
-
-
-def _create_devservices_network() -> None:
-    subprocess.run(
-        ["docker", "network", "create", "devservices"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=True,
-    )
