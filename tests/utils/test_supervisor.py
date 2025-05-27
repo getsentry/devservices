@@ -360,7 +360,7 @@ def test_get_program_command_program_not_found(
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def tail_program_logs_success(
+def test_tail_program_logs_success(
     mock_rpc_client: mock.MagicMock,
     mock_subprocess_run: mock.MagicMock,
     supervisor_manager: SupervisorManager,
@@ -374,7 +374,8 @@ def tail_program_logs_success(
             "supervisorctl",
             "-c",
             supervisor_manager.config_file_path,
-            "fg",
+            "tail",
+            "-f",
             "test_program",
         ],
         check=True,
@@ -508,3 +509,105 @@ def test_wait_for_supervisor_ready_timeout(
     assert mock_sleep.call_count == 5
 
     assert mock_rpc_client.return_value.supervisor.getState.call_count == 5
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_programs_status_success(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    """Test successful retrieval of all programs status."""
+    mock_process_info = [
+        {
+            "name": "program1",
+            "state": SupervisorProcessState.RUNNING,
+            "description": "Running program",
+            "pid": 1234,
+            "group": "default",
+            "start": 1000,
+            "now": 1100,
+            "stop": 0,
+        },
+        {
+            "name": "program2",
+            "state": SupervisorProcessState.STOPPED,
+            "description": "Stopped program",
+            "pid": 0,
+            "group": "workers",
+            "start": 0,
+            "now": 1100,
+            "stop": 1050,
+        },
+    ]
+    mock_rpc_client.return_value.supervisor.getAllProcessInfo.return_value = (
+        mock_process_info
+    )
+
+    result = supervisor_manager.get_all_programs_status()
+
+    assert len(result) == 2
+
+    expected_results = [
+        {
+            "name": "program1",
+            "state": SupervisorProcessState.RUNNING,
+            "state_name": "RUNNING",
+            "description": "Running program",
+            "pid": 1234,
+            "group": "default",
+            "uptime": 100,  # 1100 - 1000
+            "start_time": 1000,
+            "stop_time": 0,
+        },
+        {
+            "name": "program2",
+            "state": SupervisorProcessState.STOPPED,
+            "state_name": "STOPPED",
+            "description": "Stopped program",
+            "pid": 0,
+            "group": "workers",
+            "uptime": 0,  # No uptime for stopped process
+            "start_time": 0,
+            "stop_time": 1050,
+        },
+    ]
+
+    for expected, actual in zip(expected_results, result):
+        assert actual == expected
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_programs_status_empty_list(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    """Test handling of empty programs list."""
+    mock_rpc_client.return_value.supervisor.getAllProcessInfo.return_value = []
+
+    result = supervisor_manager.get_all_programs_status()
+
+    assert result == []
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_programs_status_xmlrpc_fault(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getAllProcessInfo.side_effect = (
+        xmlrpc.client.Fault(1, "Test error")
+    )
+
+    with pytest.raises(
+        SupervisorError, match="Failed to get programs status: Test error"
+    ):
+        supervisor_manager.get_all_programs_status()
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_programs_status_connection_error(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.side_effect = SupervisorConnectionError("Connection failed")
+
+    result = supervisor_manager.get_all_programs_status()
+
+    # Should return empty list when supervisor is not running
+    assert result == []
