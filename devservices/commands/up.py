@@ -162,8 +162,8 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                 up(
                     Namespace(
                         service_name=local_runtime_dependency_name,
-                        mode=mode,
-                        exclude_local=True,
+                        mode="default",  # We intentionally don't use the mode from the parent command here
+                        exclude_local=True,  # TODO: This should be False (or maybe whatever the parent command is set to)
                     ),
                     status,
                 )
