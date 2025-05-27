@@ -2656,6 +2656,7 @@ def test_bring_up_supervisor_programs_no_programs_config(
         SupervisorConfigError,
         match=f"No programs.conf file found in {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME}",
     ):
+        os.chdir(tmp_path)
         bring_up_supervisor_programs(["supervisor-program"], service, status)
 
     mock_start_supervisor_daemon.assert_not_called()
@@ -2733,6 +2734,7 @@ command=echo "Hello, world!"
 
     status = mock.MagicMock()
 
+    os.chdir(tmp_path)
     bring_up_supervisor_programs(["supervisor-program"], service, status)
 
     status.info.assert_has_calls(
@@ -2745,3 +2747,61 @@ command=echo "Hello, world!"
 
     mock_start_supervisor_daemon.assert_called_once()
     mock_start_process.assert_called_once_with("supervisor-program")
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+def test_bring_up_supervisor_programs_wrong_directory(
+    mock_start_process: mock.Mock,
+    mock_start_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+
+    service_repo_path = tmp_path / "service-repo"
+    service_repo_path.mkdir()
+
+    service = Service(
+        name="test-service",
+        repo_path=str(service_repo_path),
+        config=service_config,
+    )
+
+    programs_conf_path = (
+        service_repo_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
+    )
+    create_programs_conf_file(
+        programs_conf_path,
+        """
+[program:supervisor-program]
+command=echo "Hello, world!"
+""",
+    )
+
+    status = mock.MagicMock()
+
+    different_dir = tmp_path / "different-dir"
+    different_dir.mkdir()
+    os.chdir(different_dir)
+
+    # Call the function
+    bring_up_supervisor_programs(["supervisor-program"], service, status)
+
+    status.warning.assert_called_once_with(
+        f"Cannot bring up supervisor programs from outside the service repository. Please run the command from the service repository ({service_repo_path})"
+    )
+    status.info.assert_not_called()
+    status.failure.assert_not_called()
+
+    mock_start_supervisor_daemon.assert_not_called()
+    mock_start_process.assert_not_called()
