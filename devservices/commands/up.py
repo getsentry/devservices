@@ -311,6 +311,11 @@ def bring_up_supervisor_programs(
 ) -> None:
     if len(supervisor_programs) == 0:
         return
+    if not os.path.samefile(os.getcwd(), service.repo_path):
+        status.warning(
+            f"Cannot bring up supervisor programs from outside the service repository. Please run the command from the service repository ({service.repo_path})"
+        )
+        return
     programs_config_path = os.path.join(
         service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
     )
