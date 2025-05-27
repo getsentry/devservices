@@ -20,6 +20,7 @@ from sentry_sdk.types import Event
 from sentry_sdk.types import Hint
 
 from devservices.commands import down
+from devservices.commands import foreground
 from devservices.commands import list_dependencies
 from devservices.commands import list_services
 from devservices.commands import logs
@@ -75,7 +76,7 @@ def before_send_transaction(event: Event, hint: Hint) -> Event:
 
 if not disable_sentry:
     init(
-        dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
+        # dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
         integrations=[ArgvIntegration()],
@@ -150,6 +151,7 @@ def main() -> None:
     purge.add_parser(subparsers)
     serve.add_parser(subparsers)
     toggle.add_parser(subparsers)
+    foreground.add_parser(subparsers)
     reset.add_parser(subparsers)
 
     args = parser.parse_args()
