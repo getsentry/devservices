@@ -20,6 +20,7 @@ from sentry_sdk.types import Event
 from sentry_sdk.types import Hint
 
 from devservices.commands import down
+from devservices.commands import foreground
 from devservices.commands import list_dependencies
 from devservices.commands import list_services
 from devservices.commands import logs
@@ -150,6 +151,7 @@ def main() -> None:
     purge.add_parser(subparsers)
     serve.add_parser(subparsers)
     toggle.add_parser(subparsers)
+    foreground.add_parser(subparsers)
     reset.add_parser(subparsers)
 
     args = parser.parse_args()
