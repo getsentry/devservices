@@ -11,15 +11,18 @@ from sentry_sdk import capture_exception
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import MAX_LOG_LINES
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
@@ -29,6 +32,7 @@ from devservices.utils.services import find_matching_service
 from devservices.utils.services import Service
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
+from devservices.utils.supervisor import SupervisorManager
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -61,13 +65,25 @@ def logs(args: Namespace) -> None:
     except ServiceNotFoundError as e:
         console.failure(str(e))
         exit(1)
+    state = State()
 
     modes = service.config.modes
-    # TODO: allow custom modes to be used
-    mode_to_use = "default"
-    mode_dependencies = modes[mode_to_use]
+    starting_modes = set(
+        state.get_active_modes_for_service(service.name, StateTables.STARTING_SERVICES)
+    )
+    started_modes = set(
+        state.get_active_modes_for_service(service.name, StateTables.STARTED_SERVICES)
+    )
+    active_modes = starting_modes.union(started_modes)
+    mode_dependencies = set()
+    for active_mode in active_modes:
+        active_mode_dependencies = modes.get(active_mode, [])
+        mode_dependencies.update(active_mode_dependencies)
 
-    state = State()
+    # If no active modes found but service is running, fall back to default mode
+    if not mode_dependencies and "default" in modes:
+        mode_dependencies.update(modes["default"])
+
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
     running_services = starting_services.union(started_services)
@@ -76,7 +92,9 @@ def logs(args: Namespace) -> None:
         return
 
     try:
-        remote_dependencies = install_and_verify_dependencies(service)
+        remote_dependencies = install_and_verify_dependencies(
+            service, modes=list(active_modes)
+        )
     except DependencyError as de:
         capture_exception(de)
         console.failure(
@@ -84,7 +102,7 @@ def logs(args: Namespace) -> None:
         )
         exit(1)
     try:
-        logs_output = _logs(service, remote_dependencies, mode_dependencies)
+        logs_output = _logs(service, remote_dependencies, list(mode_dependencies))
     except DockerComposeError as dce:
         capture_exception(dce, level="info")
         console.failure(f"Failed to get logs for {service.name}: {dce.stderr}")
@@ -93,6 +111,22 @@ def logs(args: Namespace) -> None:
         log_stdout: str | None = log.stdout
         if log_stdout is not None:
             console.info(log_stdout)
+
+    # Get supervisor program logs
+    supervisor_programs = [
+        dep
+        for dep in mode_dependencies
+        if dep in service.config.dependencies
+        and service.config.dependencies[dep].dependency_type
+        == DependencyType.SUPERVISOR
+    ]
+
+    if supervisor_programs:
+        supervisor_logs = _supervisor_logs(service, supervisor_programs)
+        for program_name, log_content in supervisor_logs.items():
+            if log_content:
+                console.info(f"=== Logs for supervisor program: {program_name} ===")
+                console.info(log_content)
 
 
 def _logs(
@@ -133,3 +167,31 @@ def _logs(
             cmd_outputs.append(future.result())
 
     return cmd_outputs
+
+
+def _supervisor_logs(
+    service: Service, supervisor_programs: list[str]
+) -> dict[str, str]:
+    if not supervisor_programs:
+        return {}
+
+    supervisor_logs = {}
+
+    programs_config_path = os.path.join(
+        service.repo_path, DEVSERVICES_DIR_NAME, PROGRAMS_CONF_FILE_NAME
+    )
+
+    manager = SupervisorManager(programs_config_path, service_name=service.name)
+
+    for program_name in supervisor_programs:
+        try:
+            log_content = manager.get_program_logs(program_name)
+            supervisor_logs[program_name] = log_content
+        except SupervisorError as e:
+            # Log the error but continue with other programs
+            capture_exception(e)
+            supervisor_logs[
+                program_name
+            ] = f"Error getting logs for {program_name}: {str(e)}"
+
+    return supervisor_logs

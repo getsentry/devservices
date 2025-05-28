@@ -254,14 +254,39 @@ class SupervisorManager:
                     return proc.command
         raise SupervisorConfigError(f"Program {program_name} not found in config")
 
-    def tail_program_logs(self, program_name: str) -> None:
+    def get_program_logs(self, program_name: str) -> str:
+        """Get logs for a supervisor program as text output."""
         if not self._is_program_running(program_name):
-            console = Console()
-            console.failure(f"Program {program_name} is not running")
+            return f"Program {program_name} is not running"
+
+        try:
+            # Use supervisorctl tail command to get logs
+            result = subprocess.run(
+                [
+                    "supervisorctl",
+                    "-c",
+                    self.config_file_path,
+                    "tail",
+                    program_name,
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            raise SupervisorError(f"Failed to get logs for {program_name}: {str(e)}")
+
+    def tail_program_logs(self, program_name: str) -> None:
+        """Tail logs for a supervisor program in real-time (follow mode)."""
+        console = Console()
+
+        if not self._is_program_running(program_name):
+            console.info(f"Program {program_name} is not running")
             return
 
         try:
-            # Use supervisorctl tail command
+            # Use supervisorctl tail -f command to follow logs
             subprocess.run(
                 [
                     "supervisorctl",
@@ -276,6 +301,7 @@ class SupervisorManager:
         except subprocess.CalledProcessError as e:
             raise SupervisorError(f"Failed to tail logs for {program_name}: {str(e)}")
         except KeyboardInterrupt:
+            # Handle Ctrl+C gracefully when following logs
             pass
 
     def get_all_process_info(self) -> list[ProcessInfo]:
