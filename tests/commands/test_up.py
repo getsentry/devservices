@@ -1495,7 +1495,10 @@ def test_up_dependency_set_to_local(
                         },
                     },
                 },
-                "modes": {"default": ["redis", "local-runtime-service"]},
+                "modes": {
+                    "default": ["redis", "local-runtime-service"],
+                    "other": ["redis", "local-runtime-service"],
+                },
             },
         }
         other_service_path = tmp_path / "code" / "other-service"
@@ -1507,7 +1510,7 @@ def test_up_dependency_set_to_local(
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
         args = Namespace(
-            service_name=None, debug=False, mode="default", exclude_local=exclude_local
+            service_name=None, debug=False, mode="other", exclude_local=exclude_local
         )
 
         with (
@@ -1695,18 +1698,15 @@ def test_up_dependency_set_to_local(
         if exclude_local:
             mock_update_service_entry.assert_has_calls(
                 [
-                    mock.call(
-                        "other-service", "default", StateTables.STARTING_SERVICES
-                    ),
-                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                    mock.call("other-service", "other", StateTables.STARTING_SERVICES),
+                    mock.call("other-service", "other", StateTables.STARTED_SERVICES),
                 ]
             )
         else:
+            # Even though other-service is being brought up in mode "other", the local-runtime-service should be started in mode "default"
             mock_update_service_entry.assert_has_calls(
                 [
-                    mock.call(
-                        "other-service", "default", StateTables.STARTING_SERVICES
-                    ),
+                    mock.call("other-service", "other", StateTables.STARTING_SERVICES),
                     mock.call(
                         "local-runtime-service",
                         "default",
@@ -1715,7 +1715,7 @@ def test_up_dependency_set_to_local(
                     mock.call(
                         "local-runtime-service", "default", StateTables.STARTED_SERVICES
                     ),
-                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                    mock.call("other-service", "other", StateTables.STARTED_SERVICES),
                 ]
             )
 
