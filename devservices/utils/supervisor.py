@@ -260,7 +260,6 @@ class SupervisorManager:
             return f"Program {program_name} is not running"
 
         try:
-            # Use supervisorctl tail command to get logs
             result = subprocess.run(
                 [
                     "supervisorctl",
@@ -278,7 +277,6 @@ class SupervisorManager:
             raise SupervisorError(f"Failed to get logs for {program_name}: {str(e)}")
 
     def tail_program_logs(self, program_name: str) -> None:
-        """Tail logs for a supervisor program in real-time (follow mode)."""
         console = Console()
 
         if not self._is_program_running(program_name):
