@@ -107,7 +107,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
     ) as status:
         local_runtime_dependency_names = set()
         with start_span(
-            op="service.dependencies", name="Check local runtime dependencies"
+            op="service.dependencies.check", name="Check local runtime dependencies"
         ) as span:
             services_with_local_runtime = state.get_services_by_runtime(
                 ServiceRuntime.LOCAL
@@ -181,7 +181,9 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                     status,
                 )
             status.warning(f"Continuing with service '{service.name}'")
-        with start_span(op="service.startup", name="Start service") as span:
+        with start_span(
+            op="service.containers.start", name="Start service containers"
+        ) as span:
             span.set_data("service_name", service.name)
             span.set_data("mode", mode)
             span.set_data("exclude_local", exclude_local)
@@ -199,7 +201,9 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
 def _install_service_dependencies(
     service: Service, mode: str, status: Status
 ) -> set[InstalledRemoteDependency]:
-    with start_span(op="service.dependencies", name="Install dependencies") as span:
+    with start_span(
+        op="service.dependencies.install", name="Install dependencies"
+    ) as span:
         status.info("Retrieving dependencies")
         span.set_data("service_name", service.name)
         span.set_data("mode", mode)
@@ -221,7 +225,9 @@ def _install_service_dependencies(
 
 
 def _create_devservices_network() -> None:
-    with start_span(op="service.network", name="Create devservices network") as span:
+    with start_span(
+        op="service.network.create", name="Create devservices network"
+    ) as span:
         try:
             subprocess.run(
                 ["docker", "network", "create", "devservices"],
@@ -238,17 +244,24 @@ def _create_devservices_network() -> None:
 def _pull_dependency_images(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
 ) -> None:
-    run_cmd(cmd.full_command, current_env, retries=4)
-    for dependency in cmd.services:
-        status.info(f"Pulled image for {dependency}")
+    with start_span(op="service.images.pull", name="Pull dependency images") as span:
+        span.set_data("command", cmd.full_command)
+        run_cmd(cmd.full_command, current_env, retries=4)
+        for dependency in cmd.services:
+            status.info(f"Pulled image for {dependency}")
 
 
 def _bring_up_dependency(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
 ) -> None:
-    for dependency in cmd.services:
-        status.info(f"Starting {dependency}")
-    run_cmd(cmd.full_command, current_env)
+    with start_span(
+        op="service.containers.up", name="Bring up dependency containers"
+    ) as span:
+        span.set_data("command", cmd.full_command)
+        span.set_data("services", cmd.services)
+        for dependency in cmd.services:
+            status.info(f"Starting {dependency}")
+        run_cmd(cmd.full_command, current_env)
 
 
 def _up(
