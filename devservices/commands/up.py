@@ -184,6 +184,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
         with start_span(op="service.startup", name="Start service") as span:
             span.set_data("service_name", service.name)
             span.set_data("mode", mode)
+            span.set_data("exclude_local", exclude_local)
             try:
                 _up(service, [mode], remote_dependencies, mode_dependencies, status)
             except DockerComposeError as dce:
