@@ -2654,7 +2654,7 @@ def test_bring_up_supervisor_programs_no_programs_config(
 
     with pytest.raises(
         SupervisorConfigError,
-        match=f"No programs.conf file found in {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME}",
+        match=f"Config file {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME} does not exist",
     ):
         os.chdir(tmp_path)
         bring_up_supervisor_programs(service, ["supervisor-program"], status)
