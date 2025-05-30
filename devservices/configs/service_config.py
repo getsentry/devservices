@@ -108,7 +108,6 @@ def load_service_config_from_file(repo_path: str) -> ServiceConfig:
                     )
                 if value.get("remote") is None:
                     if key in supervisor_programs:
-                        print("lol")
                         dependency_type = DependencyType.SUPERVISOR
                     elif key in docker_compose_services:
                         dependency_type = DependencyType.COMPOSE

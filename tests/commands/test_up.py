@@ -9,21 +9,30 @@ from unittest.mock import call
 
 import pytest
 
+from devservices.commands.up import bring_up_supervisor_programs
 from devservices.commands.up import up
+from devservices.configs.service_config import Dependency
+from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
+from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import HEALTHCHECK_TIMEOUT
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorConfigError
+from devservices.exceptions import SupervisorError
 from devservices.utils.docker_compose import DockerComposeCommand
+from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
+from testing.utils import create_programs_conf_file
 from testing.utils import run_git_command
 
 
@@ -2426,3 +2435,373 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
             "Skipping 'local-runtime-service' as it is set to run locally"
             not in captured.out.strip()
         ), "This shouldn't be printed since other-service isn't being brought up in a mode that includes local-runtime-service"
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch("devservices.utils.state.State.update_service_entry")
+@mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
+@mock.patch(
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
+)
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+def test_up_supervisor_program(
+    mock_start_process: mock.Mock,
+    mock_start_supervisor_daemon: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
+    mock_check_all_containers_healthy: mock.Mock,
+    mock_create_devservices_network: mock.Mock,
+    mock_update_service_entry: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        mock.patch(
+            "devservices.commands.up.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "supervisor-program": {"description": "Supervisor program"},
+                },
+                "modes": {"default": ["supervisor-program"]},
+            },
+            "services": {},
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        supervisor_program_config = """
+[program:supervisor-program]
+command=echo "Hello, world!"
+"""
+
+        create_programs_conf_file(service_path, supervisor_program_config)
+
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=False
+        )
+
+        up(args)
+
+        mock_create_devservices_network.assert_called_once()
+
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+            ]
+        )
+
+        mock_update_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", "default", StateTables.STARTING_SERVICES),
+                mock.call("example-service", "default", StateTables.STARTED_SERVICES),
+            ]
+        )
+        mock_remove_service_entry.assert_called_once_with(
+            "example-service", StateTables.STARTING_SERVICES
+        )
+        mock_check_all_containers_healthy.assert_called_once()
+        mock_start_supervisor_daemon.assert_called_once()
+        mock_start_process.assert_called_once_with("supervisor-program")
+        captured = capsys.readouterr()
+        assert "Retrieving dependencies" in captured.out.strip()
+        assert (
+            "Starting dependencies with local runtimes..." not in captured.out.strip()
+        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+        assert "Starting supervisor daemon" in captured.out.strip()
+        assert "Starting supervisor-program" in captured.out.strip()
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch("devservices.utils.state.State.update_service_entry")
+@mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch("devservices.commands.up.check_all_containers_healthy")
+@mock.patch(
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
+)
+@mock.patch(
+    "devservices.utils.supervisor.SupervisorManager.start_supervisor_daemon",
+    side_effect=SupervisorError("Error starting supervisor daemon"),
+)
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+def test_up_supervisor_program_error(
+    mock_start_process: mock.Mock,
+    mock_start_supervisor_daemon: mock.Mock,
+    mock_get_non_remote_services: mock.Mock,
+    mock_check_all_containers_healthy: mock.Mock,
+    mock_create_devservices_network: mock.Mock,
+    mock_update_service_entry: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with (
+        mock.patch(
+            "devservices.commands.up.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "supervisor-program": {"description": "Supervisor program"},
+                },
+                "modes": {"default": ["supervisor-program"]},
+            },
+            "services": {},
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        supervisor_program_config = """
+[program:supervisor-program]
+command=echo "Hello, world!"
+"""
+
+        create_programs_conf_file(service_path, supervisor_program_config)
+
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=False
+        )
+
+        with pytest.raises(SystemExit):
+            up(args)
+
+        mock_create_devservices_network.assert_called_once()
+
+        mock_get_non_remote_services.assert_has_calls(
+            [
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+                mock.call(
+                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
+                    mock.ANY,
+                ),
+            ]
+        )
+
+        mock_update_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", "default", StateTables.STARTING_SERVICES),
+            ]
+        )
+        mock_remove_service_entry.assert_not_called()
+        mock_check_all_containers_healthy.assert_called_once()
+        mock_start_supervisor_daemon.assert_called_once()
+        mock_start_process.assert_not_called()
+        captured = capsys.readouterr()
+        assert "Retrieving dependencies" in captured.out.strip()
+        assert (
+            "Starting dependencies with local runtimes..." not in captured.out.strip()
+        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+        assert "Starting supervisor daemon" in captured.out.strip()
+        assert "Error starting supervisor daemon" in captured.out.strip()
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+def test_bring_up_supervisor_programs_no_programs_config(
+    mock_start_process: mock.Mock,
+    mock_start_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+    service = Service(
+        name="test-service",
+        repo_path=str(tmp_path),
+        config=service_config,
+    )
+
+    status = mock.MagicMock()
+
+    with pytest.raises(
+        SupervisorConfigError,
+        match=f"Config file {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME} does not exist",
+    ):
+        os.chdir(tmp_path)
+        bring_up_supervisor_programs(service, ["supervisor-program"], status)
+
+    mock_start_supervisor_daemon.assert_not_called()
+    mock_start_process.assert_not_called()
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+def test_bring_up_supervisor_programs_empty_list(
+    mock_start_process: mock.Mock,
+    mock_start_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+    service = Service(
+        name="test-service",
+        repo_path=str(tmp_path),
+        config=service_config,
+    )
+
+    status = mock.MagicMock()
+
+    bring_up_supervisor_programs(service, [], status)
+
+    status.info.assert_not_called()
+    status.failure.assert_not_called()
+
+    mock_start_supervisor_daemon.assert_not_called()
+    mock_start_process.assert_not_called()
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+def test_bring_up_supervisor_programs_success(
+    mock_start_process: mock.Mock,
+    mock_start_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+    service = Service(
+        name="test-service",
+        repo_path=str(tmp_path),
+        config=service_config,
+    )
+
+    programs_conf_path = tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
+
+    create_programs_conf_file(
+        programs_conf_path,
+        """
+[program:supervisor-program]
+command=echo "Hello, world!"
+""",
+    )
+
+    status = mock.MagicMock()
+
+    os.chdir(tmp_path)
+    bring_up_supervisor_programs(service, ["supervisor-program"], status)
+
+    status.info.assert_has_calls(
+        [
+            mock.call("Starting supervisor daemon"),
+            mock.call("Starting supervisor-program"),
+        ]
+    )
+    status.failure.assert_not_called()
+
+    mock_start_supervisor_daemon.assert_called_once()
+    mock_start_process.assert_called_once_with("supervisor-program")
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+def test_bring_up_supervisor_programs_wrong_directory(
+    mock_start_process: mock.Mock,
+    mock_start_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+
+    service_repo_path = tmp_path / "service-repo"
+    service_repo_path.mkdir()
+
+    service = Service(
+        name="test-service",
+        repo_path=str(service_repo_path),
+        config=service_config,
+    )
+
+    programs_conf_path = (
+        service_repo_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
+    )
+    create_programs_conf_file(
+        programs_conf_path,
+        """
+[program:supervisor-program]
+command=echo "Hello, world!"
+""",
+    )
+
+    status = mock.MagicMock()
+
+    different_dir = tmp_path / "different-dir"
+    different_dir.mkdir()
+    os.chdir(different_dir)
+
+    # Call the function
+    bring_up_supervisor_programs(service, ["supervisor-program"], status)
+
+    status.warning.assert_called_once_with(
+        f"Cannot bring up supervisor programs from outside the service repository. Please run the command from the service repository ({service_repo_path})"
+    )
+    status.info.assert_not_called()
+    status.failure.assert_not_called()
+
+    mock_start_supervisor_daemon.assert_not_called()
+    mock_start_process.assert_not_called()
