@@ -190,7 +190,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
             status.failure(f"Failed to start {service.name}: {dce.stderr}")
             exit(1)
     try:
-        bring_up_supervisor_programs(supervisor_programs, service, status)
+        bring_up_supervisor_programs(service, supervisor_programs, status)
     except SupervisorError as se:
         status.failure(str(se))
         exit(1)
@@ -307,7 +307,7 @@ def bring_up_docker_compose_services(
 
 
 def bring_up_supervisor_programs(
-    supervisor_programs: list[str], service: Service, status: Status
+    service: Service, supervisor_programs: list[str], status: Status
 ) -> None:
     if len(supervisor_programs) == 0:
         return

@@ -2657,7 +2657,7 @@ def test_bring_up_supervisor_programs_no_programs_config(
         match=f"No programs.conf file found in {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME}",
     ):
         os.chdir(tmp_path)
-        bring_up_supervisor_programs(["supervisor-program"], service, status)
+        bring_up_supervisor_programs(service, ["supervisor-program"], status)
 
     mock_start_supervisor_daemon.assert_not_called()
     mock_start_process.assert_not_called()
@@ -2689,7 +2689,7 @@ def test_bring_up_supervisor_programs_empty_list(
 
     status = mock.MagicMock()
 
-    bring_up_supervisor_programs([], service, status)
+    bring_up_supervisor_programs(service, [], status)
 
     status.info.assert_not_called()
     status.failure.assert_not_called()
@@ -2735,7 +2735,7 @@ command=echo "Hello, world!"
     status = mock.MagicMock()
 
     os.chdir(tmp_path)
-    bring_up_supervisor_programs(["supervisor-program"], service, status)
+    bring_up_supervisor_programs(service, ["supervisor-program"], status)
 
     status.info.assert_has_calls(
         [
@@ -2795,7 +2795,7 @@ command=echo "Hello, world!"
     os.chdir(different_dir)
 
     # Call the function
-    bring_up_supervisor_programs(["supervisor-program"], service, status)
+    bring_up_supervisor_programs(service, ["supervisor-program"], status)
 
     status.warning.assert_called_once_with(
         f"Cannot bring up supervisor programs from outside the service repository. Please run the command from the service repository ({service_repo_path})"

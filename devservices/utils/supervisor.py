@@ -12,6 +12,7 @@ from enum import IntEnum
 from supervisor.options import ServerOptions
 
 from devservices.constants import DEVSERVICES_SUPERVISOR_CONFIG_DIR
+from devservices.constants import SUPERVISOR_TIMEOUT
 from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorConnectionError
 from devservices.exceptions import SupervisorError
@@ -152,7 +153,7 @@ class SupervisorManager:
             return False
 
     def _wait_for_supervisor_ready(
-        self, timeout: int = 10, interval: float = 0.5
+        self, timeout: int = SUPERVISOR_TIMEOUT, interval: float = 0.5
     ) -> None:
         for _ in range(int(timeout / interval)):
             try:
