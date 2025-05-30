@@ -9,6 +9,7 @@ import time
 import xmlrpc.client
 from enum import IntEnum
 
+from sentry_sdk import capture_exception
 from supervisor.options import ServerOptions
 
 from devservices.constants import DEVSERVICES_SUPERVISOR_CONFIG_DIR
@@ -155,7 +156,8 @@ class SupervisorManager:
     def _wait_for_supervisor_ready(
         self, timeout: int = SUPERVISOR_TIMEOUT, interval: float = 0.5
     ) -> None:
-        for _ in range(int(timeout / interval)):
+        start_time = time.time()
+        while time.time() - start_time < timeout:
             try:
                 client = self._get_rpc_client()
                 state = client.supervisor.getState()
@@ -188,6 +190,9 @@ class SupervisorManager:
             # Wait for supervisor to be ready after restart
             self._wait_for_supervisor_ready()
             return
+        except xmlrpc.client.Fault as e:
+            capture_exception(e, level="info")
+            pass
         except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
             # Supervisor is not running, so we need to start it
             pass

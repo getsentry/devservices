@@ -216,6 +216,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
         try:
             bring_up_supervisor_programs(service, supervisor_programs, status)
         except SupervisorError as se:
+            capture_exception(se, level="info")
             status.failure(str(se))
             exit(1)
 
