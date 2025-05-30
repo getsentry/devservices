@@ -212,12 +212,12 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
         ) as span:
             span.set_data("service_name", service.name)
             span.set_data("supervisor_programs", supervisor_programs)
-        try:
-            bring_up_supervisor_programs(service, supervisor_programs, status)
-        except SupervisorError as se:
-            capture_exception(se, level="info")
-            status.failure(str(se))
-            exit(1)
+            try:
+                bring_up_supervisor_programs(service, supervisor_programs, status)
+            except SupervisorError as se:
+                capture_exception(se, level="info")
+                status.failure(str(se))
+                exit(1)
 
     state.remove_service_entry(service.name, StateTables.STARTING_SERVICES)
     state.update_service_entry(service.name, mode, StateTables.STARTED_SERVICES)
