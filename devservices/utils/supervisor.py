@@ -185,7 +185,9 @@ class SupervisorManager:
             client = self._get_rpc_client()
             client.supervisor.getState()
             # Supervisor is already running, run supervisord update to update config and restart running processes
-            # Note that xmlrpc.client.reloadConfig does not work well here, so we use supervisorctl update instead
+            # Notes:
+            # - xmlrpc.client.reloadConfig does not work well here as config changes don't appear to be reloaded, so we use `supervisorctl update` instead
+            # - processes that are edited/added will not be automatically started
             subprocess.run(
                 ["supervisorctl", "-c", self.config_file_path, "update"],
                 check=True,
