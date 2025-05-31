@@ -195,8 +195,13 @@ def test_start_supervisor_daemon_already_running(
     }
     supervisor_manager.start_supervisor_daemon()
     assert mock_rpc_client.return_value.supervisor.getState.call_count == 2
-    assert mock_rpc_client.return_value.supervisor.restart.call_count == 1
-    assert mock_subprocess_run.call_count == 0
+    mock_subprocess_run.assert_called_with(
+        ["supervisorctl", "-c", supervisor_manager.config_file_path, "update"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    assert mock_subprocess_run.call_count == 1
 
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
