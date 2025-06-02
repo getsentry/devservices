@@ -890,9 +890,7 @@ def test_generate_supervisor_status_details_running_program() -> None:
         "  Type: program\n"
         "  Status: running\n"
         "  PID: 12345\n"
-        "  Uptime: 1h 1m 1s\n"
-        "  Group: test-group\n"
-        "  Description: Test program description"
+        "  Uptime: 1h 1m 1s"
     )
 
 
@@ -923,8 +921,7 @@ def test_generate_supervisor_status_details_stopped_program() -> None:
         "    Type: program\n"
         "    Status: stopped\n"
         "    PID: N/A\n"
-        "    Uptime: 0s\n"
-        "    Group: default"
+        "    Uptime: 0s"
     )
 
 
@@ -1004,9 +1001,7 @@ def test_generate_service_status_details_supervisor_dependency() -> None:
         "  Type: program\n"
         "  Status: running\n"
         "  PID: 54321\n"
-        "  Uptime: 2m 0s\n"
-        "  Group: supervisor-group\n"
-        "  Description: Test supervisor program"
+        "  Uptime: 2m 0s"
     )
 
 
@@ -1177,7 +1172,5 @@ autorestart=true
             "    Status: running\n"
             "    PID: 12345\n"
             "    Uptime: 1h 0m 0s\n"
-            "    Group: workers\n"
-            "    Description: Background worker process\n"
         )
         assert output == expected_output

@@ -429,11 +429,7 @@ def generate_supervisor_status_details(
         f"Status: {process_info['state_name'].lower()}",
         f"PID: {process_info['pid'] if process_info['pid'] > 0 else 'N/A'}",
         f"Uptime: {uptime_str}",
-        f"Group: {process_info['group'] or 'default'}",
     ]
-
-    if process_info["description"]:
-        details.append(f"Description: {process_info['description']}")
 
     output.extend(f"{indentation}{BASE_INDENTATION}{detail}" for detail in details)
 
