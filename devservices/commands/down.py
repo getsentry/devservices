@@ -143,6 +143,7 @@ def down(args: Namespace) -> None:
         try:
             bring_down_supervisor_programs(supervisor_programs, service, status)
         except SupervisorError as se:
+            capture_exception(se)
             status.failure(str(se))
             exit(1)
 
