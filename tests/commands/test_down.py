@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 
+from devservices.commands.down import bring_down_supervisor_programs
 from devservices.commands.down import down
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
@@ -15,8 +16,11 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorConfigError
+from devservices.exceptions import SupervisorError
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.services import Service
@@ -25,6 +29,7 @@ from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
+from testing.utils import create_programs_conf_file
 from testing.utils import run_git_command
 
 
@@ -1334,3 +1339,261 @@ def test_down_shared_and_local_dependencies(
                 mock.call("other-service", StateTables.STARTED_SERVICES),
             ]
         )
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch(
+    "devservices.utils.supervisor.SupervisorManager.stop_supervisor_daemon",
+    side_effect=SupervisorError("Error stopping supervisor daemon"),
+)
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
+def test_down_supervisor_program_error(
+    mock_stop_process: mock.Mock,
+    mock_stop_supervisor_daemon: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with mock.patch(
+        "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "supervisor-program": {"description": "Supervisor program"},
+                },
+                "modes": {"default": ["supervisor-program"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        supervisor_program_config = """
+[program:supervisor-program]
+command=echo "Hello, world!"
+"""
+        create_programs_conf_file(service_path, supervisor_program_config)
+
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
+
+        with (
+            mock.patch(
+                "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
+            pytest.raises(SystemExit),
+        ):
+            state = State()
+            state.update_service_entry(
+                "example-service", "default", StateTables.STARTING_SERVICES
+            )
+            down(args)
+
+        mock_remove_service_entry.assert_not_called()
+
+        captured = capsys.readouterr()
+        mock_stop_process.assert_called_once_with("supervisor-program")
+        mock_stop_supervisor_daemon.assert_called_once()
+        assert "Stopping supervisor-program" in captured.out.strip()
+        assert "Stopping supervisor daemon" in captured.out.strip()
+        assert "Error stopping supervisor daemon" in captured.out.strip()
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
+def test_down_supervisor_program_success(
+    mock_stop_process: mock.Mock,
+    mock_stop_supervisor_daemon: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with mock.patch(
+        "devservices.commands.down.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "supervisor-program": {"description": "Supervisor program"},
+                },
+                "modes": {"default": ["supervisor-program"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        supervisor_program_config = """
+[program:supervisor-program]
+command=echo "Hello, world!"
+"""
+        create_programs_conf_file(service_path, supervisor_program_config)
+
+        args = Namespace(service_name=None, debug=False, exclude_local=False)
+
+        with (
+            mock.patch(
+                "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
+        ):
+            state = State()
+            state.update_service_entry(
+                "example-service", "default", StateTables.STARTING_SERVICES
+            )
+            down(args)
+
+        mock_remove_service_entry.assert_has_calls(
+            [
+                mock.call("example-service", StateTables.STARTING_SERVICES),
+                mock.call("example-service", StateTables.STARTED_SERVICES),
+            ]
+        )
+
+        captured = capsys.readouterr()
+        mock_stop_process.assert_called_once_with("supervisor-program")
+        mock_stop_supervisor_daemon.assert_called_once()
+        assert "Stopping supervisor-program" in captured.out.strip()
+        assert "Stopping supervisor daemon" in captured.out.strip()
+        assert "example-service stopped" in captured.out.strip()
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
+def test_bring_down_supervisor_programs_no_programs_config(
+    mock_stop_process: mock.Mock,
+    mock_stop_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+    service = Service(
+        name="test-service",
+        repo_path=str(tmp_path),
+        config=service_config,
+    )
+
+    status = mock.MagicMock()
+
+    with pytest.raises(
+        SupervisorConfigError,
+        match=f"Config file {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME} does not exist",
+    ):
+        bring_down_supervisor_programs(["supervisor-program"], service, status)
+
+    mock_stop_supervisor_daemon.assert_not_called()
+    mock_stop_process.assert_not_called()
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
+def test_bring_down_supervisor_programs_empty_list(
+    mock_stop_process: mock.Mock,
+    mock_stop_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+    service = Service(
+        name="test-service",
+        repo_path=str(tmp_path),
+        config=service_config,
+    )
+
+    status = mock.MagicMock()
+
+    bring_down_supervisor_programs([], service, status)
+
+    status.info.assert_not_called()
+    status.failure.assert_not_called()
+
+    mock_stop_supervisor_daemon.assert_not_called()
+    mock_stop_process.assert_not_called()
+
+
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_supervisor_daemon")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
+def test_bring_down_supervisor_programs_success(
+    mock_stop_process: mock.Mock,
+    mock_stop_supervisor_daemon: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    service_config = ServiceConfig(
+        version=0.1,
+        service_name="test-service",
+        dependencies={
+            "supervisor-program": Dependency(
+                description="Supervisor program",
+                dependency_type=DependencyType.SUPERVISOR,
+            ),
+        },
+        modes={"default": ["supervisor-program"]},
+    )
+    service = Service(
+        name="test-service",
+        repo_path=str(tmp_path),
+        config=service_config,
+    )
+
+    programs_conf_path = tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
+
+    create_programs_conf_file(
+        programs_conf_path,
+        """
+[program:supervisor-program]
+command=echo "Hello, world!"
+""",
+    )
+
+    status = mock.MagicMock()
+
+    bring_down_supervisor_programs(["supervisor-program"], service, status)
+
+    status.info.assert_has_calls(
+        [
+            mock.call("Stopping supervisor-program"),
+            mock.call("Stopping supervisor daemon"),
+        ]
+    )
+    status.failure.assert_not_called()
+
+    mock_stop_supervisor_daemon.assert_called_once()
+    mock_stop_process.assert_called_once_with("supervisor-program")
