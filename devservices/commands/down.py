@@ -21,7 +21,6 @@ from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
-from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
@@ -144,6 +143,7 @@ def down(args: Namespace) -> None:
         try:
             bring_down_supervisor_programs(supervisor_programs, service, status)
         except SupervisorError as se:
+            capture_exception(se)
             status.failure(str(se))
             exit(1)
 
@@ -313,10 +313,6 @@ def bring_down_supervisor_programs(
     programs_config_path = os.path.join(
         service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
     )
-    if not os.path.exists(programs_config_path):
-        raise SupervisorConfigError(
-            f"No programs.conf file found in {programs_config_path}."
-        )
     manager = SupervisorManager(
         programs_config_path,
         service_name=service.name,

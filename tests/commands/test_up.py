@@ -1504,7 +1504,10 @@ def test_up_dependency_set_to_local(
                         },
                     },
                 },
-                "modes": {"default": ["redis", "local-runtime-service"]},
+                "modes": {
+                    "default": ["redis", "local-runtime-service"],
+                    "other": ["redis", "local-runtime-service"],
+                },
             },
         }
         other_service_path = tmp_path / "code" / "other-service"
@@ -1516,7 +1519,7 @@ def test_up_dependency_set_to_local(
         state.update_service_runtime("local-runtime-service", ServiceRuntime.LOCAL)
 
         args = Namespace(
-            service_name=None, debug=False, mode="default", exclude_local=exclude_local
+            service_name=None, debug=False, mode="other", exclude_local=exclude_local
         )
 
         with (
@@ -1704,18 +1707,15 @@ def test_up_dependency_set_to_local(
         if exclude_local:
             mock_update_service_entry.assert_has_calls(
                 [
-                    mock.call(
-                        "other-service", "default", StateTables.STARTING_SERVICES
-                    ),
-                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                    mock.call("other-service", "other", StateTables.STARTING_SERVICES),
+                    mock.call("other-service", "other", StateTables.STARTED_SERVICES),
                 ]
             )
         else:
+            # Even though other-service is being brought up in mode "other", the local-runtime-service should be started in mode "default"
             mock_update_service_entry.assert_has_calls(
                 [
-                    mock.call(
-                        "other-service", "default", StateTables.STARTING_SERVICES
-                    ),
+                    mock.call("other-service", "other", StateTables.STARTING_SERVICES),
                     mock.call(
                         "local-runtime-service",
                         "default",
@@ -1724,7 +1724,7 @@ def test_up_dependency_set_to_local(
                     mock.call(
                         "local-runtime-service", "default", StateTables.STARTED_SERVICES
                     ),
-                    mock.call("other-service", "default", StateTables.STARTED_SERVICES),
+                    mock.call("other-service", "other", StateTables.STARTED_SERVICES),
                 ]
             )
 
@@ -2654,10 +2654,10 @@ def test_bring_up_supervisor_programs_no_programs_config(
 
     with pytest.raises(
         SupervisorConfigError,
-        match=f"No programs.conf file found in {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME}",
+        match=f"Config file {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME} does not exist",
     ):
         os.chdir(tmp_path)
-        bring_up_supervisor_programs(["supervisor-program"], service, status)
+        bring_up_supervisor_programs(service, ["supervisor-program"], status)
 
     mock_start_supervisor_daemon.assert_not_called()
     mock_start_process.assert_not_called()
@@ -2689,7 +2689,7 @@ def test_bring_up_supervisor_programs_empty_list(
 
     status = mock.MagicMock()
 
-    bring_up_supervisor_programs([], service, status)
+    bring_up_supervisor_programs(service, [], status)
 
     status.info.assert_not_called()
     status.failure.assert_not_called()
@@ -2735,7 +2735,7 @@ command=echo "Hello, world!"
     status = mock.MagicMock()
 
     os.chdir(tmp_path)
-    bring_up_supervisor_programs(["supervisor-program"], service, status)
+    bring_up_supervisor_programs(service, ["supervisor-program"], status)
 
     status.info.assert_has_calls(
         [
@@ -2795,7 +2795,7 @@ command=echo "Hello, world!"
     os.chdir(different_dir)
 
     # Call the function
-    bring_up_supervisor_programs(["supervisor-program"], service, status)
+    bring_up_supervisor_programs(service, ["supervisor-program"], status)
 
     status.warning.assert_called_once_with(
         f"Cannot bring up supervisor programs from outside the service repository. Please run the command from the service repository ({service_repo_path})"
