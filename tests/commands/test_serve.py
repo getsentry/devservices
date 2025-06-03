@@ -84,7 +84,10 @@ def test_serve_devservices_config_not_found(
     serve(args)
 
     out, err = capsys.readouterr()
-    assert out == "\x1b[0;31mNo x-programs block found in config.yml.\x1b[0m\n"
+    assert (
+        out
+        == "\x1b[0;31mUnable to bring up devserver due to supervisor config error: No x-programs block found in config.yml\x1b[0m\n"
+    )
     mock_pty_spawn.assert_not_called()
 
 

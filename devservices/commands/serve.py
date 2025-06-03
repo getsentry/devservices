@@ -54,7 +54,9 @@ def serve(args: Namespace) -> None:
         manager = SupervisorManager(service.name, config_file_path)
     except SupervisorConfigError as e:
         capture_exception(e, level="info")
-        console.failure("Unable to bring up devserver due to supervisor config error.")
+        console.failure(
+            f"Unable to bring up devserver due to supervisor config error: {str(e)}"
+        )
         return
 
     try:
