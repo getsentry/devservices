@@ -127,7 +127,6 @@ class SupervisorManager:
             raise SupervisorConfigError(f"Config file {service_config_path} is empty")
 
         programs_data: ProgramData = config.get("x-programs", {})
-        print(programs_data)
 
         if not programs_data:
             raise SupervisorConfigError("No x-programs block found in config.yml")
