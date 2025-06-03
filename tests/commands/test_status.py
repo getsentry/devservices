@@ -184,7 +184,7 @@ def test_generate_service_status_details() -> None:
             ],
         }
     }
-    programs_status: list[ProcessInfo] = []
+    programs_status: dict[str, ProcessInfo] = {}
     result = generate_service_status_details(
         dependency, programs_status, docker_compose_service_to_status, ""
     )
@@ -206,7 +206,7 @@ def test_generate_service_status_details_missing_status() -> None:
         dependency_type=DependencyType.SERVICE,
     )
     docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
-    programs_status: list[ProcessInfo] = []
+    programs_status: dict[str, ProcessInfo] = {}
     result = generate_service_status_details(
         dependency, programs_status, docker_compose_service_to_status, ""
     )
@@ -256,7 +256,7 @@ def test_generate_service_status_tree_no_child_service(
         }
         result = generate_service_status_tree(
             "parent-service",
-            [],
+            {},
             dependency_graph,
             docker_compose_service_to_status,
             "",
@@ -341,7 +341,7 @@ def test_generate_service_status_tree_with_child_service(
         }
         result = generate_service_status_tree(
             "parent-service",
-            [],
+            {},
             dependency_graph,
             docker_compose_service_to_status,
             "",
@@ -457,7 +457,7 @@ def test_generate_service_status_tree_with_nested_child_services(
         }
         result = generate_service_status_tree(
             "grandparent-service",
-            [],
+            {},
             dependency_graph,
             docker_compose_service_to_status,
             "",
@@ -869,8 +869,8 @@ def test_generate_supervisor_status_details_running_program() -> None:
         name="test-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: list[ProcessInfo] = [
-        {
+    programs_status: dict[str, ProcessInfo] = {
+        "test-program": {
             "name": "test-program",
             "state": SupervisorProcessState.RUNNING,  # RUNNING
             "state_name": SupervisorProcessState.RUNNING.name,
@@ -881,18 +881,16 @@ def test_generate_supervisor_status_details_running_program() -> None:
             "stop_time": 0,
             "group": "test-group",
         }
-    ]
+    }
 
     result = generate_supervisor_status_details(dependency, programs_status, "")
 
     assert result == (
         f"{Color.BOLD}test-program{Color.RESET}:\n"
-        "  Type: program\n"
+        "  Type: process\n"
         "  Status: running\n"
         "  PID: 12345\n"
-        "  Uptime: 1h 1m 1s\n"
-        "  Group: test-group\n"
-        "  Description: Test program description"
+        "  Uptime: 1h 1m 1s"
     )
 
 
@@ -902,8 +900,8 @@ def test_generate_supervisor_status_details_stopped_program() -> None:
         name="stopped-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: list[ProcessInfo] = [
-        {
+    programs_status: dict[str, ProcessInfo] = {
+        "stopped-program": {
             "name": "stopped-program",
             "state": SupervisorProcessState.STOPPED,  # STOPPED
             "state_name": SupervisorProcessState.STOPPED.name,
@@ -914,17 +912,16 @@ def test_generate_supervisor_status_details_stopped_program() -> None:
             "stop_time": 1234567890,
             "group": "",
         }
-    ]
+    }
 
     result = generate_supervisor_status_details(dependency, programs_status, "  ")
 
     assert result == (
         f"  {Color.BOLD}stopped-program{Color.RESET}:\n"
-        "    Type: program\n"
+        "    Type: process\n"
         "    Status: stopped\n"
         "    PID: N/A\n"
-        "    Uptime: 0s\n"
-        "    Group: default"
+        "    Uptime: 0s"
     )
 
 
@@ -934,8 +931,8 @@ def test_generate_supervisor_status_details_program_not_found() -> None:
         name="missing-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: list[ProcessInfo] = [
-        {
+    programs_status: dict[str, ProcessInfo] = {
+        "other-program": {
             "name": "other-program",
             "state": SupervisorProcessState.RUNNING,
             "state_name": SupervisorProcessState.RUNNING.name,
@@ -946,7 +943,7 @@ def test_generate_supervisor_status_details_program_not_found() -> None:
             "stop_time": 0,
             "group": "test",
         }
-    ]
+    }
 
     result = generate_supervisor_status_details(dependency, programs_status, "")
 
@@ -963,7 +960,7 @@ def test_generate_supervisor_status_details_empty_programs_list() -> None:
         name="test-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: list[ProcessInfo] = []
+    programs_status: dict[str, ProcessInfo] = {}
 
     result = generate_supervisor_status_details(dependency, programs_status, "")
 
@@ -980,8 +977,8 @@ def test_generate_service_status_details_supervisor_dependency() -> None:
         name="test-supervisor-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: list[ProcessInfo] = [
-        {
+    programs_status: dict[str, ProcessInfo] = {
+        "test-supervisor-program": {
             "name": "test-supervisor-program",
             "state": SupervisorProcessState.RUNNING,
             "state_name": SupervisorProcessState.RUNNING.name,
@@ -992,7 +989,7 @@ def test_generate_service_status_details_supervisor_dependency() -> None:
             "stop_time": 0,
             "group": "supervisor-group",
         }
-    ]
+    }
     docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
 
     result = generate_service_status_details(
@@ -1001,12 +998,10 @@ def test_generate_service_status_details_supervisor_dependency() -> None:
 
     assert result == (
         f"{Color.BOLD}test-supervisor-program{Color.RESET}:\n"
-        "  Type: program\n"
+        "  Type: process\n"
         "  Status: running\n"
         "  PID: 54321\n"
-        "  Uptime: 2m 0s\n"
-        "  Group: supervisor-group\n"
-        "  Description: Test supervisor program"
+        "  Uptime: 2m 0s"
     )
 
 
@@ -1114,8 +1109,8 @@ autorestart=true
         run_git_command(["commit", "-m", "Add config"], cwd=test_service_repo_path)
 
         # Mock supervisor programs status
-        mock_programs_status: list[ProcessInfo] = [
-            {
+        mock_programs_status: dict[str, ProcessInfo] = {
+            "worker": {
                 "name": "worker",
                 "state": SupervisorProcessState.RUNNING,
                 "state_name": "RUNNING",
@@ -1126,7 +1121,7 @@ autorestart=true
                 "stop_time": 0,
                 "group": "workers",
             },
-        ]
+        }
 
         # Mock docker compose status for clickhouse (matching the config)
         mock_docker_status = [
@@ -1173,11 +1168,9 @@ autorestart=true
             "    Ports:\n"
             "      127.0.0.1:9000 -> 9000/tcp\n"
             f"  {Color.BOLD}worker{Color.RESET}:\n"
-            "    Type: program\n"
+            "    Type: process\n"
             "    Status: running\n"
             "    PID: 12345\n"
             "    Uptime: 1h 0m 0s\n"
-            "    Group: workers\n"
-            "    Description: Background worker process\n"
         )
         assert output == expected_output

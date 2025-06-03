@@ -106,16 +106,16 @@ def status(args: Namespace) -> None:
     programs_config_path = os.path.join(
         service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
     )
-    processes_status = []
+    process_statuses = {}
     if os.path.exists(programs_config_path):
         supervisor_manager = SupervisorManager(
             programs_config_path,
             service.name,
         )
-        processes_status = supervisor_manager.get_all_process_info()
+        process_statuses = supervisor_manager.get_all_process_info()
 
     try:
-        status_tree = get_status_for_service(service, processes_status)
+        status_tree = get_status_for_service(service, process_statuses)
     except DependencyError as de:
         capture_exception(de)
         console.failure(
@@ -130,7 +130,7 @@ def status(args: Namespace) -> None:
 
 
 def get_status_for_service(
-    service: Service, processes_status: list[ProcessInfo]
+    service: Service, process_statuses: dict[str, ProcessInfo]
 ) -> str:
     state = State()
 
@@ -159,7 +159,7 @@ def get_status_for_service(
     docker_compose_service_to_status = parse_docker_compose_status(status_json_results)
     status_tree = generate_service_status_tree(
         service.name,
-        processes_status,
+        process_statuses,
         dependency_graph,
         docker_compose_service_to_status,
     )
@@ -208,7 +208,7 @@ def get_status_json_results(
 
 def generate_service_status_tree(
     service_name: str,
-    processes_status: list[ProcessInfo],
+    process_statuses: dict[str, ProcessInfo],
     dependency_graph: DependencyGraph,
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str = "",
@@ -248,7 +248,7 @@ def generate_service_status_tree(
             output.append(
                 process_service_with_containerized_runtime(
                     dependency,
-                    processes_status,
+                    process_statuses,
                     docker_compose_service_to_status,
                     indentation + BASE_INDENTATION,
                     dependency_graph,
@@ -283,7 +283,7 @@ def process_service_with_local_runtime(
 
 def process_service_with_containerized_runtime(
     dependency: DependencyNode,
-    processes_status: list[ProcessInfo],
+    process_statuses: dict[str, ProcessInfo],
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str,
     dependency_graph: DependencyGraph,
@@ -291,14 +291,14 @@ def process_service_with_containerized_runtime(
     if len(dependency_graph.graph[dependency]) > 0:
         return generate_service_status_tree(
             dependency.name,
-            processes_status,
+            process_statuses,
             dependency_graph,
             docker_compose_service_to_status,
             indentation,
         )
     else:
         return generate_service_status_details(
-            dependency, processes_status, docker_compose_service_to_status, indentation
+            dependency, process_statuses, docker_compose_service_to_status, indentation
         )
 
 
@@ -325,7 +325,7 @@ def parse_docker_compose_status(
 
 def generate_service_status_details(
     dependency: DependencyNode,
-    processes_status: list[ProcessInfo],
+    process_statuses: dict[str, ProcessInfo],
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str,
 ) -> str:
@@ -334,7 +334,7 @@ def generate_service_status_details(
     # Handle supervisor dependencies
     if dependency.dependency_type == DependencyType.SUPERVISOR:
         return generate_supervisor_status_details(
-            dependency, processes_status, indentation
+            dependency, process_statuses, indentation
         )
 
     if dependency.name not in docker_compose_service_to_status:
@@ -380,7 +380,7 @@ def handle_started_service(dependency: DependencyNode, indentation: str) -> str:
                 f"{indentation}{BASE_INDENTATION}Runtime: local",
             ]
         )
-    service_output = get_status_for_service(service_with_local_runtime, [])
+    service_output = get_status_for_service(service_with_local_runtime, {})
     return "\n".join(
         [f"{indentation}{line}" for line in service_output.splitlines()],
     )
@@ -400,7 +400,7 @@ def format_health(health: str) -> str:
 
 def generate_supervisor_status_details(
     dependency: DependencyNode,
-    processes_status: list[ProcessInfo],
+    process_statuses: dict[str, ProcessInfo],
     indentation: str,
 ) -> str:
     """Generate status details for supervisor dependencies."""
@@ -408,10 +408,7 @@ def generate_supervisor_status_details(
 
     # Find the specific process in the status list
     process_info = None
-    for process_status in processes_status:
-        if process_status["name"] == dependency.name:
-            process_info = process_status
-            break
+    process_info = process_statuses.get(dependency.name)
 
     if process_info is None:
         return "\n".join(
@@ -425,15 +422,11 @@ def generate_supervisor_status_details(
     uptime_str = format_uptime(process_info["uptime"])
 
     details = [
-        "Type: program",
+        "Type: process",
         f"Status: {process_info['state_name'].lower()}",
         f"PID: {process_info['pid'] if process_info['pid'] > 0 else 'N/A'}",
         f"Uptime: {uptime_str}",
-        f"Group: {process_info['group'] or 'default'}",
     ]
-
-    if process_info["description"]:
-        details.append(f"Description: {process_info['description']}")
 
     output.extend(f"{indentation}{BASE_INDENTATION}{detail}" for detail in details)
 

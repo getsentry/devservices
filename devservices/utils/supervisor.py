@@ -10,9 +10,11 @@ import xmlrpc.client
 from enum import IntEnum
 from typing import TypedDict
 
+from sentry_sdk import capture_exception
 from supervisor.options import ServerOptions
 
 from devservices.constants import DEVSERVICES_SUPERVISOR_CONFIG_DIR
+from devservices.constants import SUPERVISOR_TIMEOUT
 from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorConnectionError
 from devservices.exceptions import SupervisorError
@@ -167,9 +169,10 @@ class SupervisorManager:
             return False
 
     def _wait_for_supervisor_ready(
-        self, timeout: int = 10, interval: float = 0.5
+        self, timeout: int = SUPERVISOR_TIMEOUT, interval: float = 0.5
     ) -> None:
-        for _ in range(int(timeout / interval)):
+        start_time = time.time()
+        while time.time() - start_time < timeout:
             try:
                 client = self._get_rpc_client()
                 state = client.supervisor.getState()
@@ -202,6 +205,9 @@ class SupervisorManager:
             # Wait for supervisor to be ready after restart
             self._wait_for_supervisor_ready()
             return
+        except xmlrpc.client.Fault as e:
+            capture_exception(e, level="info")
+            pass
         except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
             # Supervisor is not running, so we need to start it
             pass
@@ -302,51 +308,59 @@ class SupervisorManager:
             # Handle Ctrl+C gracefully when following logs
             pass
 
-    def get_all_process_info(self) -> list[ProcessInfo]:
+    def get_all_process_info(self) -> dict[str, ProcessInfo]:
         """Get status information for all supervisor programs."""
+        # Check if supervisor client is up first, return empty list if down
         try:
             client = self._get_rpc_client()
+            client.supervisor.getState()
+        except (
+            xmlrpc.client.Fault,
+            SupervisorConnectionError,
+            socket.error,
+            ConnectionRefusedError,
+        ):
+            return {}
+
+        try:
             all_process_info = client.supervisor.getAllProcessInfo()
 
             # Validate that the response is a list before iterating for typechecking
             if not isinstance(all_process_info, list):
-                return []
-
-            processes_status = []
-            for process_info in all_process_info:
-                if not isinstance(process_info, dict):
-                    continue
-
-                # Extract basic fields with defaults
-                name = process_info.get("name", "")
-                state = process_info.get("state", SupervisorProcessState.UNKNOWN)
-                state_name = SupervisorProcessState(state).name
-                description = process_info.get("description", "")
-                pid = process_info.get("pid", 0)
-                group = process_info.get("group", "")
-
-                # Calculate uptime for running processes
-                start_time = process_info.get("start", 0)
-                now = process_info.get("now", 0)
-                uptime = max(0, now - start_time) if start_time > 0 and now > 0 else 0
-
-                program_status: ProcessInfo = {
-                    "name": name,
-                    "state": state,
-                    "state_name": state_name,
-                    "description": description,
-                    "pid": pid,
-                    "uptime": uptime,
-                    "start_time": start_time,
-                    "stop_time": process_info.get("stop", 0),
-                    "group": group,
-                }
-                processes_status.append(program_status)
-
-            return processes_status
+                return {}
 
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to get programs status: {e.faultString}")
-        except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
-            # If supervisor is not running, return empty list
-            return []
+
+        processes_status: dict[str, ProcessInfo] = {}
+        for process_info in all_process_info:
+            if not isinstance(process_info, dict):
+                continue
+
+            # Extract basic fields with defaults
+            name = process_info.get("name", "")
+            state = process_info.get("state", SupervisorProcessState.UNKNOWN)
+            state_name = SupervisorProcessState(state).name
+            description = process_info.get("description", "")
+            pid = process_info.get("pid", 0)
+            group = process_info.get("group", "")
+
+            # Calculate uptime for running processes
+            start_time = process_info.get("start", 0)
+            now = process_info.get("now", 0)
+            uptime = max(0, now - start_time) if start_time > 0 and now > 0 else 0
+
+            program_status: ProcessInfo = {
+                "name": name,
+                "state": state,
+                "state_name": state_name,
+                "description": description,
+                "pid": pid,
+                "uptime": uptime,
+                "start_time": start_time,
+                "stop_time": process_info.get("stop", 0),
+                "group": group,
+            }
+            processes_status[name] = program_status
+
+        return processes_status
