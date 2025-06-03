@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 
 from devservices.commands.foreground import foreground
+from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
@@ -105,7 +106,9 @@ autorestart=true
         foreground(args)
 
     captured = capsys.readouterr()
-    assert "\x1b[0;33mexample-service is not running\x1b[0m\n" == captured.out
+    assert (
+        f"{Color.YELLOW}example-service is not running{Color.RESET}\n" == captured.out
+    )
 
     mock_pty_spawn.assert_not_called()
 
@@ -154,7 +157,7 @@ autorestart=true
 
     captured = capsys.readouterr()
     assert (
-        "\x1b[0;31mProgram nonexistent does not exist in the service's config\x1b[0m\n"
+        f"{Color.RED}Program nonexistent does not exist in the service's config{Color.RESET}\n"
         == captured.out
     )
 
@@ -205,7 +208,7 @@ autorestart=true
 
     captured = capsys.readouterr()
     assert (
-        "\x1b[0;31mProgram worker is not running in any active modes of example-service\x1b[0m\n"
+        f"{Color.RED}Program worker is not running in any active modes of example-service{Color.RESET}\n"
         == captured.out
     )
 
@@ -251,7 +254,7 @@ def test_foreground_programs_conf_not_found(
 
     captured = capsys.readouterr()
     assert (
-        "\x1b[0;31mDependency 'worker' is not remote but is not defined in docker-compose services or programs file\x1b[0m\n"
+        f"{Color.RED}Dependency 'worker' is not remote but is not defined in docker-compose services or programs file{Color.RESET}\n"
         == captured.out
     )
 
@@ -271,7 +274,7 @@ def test_foreground_config_not_found_error(
 
     captured = capsys.readouterr()
     assert (
-        f"\x1b[0;31mNo devservices configuration found in {tmp_path / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME}. Please specify a service (i.e. `devservices down sentry`) or run the command from a directory with a devservices configuration.\x1b[0m\n"
+        f"{Color.RED}No devservices configuration found in {tmp_path / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME}. Please specify a service (i.e. `devservices down sentry`) or run the command from a directory with a devservices configuration.{Color.RESET}\n"
         == captured.out
     )
 
@@ -289,7 +292,7 @@ def test_foreground_config_error(
         foreground(args)
 
     captured = capsys.readouterr()
-    assert "\x1b[0;31mInvalid config\x1b[0m\n" == captured.out
+    assert f"{Color.RED}Invalid config{Color.RESET}\n" == captured.out
 
 
 @mock.patch("devservices.commands.foreground.find_matching_service")
@@ -305,7 +308,7 @@ def test_foreground_service_not_found_error(
         foreground(args)
 
     captured = capsys.readouterr()
-    assert "\x1b[0;31mService not found\x1b[0m\n" == captured.out
+    assert f"{Color.RED}Service not found{Color.RESET}\n" == captured.out
 
 
 @mock.patch("devservices.commands.foreground.pty.spawn")
@@ -353,7 +356,7 @@ autorestart=true
     # Verify output
     captured = capsys.readouterr()
     assert (
-        "\x1b[0;31mError when getting program command: Program config error\x1b[0m\n"
+        f"{Color.RED}Error when getting program command: Program config error{Color.RESET}\n"
         == captured.out
     )
 
@@ -407,7 +410,7 @@ autorestart=true
 
     captured = capsys.readouterr()
     assert (
-        "Stopping worker in supervisor\nStarting worker in foreground\n\x1b[0;31mError running worker in foreground: Spawn failed\x1b[0m\nRestarting worker in background\n"
+        f"Stopping worker in supervisor\nStarting worker in foreground\n{Color.RED}Error running worker in foreground: Spawn failed{Color.RESET}\nRestarting worker in background\n"
         == captured.out
     )
 
@@ -465,7 +468,7 @@ autorestart=true
 
     captured = capsys.readouterr()
     assert (
-        "Stopping worker in supervisor\n\x1b[0;31mError stopping worker in supervisor: Stop process failed\x1b[0m\nRestarting worker in background\n"
+        f"Stopping worker in supervisor\n{Color.RED}Error stopping worker in supervisor: Stop process failed{Color.RESET}\nRestarting worker in background\n"
         == captured.out
     )
 
@@ -520,7 +523,7 @@ autorestart=true
 
     captured = capsys.readouterr()
     assert (
-        "Stopping worker in supervisor\nStarting worker in foreground\nRestarting worker in background\n\x1b[0;31mError restarting worker in background: Start process failed\x1b[0m\n"
+        f"Stopping worker in supervisor\nStarting worker in foreground\nRestarting worker in background\n{Color.RED}Error restarting worker in background: Start process failed{Color.RESET}\n"
         == captured.out
     )
 
@@ -694,5 +697,5 @@ autorestart=true
     captured = capsys.readouterr()
     assert (
         captured.out
-        == "\x1b[0;31mProgram worker is not running in any active modes of example-service\x1b[0m\n"
+        == f"{Color.RED}Program worker is not running in any active modes of example-service{Color.RESET}\n"
     )
