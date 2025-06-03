@@ -16,6 +16,7 @@ from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import SupervisorConfigError
+from devservices.exceptions import SupervisorProcessError
 from devservices.utils.console import Console
 from devservices.utils.services import find_matching_service
 from devservices.utils.state import State
@@ -24,7 +25,9 @@ from devservices.utils.supervisor import SupervisorManager
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
-    parser = subparsers.add_parser("foreground", help="Run a service in the foreground")
+    parser = subparsers.add_parser(
+        "foreground", help="Run a service's program in the foreground"
+    )
     parser.add_argument(
         "program_name", help="Name of the program to run in the foreground"
     )
@@ -32,7 +35,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 
 
 def foreground(args: Namespace) -> None:
-    """Run a service in the foreground."""
+    """Run a service's program in the foreground."""
     console = Console()
     program_name = args.program_name
     try:
@@ -51,13 +54,18 @@ def foreground(args: Namespace) -> None:
         console.failure(str(e))
         exit(1)
     modes = service.config.modes
+    if program_name not in service.config.dependencies:
+        console.failure(
+            f"Program {program_name} does not exist in the service's config"
+        )
+        return
     state = State()
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
     active_services = starting_services.union(started_services)
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
-        return  #
+        return
     active_starting_modes = state.get_active_modes_for_service(
         service.name, StateTables.STARTING_SERVICES
     )
@@ -79,7 +87,9 @@ def foreground(args: Namespace) -> None:
     ]
 
     if program_name not in supervisor_programs:
-        console.failure(f"Program {program_name} is not currently running.")
+        console.failure(
+            f"Program {program_name} is not running in any active modes of {service.name}"
+        )
         return
 
     programs_config_path = os.path.join(
@@ -102,20 +112,22 @@ def foreground(args: Namespace) -> None:
         # Stop the supervisor process before running in foreground
         console.info(f"Stopping {program_name} in supervisor")
         manager.stop_process(program_name)
-
         console.info(f"Starting {program_name} in foreground")
         argv = shlex.split(program_command)
 
         # Run the process in foreground
         pty.spawn(argv)
 
-        # Restart the process in background after foreground process exits
-        console.info(f"Restarting {program_name} in background")
-        manager.start_process(program_name)
-
-    except Exception as e:
+    except SupervisorProcessError as e:
+        capture_exception(e)
+        console.failure(f"Error stopping {program_name} in supervisor: {str(e)}")
+    except (OSError, FileNotFoundError, PermissionError) as e:
         capture_exception(e)
         console.failure(f"Error running {program_name} in foreground: {str(e)}")
-        # Ensure the process is restarted in case of failure
+
+    try:
+        console.info(f"Restarting {program_name} in background")
         manager.start_process(program_name)
-        return
+    except SupervisorProcessError as e:
+        capture_exception(e)
+        console.failure(f"Error restarting {program_name} in background: {str(e)}")

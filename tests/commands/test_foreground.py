@@ -13,6 +13,7 @@ from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import SupervisorConfigError
+from devservices.exceptions import SupervisorProcessError
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
@@ -104,7 +105,7 @@ autorestart=true
         foreground(args)
 
     captured = capsys.readouterr()
-    assert "example-service is not running" in captured.out
+    assert "\x1b[0;33mexample-service is not running\x1b[0m\n" == captured.out
 
     mock_pty_spawn.assert_not_called()
 
@@ -152,7 +153,61 @@ autorestart=true
         foreground(args)
 
     captured = capsys.readouterr()
-    assert "Program nonexistent is not currently running." in captured.out
+    assert (
+        "\x1b[0;31mProgram nonexistent does not exist in the service's config\x1b[0m\n"
+        == captured.out
+    )
+
+    mock_pty_spawn.assert_not_called()
+
+
+@mock.patch("devservices.commands.foreground.pty.spawn")
+def test_foreground_program_not_in_active_modes(
+    mock_pty_spawn: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "redis": {"description": "Redis"},
+                "worker": {"description": "Worker"},
+            },
+            "modes": {"default": ["redis"], "other": ["worker"]},
+        },
+        "services": {
+            "redis": {"image": "redis:6.2.14-alpine"},
+        },
+    }
+
+    service_path = tmp_path / "example-service"
+    create_config_file(service_path, config)
+    os.chdir(service_path)
+
+    programs_config = """
+[program:worker]
+command=python worker.py
+autostart=true
+autorestart=true
+"""
+    create_programs_conf_file(service_path, programs_config)
+
+    args = Namespace(program_name="worker")
+
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES
+        )
+        foreground(args)
+
+    captured = capsys.readouterr()
+    assert (
+        "\x1b[0;31mProgram worker is not running in any active modes of example-service\x1b[0m\n"
+        == captured.out
+    )
 
     mock_pty_spawn.assert_not_called()
 
@@ -339,7 +394,7 @@ autorestart=true
 """
     create_programs_conf_file(service_path, programs_config)
 
-    mock_pty_spawn.side_effect = Exception("Spawn failed")
+    mock_pty_spawn.side_effect = OSError("Spawn failed")
 
     args = Namespace(program_name="worker")
 
@@ -352,7 +407,7 @@ autorestart=true
 
     captured = capsys.readouterr()
     assert (
-        "Stopping worker in supervisor\nStarting worker in foreground\n\x1b[0;31mError running worker in foreground: Spawn failed\x1b[0m\n"
+        "Stopping worker in supervisor\nStarting worker in foreground\n\x1b[0;31mError running worker in foreground: Spawn failed\x1b[0m\nRestarting worker in background\n"
         == captured.out
     )
 
@@ -363,11 +418,122 @@ autorestart=true
 @mock.patch("devservices.commands.foreground.pty.spawn")
 @mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
 @mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
+def test_foreground_stop_process_exception(
+    mock_stop_process: mock.Mock,
+    mock_start_process: mock.Mock,
+    mock_pty_spawn: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "worker": {"description": "Worker"},
+            },
+            "modes": {"default": ["worker"]},
+        },
+    }
+
+    service_path = tmp_path / "example-service"
+    create_config_file(service_path, config)
+    os.chdir(service_path)
+
+    programs_config = """
+[program:worker]
+command=python worker.py
+autostart=true
+autorestart=true
+"""
+    create_programs_conf_file(service_path, programs_config)
+
+    mock_stop_process.side_effect = SupervisorProcessError("Stop process failed")
+
+    args = Namespace(program_name="worker")
+
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES
+        )
+        foreground(args)
+
+    mock_pty_spawn.assert_not_called()
+    mock_start_process.assert_called_once_with("worker")
+    mock_stop_process.assert_called_once_with("worker")
+
+    captured = capsys.readouterr()
+    assert (
+        "Stopping worker in supervisor\n\x1b[0;31mError stopping worker in supervisor: Stop process failed\x1b[0m\nRestarting worker in background\n"
+        == captured.out
+    )
+
+
+@mock.patch("devservices.commands.foreground.pty.spawn")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
+def test_foreground_start_process_exception(
+    mock_stop_process: mock.Mock,
+    mock_start_process: mock.Mock,
+    mock_pty_spawn: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {
+                "worker": {"description": "Worker"},
+            },
+            "modes": {"default": ["worker"]},
+        },
+    }
+
+    service_path = tmp_path / "example-service"
+    create_config_file(service_path, config)
+    os.chdir(service_path)
+
+    programs_config = """
+[program:worker]
+command=python worker.py
+autostart=true
+autorestart=true
+"""
+    create_programs_conf_file(service_path, programs_config)
+
+    mock_start_process.side_effect = SupervisorProcessError("Start process failed")
+
+    args = Namespace(program_name="worker")
+
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.update_service_entry(
+            "example-service", "default", StateTables.STARTED_SERVICES
+        )
+        foreground(args)
+
+    mock_pty_spawn.assert_called_once_with(["python", "worker.py"])
+    mock_start_process.assert_called_once_with("worker")
+    mock_stop_process.assert_called_once_with("worker")
+
+    captured = capsys.readouterr()
+    assert (
+        "Stopping worker in supervisor\nStarting worker in foreground\nRestarting worker in background\n\x1b[0;31mError restarting worker in background: Start process failed\x1b[0m\n"
+        == captured.out
+    )
+
+
+@mock.patch("devservices.commands.foreground.pty.spawn")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
+@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
 def test_foreground_with_starting_services(
     mock_stop_process: mock.Mock,
     mock_start_process: mock.Mock,
     mock_pty_spawn: mock.Mock,
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     config = {
         "x-sentry-service-config": {
@@ -407,6 +573,12 @@ autorestart=true
     mock_start_process.assert_called_once_with("worker")
     mock_stop_process.assert_called_once_with("worker")
 
+    captured = capsys.readouterr()
+    assert (
+        "Stopping worker in supervisor\nStarting worker in foreground\nRestarting worker in background\n"
+        == captured.out
+    )
+
 
 @mock.patch("devservices.commands.foreground.pty.spawn")
 @mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
@@ -416,6 +588,7 @@ def test_foreground_multiple_modes_and_dependencies(
     mock_start_process: mock.Mock,
     mock_pty_spawn: mock.Mock,
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     config = {
         "x-sentry-service-config": {
@@ -470,59 +643,18 @@ autorestart=true
     mock_start_process.assert_called_once_with("consumer")
     mock_stop_process.assert_called_once_with("consumer")
 
-
-@mock.patch("devservices.commands.foreground.pty.spawn")
-@mock.patch("devservices.utils.supervisor.SupervisorManager.start_process")
-@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
-def test_foreground_empty_command(
-    mock_stop_process: mock.Mock,
-    mock_start_process: mock.Mock,
-    mock_pty_spawn: mock.Mock,
-    tmp_path: Path,
-) -> None:
-    config = {
-        "x-sentry-service-config": {
-            "version": 0.1,
-            "service_name": "example-service",
-            "dependencies": {
-                "worker": {"description": "Worker"},
-            },
-            "modes": {"default": ["worker"]},
-        },
-    }
-
-    service_path = tmp_path / "example-service"
-    create_config_file(service_path, config)
-    os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
-
-    args = Namespace(program_name="worker")
-
-    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
-        state = State()
-        state.update_service_entry(
-            "example-service", "default", StateTables.STARTED_SERVICES
-        )
-        foreground(args)
-
-    # Verify that shlex.split handles empty command correctly
-    mock_pty_spawn.assert_called_once_with([])
-
-    mock_start_process.assert_called_once_with("worker")
-    mock_stop_process.assert_called_once_with("worker")
+    captured = capsys.readouterr()
+    assert (
+        "Stopping consumer in supervisor\nStarting consumer in foreground\nRestarting consumer in background\n"
+        == captured.out
+    )
 
 
 @mock.patch("devservices.commands.foreground.pty.spawn")
 def test_foreground_no_active_modes(
     mock_pty_spawn: mock.Mock,
     tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     config = {
         "x-sentry-service-config": {
@@ -558,3 +690,9 @@ autorestart=true
 
     # Should not call pty.spawn since no supervisor programs are active
     mock_pty_spawn.assert_not_called()
+
+    captured = capsys.readouterr()
+    assert (
+        captured.out
+        == "\x1b[0;31mProgram worker is not running in any active modes of example-service\x1b[0m\n"
+    )
