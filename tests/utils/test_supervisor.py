@@ -546,8 +546,8 @@ def test_get_all_process_info_success(
 
     assert len(result) == 2
 
-    expected_results = [
-        {
+    expected_results = {
+        "program1": {
             "name": "program1",
             "state": SupervisorProcessState.RUNNING,
             "state_name": "RUNNING",
@@ -558,7 +558,7 @@ def test_get_all_process_info_success(
             "start_time": 1000,
             "stop_time": 0,
         },
-        {
+        "program2": {
             "name": "program2",
             "state": SupervisorProcessState.STOPPED,
             "state_name": "STOPPED",
@@ -569,7 +569,7 @@ def test_get_all_process_info_success(
             "start_time": 0,
             "stop_time": 1050,
         },
-    ]
+    }
 
     for expected, actual in zip(expected_results, result):
         assert actual == expected
@@ -584,7 +584,7 @@ def test_get_all_process_info_empty_list(
 
     result = supervisor_manager.get_all_process_info()
 
-    assert result == []
+    assert result == {}
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
@@ -609,5 +609,5 @@ def test_get_all_process_info_connection_error(
 
     result = supervisor_manager.get_all_process_info()
 
-    # Should return empty list when supervisor is not running
-    assert result == []
+    # Should return empty dict when supervisor is not running
+    assert result == {}
