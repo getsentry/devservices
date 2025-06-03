@@ -201,7 +201,7 @@ def test_start_supervisor_daemon_already_running(
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    assert mock_subprocess_run.call_count == 1
+    mock_subprocess_run.assert_called_once()
 
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")

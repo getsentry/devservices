@@ -198,7 +198,7 @@ class SupervisorManager:
             # Wait for supervisor to be ready after config reload
             self._wait_for_supervisor_ready()
             return
-        except xmlrpc.client.Fault as e:
+        except (xmlrpc.client.Fault, subprocess.CalledProcessError) as e:
             capture_exception(e, level="info")
             pass
         except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
