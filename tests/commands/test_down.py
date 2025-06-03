@@ -16,7 +16,6 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import SupervisorConfigError
@@ -29,7 +28,6 @@ from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
-from testing.utils import create_programs_conf_file
 from testing.utils import run_git_command
 
 
@@ -1367,6 +1365,11 @@ def test_down_supervisor_program_error(
                 },
                 "modes": {"default": ["supervisor-program"]},
             },
+            "x-programs": {
+                "supervisor-program": {
+                    "command": "echo 'Hello, world!'",
+                }
+            },
             "services": {
                 "redis": {"image": "redis:6.2.14-alpine"},
                 "clickhouse": {
@@ -1378,12 +1381,6 @@ def test_down_supervisor_program_error(
         service_path = tmp_path / "example-service"
         create_config_file(service_path, config)
         os.chdir(service_path)
-
-        supervisor_program_config = """
-[program:supervisor-program]
-command=echo "Hello, world!"
-"""
-        create_programs_conf_file(service_path, supervisor_program_config)
 
         args = Namespace(service_name=None, debug=False, exclude_local=False)
 
@@ -1432,6 +1429,11 @@ def test_down_supervisor_program_success(
                 },
                 "modes": {"default": ["supervisor-program"]},
             },
+            "x-programs": {
+                "supervisor-program": {
+                    "command": "echo 'Hello, world!'",
+                }
+            },
             "services": {
                 "redis": {"image": "redis:6.2.14-alpine"},
                 "clickhouse": {
@@ -1443,12 +1445,6 @@ def test_down_supervisor_program_success(
         service_path = tmp_path / "example-service"
         create_config_file(service_path, config)
         os.chdir(service_path)
-
-        supervisor_program_config = """
-[program:supervisor-program]
-command=echo "Hello, world!"
-"""
-        create_programs_conf_file(service_path, supervisor_program_config)
 
         args = Namespace(service_name=None, debug=False, exclude_local=False)
 
@@ -1504,9 +1500,17 @@ def test_bring_down_supervisor_programs_no_programs_config(
 
     status = mock.MagicMock()
 
+    # Create a config file without x-programs block
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "test-service",
+            "services": {},
+        },
+    }
+    create_config_file(tmp_path, config)
     with pytest.raises(
-        SupervisorConfigError,
-        match=f"Config file {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME} does not exist",
+        SupervisorConfigError, match="No x-programs block found in config.yml"
     ):
         bring_down_supervisor_programs(["supervisor-program"], service, status)
 
@@ -1573,14 +1577,20 @@ def test_bring_down_supervisor_programs_success(
         config=service_config,
     )
 
-    programs_conf_path = tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
-
-    create_programs_conf_file(
-        programs_conf_path,
-        """
-[program:supervisor-program]
-command=echo "Hello, world!"
-""",
+    create_config_file(
+        tmp_path,
+        {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "test-service",
+            },
+            "x-programs": {
+                "supervisor-program": {
+                    "command": "echo 'Hello, world!'",
+                }
+            },
+            "services": {},
+        },
     )
 
     status = mock.MagicMock()

@@ -11,9 +11,7 @@ import pytest
 from devservices.commands.serve import serve
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from testing.utils import create_config_file
-from testing.utils import create_programs_conf_file
 
 
 @patch("devservices.commands.serve.pty.spawn")
@@ -31,6 +29,11 @@ def test_serve_success(
             },
             "modes": {"default": ["redis", "clickhouse"]},
         },
+        "x-programs": {
+            "devserver": {
+                "command": "run devserver",
+            }
+        },
         "services": {
             "redis": {"image": "redis:6.2.14-alpine"},
             "clickhouse": {
@@ -41,13 +44,6 @@ def test_serve_success(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-    programs_config = """
-[program:devserver]
-command=run devserver
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(extra=[])
 
@@ -88,10 +84,7 @@ def test_serve_devservices_config_not_found(
     serve(args)
 
     out, err = capsys.readouterr()
-    assert (
-        out
-        == f"\x1b[0;31mNo programs.conf file found in {service_path}/{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}.\x1b[0m\n"
-    )
+    assert out == "\x1b[0;31mNo x-programs block found in config.yml.\x1b[0m\n"
     mock_pty_spawn.assert_not_called()
 
 
@@ -133,6 +126,11 @@ def test_serve_devserver_command_not_found(
             },
             "modes": {"default": ["redis", "clickhouse"]},
         },
+        "x-programs": {
+            "consumer": {
+                "command": "run consumer",
+            }
+        },
         "services": {
             "redis": {"image": "redis:6.2.14-alpine"},
             "clickhouse": {
@@ -143,13 +141,6 @@ def test_serve_devserver_command_not_found(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-    programs_config = """
-[program:consumer]
-command=run consumer
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(extra=[])
 

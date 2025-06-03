@@ -19,6 +19,7 @@ from devservices.utils.supervisor import SupervisorManager
 from devservices.utils.supervisor import SupervisorProcessState
 from devservices.utils.supervisor import UnixSocketHTTPConnection
 from devservices.utils.supervisor import UnixSocketTransport
+from testing.utils import create_config_file
 
 
 @mock.patch("socket.socket")
@@ -64,16 +65,21 @@ def supervisor_manager(tmp_path: Path) -> SupervisorManager:
     with mock.patch(
         "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
     ):
-        config_file_path = tmp_path / DEVSERVICES_DIR_NAME / "processes.conf"
-        config_file_path.parent.mkdir(parents=True, exist_ok=True)
-        config_file_path.write_text(
-            """
-    [program:test_program]
-    command = python test_program.py
-    """
-        )
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "test-service",
+                "dependencies": {
+                    "test-program": {"description": "Test program"},
+                },
+                "modes": {},
+            },
+            "x-programs": {"test_program": {"command": "python test_program.py"}},
+        }
+        create_config_file(tmp_path, config)
+        service_config_path = tmp_path / DEVSERVICES_DIR_NAME / "config.yml"
         return SupervisorManager(
-            config_file_path=str(config_file_path), service_name="test-service"
+            service_name="test-service", service_config_path=str(service_config_path)
         )
 
 
@@ -85,8 +91,104 @@ def test_init_with_config_file(supervisor_manager: SupervisorManager) -> None:
 def test_init_with_nonexistent_config() -> None:
     with pytest.raises(SupervisorConfigError):
         SupervisorManager(
-            config_file_path="/nonexistent/path.conf", service_name="test-service"
+            service_name="test-service", service_config_path="/nonexistent/path.yml"
         )
+
+
+def test_init_with_missing_x_programs_block(tmp_path: Path) -> None:
+    """Test that SupervisorManager raises error when x-programs block is missing."""
+    with mock.patch(
+        "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
+    ):
+        # Create a service config YAML file without x-programs
+        service_config_path = tmp_path / DEVSERVICES_DIR_NAME / "config.yml"
+        service_config_path.parent.mkdir(parents=True, exist_ok=True)
+        service_config_path.write_text(
+            """
+services:
+  redis:
+    image: redis:latest
+            """
+        )
+        with pytest.raises(SupervisorConfigError, match="No x-programs block found"):
+            SupervisorManager(
+                service_name="test-service",
+                service_config_path=str(service_config_path),
+            )
+
+
+def test_init_with_empty_config_file(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
+    ):
+        # Create an empty service config YAML file
+        service_config_path = tmp_path / DEVSERVICES_DIR_NAME / "config.yml"
+        service_config_path.parent.mkdir(parents=True, exist_ok=True)
+        service_config_path.write_text("")
+
+        with pytest.raises(
+            SupervisorConfigError, match=f"Config file {service_config_path} is empty"
+        ):
+            SupervisorManager(
+                service_name="test-service",
+                service_config_path=str(service_config_path),
+            )
+
+
+def test_supervisor_program_defaults(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
+    ):
+        # Create a service config YAML file with minimal x-programs config
+        service_config_path = tmp_path / DEVSERVICES_DIR_NAME / "config.yml"
+        service_config_path.parent.mkdir(parents=True, exist_ok=True)
+        service_config_path.write_text(
+            """
+x-programs:
+  test_program:
+    command: python test_program.py
+            """
+        )
+
+        manager = SupervisorManager(
+            service_name="test-service", service_config_path=str(service_config_path)
+        )
+
+        # Read the generated supervisor config to check defaults were applied
+        with open(manager.config_file_path, "r") as f:
+            config_content = f.read()
+
+        assert "autostart = false" in config_content
+        assert "autorestart = true" in config_content
+
+
+def test_supervisor_program_custom_values_override_defaults(tmp_path: Path) -> None:
+    with mock.patch(
+        "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
+    ):
+        # Create a service config YAML file with custom autostart/autorestart values
+        service_config_path = tmp_path / DEVSERVICES_DIR_NAME / "config.yml"
+        service_config_path.parent.mkdir(parents=True, exist_ok=True)
+        service_config_path.write_text(
+            """
+x-programs:
+  test_program:
+    command: python test_program.py
+    autostart: false
+    autorestart: true
+            """
+        )
+
+        manager = SupervisorManager(
+            service_name="test-service", service_config_path=str(service_config_path)
+        )
+
+        # Read the generated supervisor config to check custom values were used
+        with open(manager.config_file_path, "r") as f:
+            config_content = f.read()
+
+        assert "autostart = false" in config_content
+        assert "autorestart = true" in config_content
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
@@ -322,6 +424,8 @@ def test_extend_config_file(
         assert (
             f.read()
             == f"""[program:test_program]
+autostart = false
+autorestart = true
 command = python test_program.py
 
 [unix_http_server]
@@ -360,7 +464,7 @@ def test_get_program_command_program_not_found(
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def tail_program_logs_success(
+def test_tail_program_logs_success(
     mock_rpc_client: mock.MagicMock,
     mock_subprocess_run: mock.MagicMock,
     supervisor_manager: SupervisorManager,
@@ -374,7 +478,8 @@ def tail_program_logs_success(
             "supervisorctl",
             "-c",
             supervisor_manager.config_file_path,
-            "fg",
+            "tail",
+            "-f",
             "test_program",
         ],
         check=True,

@@ -2,17 +2,20 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from devservices.configs.service_config import load_service_config_from_file
-from devservices.configs.service_config import load_supervisor_programs_from_file
+from devservices.configs.service_config import (
+    load_supervisor_programs_from_programs_data,
+)
 from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
+from devservices.utils.supervisor import ProgramData
 from testing.utils import create_config_file
-from testing.utils import create_programs_conf_file
 
 
 @pytest.mark.parametrize(
@@ -325,7 +328,7 @@ def test_load_service_config_from_file_no_matching_docker_compose_service(
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == "Dependency 'example-dependency' is not remote but is not defined in docker-compose services or programs file"
+        == "Dependency 'example-dependency' is not remote but is not defined in docker-compose services or x-programs"
     )
 
 
@@ -483,7 +486,7 @@ def test_load_service_config_from_file_no_programs_file(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == "Dependency 'example-program' is not remote but is not defined in docker-compose services or programs file"
+        == "Dependency 'example-program' is not remote but is not defined in docker-compose services or x-programs"
     )
 
 
@@ -502,6 +505,12 @@ def test_load_service_config_from_file_valid_programs_file(tmp_path: Path) -> No
             },
             "modes": {"default": ["example-dependency", "example-program"]},
         },
+        "x-programs": {
+            "example-program": {
+                "command": "python run program",
+                "autostart": True,
+            }
+        },
         "services": {
             "example-dependency": {
                 "image": "example-dependency",
@@ -509,12 +518,6 @@ def test_load_service_config_from_file_valid_programs_file(tmp_path: Path) -> No
         },
     }
     create_config_file(tmp_path, devservices_config)
-
-    programs_config = """[program:example-program]
-command=echo "Hello, World!"
-autostart=true
-"""
-    create_programs_conf_file(tmp_path, programs_config)
 
     service_config = load_service_config_from_file(str(tmp_path))
     assert (
@@ -527,17 +530,49 @@ autostart=true
     )
 
 
-def test_load_supervisor_programs_from_file_no_programs_file(tmp_path: Path) -> None:
-    programs = load_supervisor_programs_from_file(str(tmp_path), "example-service")
+def test_load_supervisor_programs_from_programs_data_no_x_programs(
+    tmp_path: Path,
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {},
+            "modes": {"default": []},
+        },
+        "services": {},
+    }
+    create_config_file(tmp_path, config)
+    config_path = tmp_path / "devservices" / "config.yml"
+
+    programs = load_supervisor_programs_from_programs_data(
+        str(config_path), "example-service", {}
+    )
     assert programs == set()
 
 
-def test_load_supervisor_programs_from_file_valid_programs_file(tmp_path: Path) -> None:
-    programs_config = """[program:example-program]
-command=echo "Hello, World!"
-autostart=true
-"""
-    create_programs_conf_file(tmp_path, programs_config)
+def test_load_supervisor_programs_from_programs_data_with_x_programs(
+    tmp_path: Path,
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "dependencies": {},
+            "modes": {"default": []},
+        },
+        "x-programs": {
+            "example-program": {
+                "command": "python run program",
+                "autostart": True,
+            }
+        },
+        "services": {},
+    }
+    create_config_file(tmp_path, config)
+    config_path = tmp_path / "devservices" / "config.yml"
 
-    programs = load_supervisor_programs_from_file(str(tmp_path), "example-service")
+    programs = load_supervisor_programs_from_programs_data(
+        str(config_path), "example-service", cast(ProgramData, config["x-programs"])
+    )
     assert programs == {"example-program"}
