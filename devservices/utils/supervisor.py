@@ -262,8 +262,6 @@ class SupervisorManager:
 
     def get_program_logs(self, program_name: str) -> str:
         """Get logs for a supervisor program as text output."""
-        if not self._is_program_running(program_name):
-            return f"Program {program_name} is not running"
 
         try:
             result = subprocess.run(

@@ -650,24 +650,6 @@ def test_get_program_logs_success(
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
-def test_get_program_logs_not_running(
-    mock_rpc_client: mock.MagicMock,
-    mock_subprocess_run: mock.MagicMock,
-    supervisor_manager: SupervisorManager,
-) -> None:
-    """Test get_program_logs when program is not running."""
-    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
-        "state": SupervisorProcessState.STOPPED
-    }
-
-    result = supervisor_manager.get_program_logs("test_program")
-
-    assert result == "Program test_program is not running"
-    mock_subprocess_run.assert_not_called()
-
-
-@mock.patch("devservices.utils.supervisor.subprocess.run")
-@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
 def test_get_program_logs_failure(
     mock_rpc_client: mock.MagicMock,
     mock_subprocess_run: mock.MagicMock,

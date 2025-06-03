@@ -22,6 +22,7 @@ from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import install_and_verify_dependencies
@@ -121,7 +122,7 @@ def logs(args: Namespace) -> None:
         == DependencyType.SUPERVISOR
     ]
 
-    if supervisor_programs:
+    if len(supervisor_programs) > 0:
         supervisor_logs = _supervisor_logs(service, supervisor_programs)
         for program_name, log_content in supervisor_logs.items():
             if log_content:
@@ -175,23 +176,36 @@ def _supervisor_logs(
     if not supervisor_programs:
         return {}
 
-    supervisor_logs = {}
+    supervisor_logs: dict[str, str] = {}
 
     programs_config_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, PROGRAMS_CONF_FILE_NAME
     )
 
-    manager = SupervisorManager(programs_config_path, service_name=service.name)
+    try:
+        manager = SupervisorManager(programs_config_path, service_name=service.name)
+    except SupervisorConfigError as e:
+        capture_exception(e)
+        return supervisor_logs
 
-    for program_name in supervisor_programs:
-        try:
-            log_content = manager.get_program_logs(program_name)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(get_program_logs_with_error_handling, manager, program_name)
+            for program_name in supervisor_programs
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            program_name, log_content = future.result()
             supervisor_logs[program_name] = log_content
-        except SupervisorError as e:
-            # Log the error but continue with other programs
-            capture_exception(e)
-            supervisor_logs[
-                program_name
-            ] = f"Error getting logs for {program_name}: {str(e)}"
 
     return supervisor_logs
+
+
+def get_program_logs_with_error_handling(
+    manager: SupervisorManager, program_name: str
+) -> tuple[str, str]:
+    try:
+        log_content = manager.get_program_logs(program_name)
+        return program_name, log_content
+    except SupervisorError as e:
+        capture_exception(e)
+        return program_name, f"Error getting logs for {program_name}: {str(e)}"

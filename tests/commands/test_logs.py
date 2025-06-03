@@ -11,6 +11,7 @@ import pytest
 from devservices.commands.logs import _supervisor_logs
 from devservices.commands.logs import logs
 from devservices.configs.service_config import load_service_config_from_file
+from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import PROGRAMS_CONF_FILE_NAME
@@ -87,7 +88,10 @@ def test_logs_no_specified_service_not_running(
         mock_get_docker_compose_commands_to_run.assert_not_called()
 
         captured = capsys.readouterr()
-        assert "\x1b[0;33mService test-service is not running\x1b[0m\n" == captured.out
+        assert (
+            f"{Color.YELLOW}Service test-service is not running{Color.RESET}\n"
+            == captured.out
+        )
 
 
 @mock.patch("devservices.commands.logs.run_cmd")
@@ -250,7 +254,7 @@ def test_logs_service_not_found_error(
 
         captured = capsys.readouterr()
         assert (
-            "\x1b[0;31mService 'nonexistent-service' not found.\x1b[0m"
+            f"{Color.RED}Service 'nonexistent-service' not found.{Color.RESET}"
             == captured.out.strip()
         )
 
@@ -305,7 +309,7 @@ def test_logs_dependency_error(
 
         captured = capsys.readouterr()
         assert (
-            f"\x1b[0;31mDependencyError: test-service ({tmp_path}) on main. If this error persists, try running `devservices purge`\x1b[0m\n"
+            f"{Color.RED}DependencyError: test-service ({tmp_path}) on main. If this error persists, try running `devservices purge`{Color.RESET}\n"
             == captured.out
         )
 
@@ -363,7 +367,7 @@ def test_logs_docker_compose_error(
 
         captured = capsys.readouterr()
         assert (
-            "\x1b[0;31mFailed to get logs for test-service: stderr_output\x1b[0m\n"
+            f"{Color.RED}Failed to get logs for test-service: stderr_output{Color.RESET}\n"
             == captured.out
         )
 
