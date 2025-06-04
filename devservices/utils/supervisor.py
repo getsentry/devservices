@@ -316,7 +316,7 @@ class SupervisorManager:
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to get programs status: {e.faultString}")
 
-        processes_status: dict[str, ProcessInfo] = {}
+        process_statuses: dict[str, ProcessInfo] = {}
         for process_info in all_process_info:
             if not isinstance(process_info, dict):
                 continue
@@ -334,7 +334,7 @@ class SupervisorManager:
             now = process_info.get("now", 0)
             uptime = max(0, now - start_time) if start_time > 0 and now > 0 else 0
 
-            program_status: ProcessInfo = {
+            process_status: ProcessInfo = {
                 "name": name,
                 "state": state,
                 "state_name": state_name,
@@ -345,6 +345,6 @@ class SupervisorManager:
                 "stop_time": process_info.get("stop", 0),
                 "group": group,
             }
-            processes_status[name] = program_status
+            process_statuses[name] = process_status
 
-        return processes_status
+        return process_statuses

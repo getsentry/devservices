@@ -184,9 +184,9 @@ def test_generate_service_status_details() -> None:
             ],
         }
     }
-    programs_status: dict[str, ProcessInfo] = {}
+    process_statuses: dict[str, ProcessInfo] = {}
     result = generate_service_status_details(
-        dependency, programs_status, docker_compose_service_to_status, ""
+        dependency, process_statuses, docker_compose_service_to_status, ""
     )
     assert result == (
         f"{Color.BOLD}test-service{Color.RESET}:\n"
@@ -206,9 +206,9 @@ def test_generate_service_status_details_missing_status() -> None:
         dependency_type=DependencyType.SERVICE,
     )
     docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
-    programs_status: dict[str, ProcessInfo] = {}
+    process_statuses: dict[str, ProcessInfo] = {}
     result = generate_service_status_details(
-        dependency, programs_status, docker_compose_service_to_status, ""
+        dependency, process_statuses, docker_compose_service_to_status, ""
     )
     assert result == (
         f"{Color.BOLD}test-service{Color.RESET}:\n"
@@ -869,7 +869,7 @@ def test_generate_supervisor_status_details_running_program() -> None:
         name="test-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: dict[str, ProcessInfo] = {
+    process_statuses: dict[str, ProcessInfo] = {
         "test-program": {
             "name": "test-program",
             "state": SupervisorProcessState.RUNNING,  # RUNNING
@@ -883,7 +883,7 @@ def test_generate_supervisor_status_details_running_program() -> None:
         }
     }
 
-    result = generate_supervisor_status_details(dependency, programs_status, "")
+    result = generate_supervisor_status_details(dependency, process_statuses, "")
 
     assert result == (
         f"{Color.BOLD}test-program{Color.RESET}:\n"
@@ -900,7 +900,7 @@ def test_generate_supervisor_status_details_stopped_program() -> None:
         name="stopped-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: dict[str, ProcessInfo] = {
+    process_statuses: dict[str, ProcessInfo] = {
         "stopped-program": {
             "name": "stopped-program",
             "state": SupervisorProcessState.STOPPED,  # STOPPED
@@ -914,7 +914,7 @@ def test_generate_supervisor_status_details_stopped_program() -> None:
         }
     }
 
-    result = generate_supervisor_status_details(dependency, programs_status, "  ")
+    result = generate_supervisor_status_details(dependency, process_statuses, "  ")
 
     assert result == (
         f"  {Color.BOLD}stopped-program{Color.RESET}:\n"
@@ -931,7 +931,7 @@ def test_generate_supervisor_status_details_program_not_found() -> None:
         name="missing-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: dict[str, ProcessInfo] = {
+    process_statuses: dict[str, ProcessInfo] = {
         "other-program": {
             "name": "other-program",
             "state": SupervisorProcessState.RUNNING,
@@ -945,7 +945,7 @@ def test_generate_supervisor_status_details_program_not_found() -> None:
         }
     }
 
-    result = generate_supervisor_status_details(dependency, programs_status, "")
+    result = generate_supervisor_status_details(dependency, process_statuses, "")
 
     assert result == (
         f"{Color.BOLD}missing-program{Color.RESET}:\n"
@@ -960,9 +960,9 @@ def test_generate_supervisor_status_details_empty_programs_list() -> None:
         name="test-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: dict[str, ProcessInfo] = {}
+    process_statuses: dict[str, ProcessInfo] = {}
 
-    result = generate_supervisor_status_details(dependency, programs_status, "")
+    result = generate_supervisor_status_details(dependency, process_statuses, "")
 
     assert result == (
         f"{Color.BOLD}test-program{Color.RESET}:\n"
@@ -977,7 +977,7 @@ def test_generate_service_status_details_supervisor_dependency() -> None:
         name="test-supervisor-program",
         dependency_type=DependencyType.SUPERVISOR,
     )
-    programs_status: dict[str, ProcessInfo] = {
+    process_statuses: dict[str, ProcessInfo] = {
         "test-supervisor-program": {
             "name": "test-supervisor-program",
             "state": SupervisorProcessState.RUNNING,
@@ -993,7 +993,7 @@ def test_generate_service_status_details_supervisor_dependency() -> None:
     docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
 
     result = generate_service_status_details(
-        dependency, programs_status, docker_compose_service_to_status, ""
+        dependency, process_statuses, docker_compose_service_to_status, ""
     )
 
     assert result == (
@@ -1109,7 +1109,7 @@ autorestart=true
         run_git_command(["commit", "-m", "Add config"], cwd=test_service_repo_path)
 
         # Mock supervisor programs status
-        mock_programs_status: dict[str, ProcessInfo] = {
+        mock_process_statuses: dict[str, ProcessInfo] = {
             "worker": {
                 "name": "worker",
                 "state": SupervisorProcessState.RUNNING,
@@ -1136,7 +1136,7 @@ autorestart=true
         # Set up mocks
         mock_get_status_json_results.return_value = mock_docker_status
         mock_supervisor_manager.return_value.get_all_process_info.return_value = (
-            mock_programs_status
+            mock_process_statuses
         )
 
         # Change to service directory so find_matching_service can find the config
