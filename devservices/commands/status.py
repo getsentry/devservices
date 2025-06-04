@@ -406,8 +406,6 @@ def generate_supervisor_status_details(
     """Generate status details for supervisor dependencies."""
     output = [f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:"]
 
-    # Find the specific process in the status list
-    process_info = None
     process_info = process_statuses.get(dependency.name)
 
     if process_info is None:
