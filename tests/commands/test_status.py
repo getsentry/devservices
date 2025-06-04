@@ -8,8 +8,10 @@ from unittest import mock
 
 import pytest
 
+from devservices.commands.status import format_uptime
 from devservices.commands.status import generate_service_status_details
 from devservices.commands.status import generate_service_status_tree
+from devservices.commands.status import generate_supervisor_status_details
 from devservices.commands.status import get_status_json_results
 from devservices.commands.status import handle_started_service
 from devservices.commands.status import parse_docker_compose_status
@@ -30,8 +32,11 @@ from devservices.utils.dependencies import DependencyNode
 from devservices.utils.services import Service
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
+from devservices.utils.supervisor import ProcessInfo
+from devservices.utils.supervisor import SupervisorProcessState
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
+from testing.utils import create_programs_conf_file
 from testing.utils import run_git_command
 
 
@@ -179,8 +184,9 @@ def test_generate_service_status_details() -> None:
             ],
         }
     }
+    process_statuses: dict[str, ProcessInfo] = {}
     result = generate_service_status_details(
-        dependency, docker_compose_service_to_status, ""
+        dependency, process_statuses, docker_compose_service_to_status, ""
     )
     assert result == (
         f"{Color.BOLD}test-service{Color.RESET}:\n"
@@ -200,8 +206,9 @@ def test_generate_service_status_details_missing_status() -> None:
         dependency_type=DependencyType.SERVICE,
     )
     docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
+    process_statuses: dict[str, ProcessInfo] = {}
     result = generate_service_status_details(
-        dependency, docker_compose_service_to_status, ""
+        dependency, process_statuses, docker_compose_service_to_status, ""
     )
     assert result == (
         f"{Color.BOLD}test-service{Color.RESET}:\n"
@@ -249,6 +256,7 @@ def test_generate_service_status_tree_no_child_service(
         }
         result = generate_service_status_tree(
             "parent-service",
+            {},
             dependency_graph,
             docker_compose_service_to_status,
             "",
@@ -333,6 +341,7 @@ def test_generate_service_status_tree_with_child_service(
         }
         result = generate_service_status_tree(
             "parent-service",
+            {},
             dependency_graph,
             docker_compose_service_to_status,
             "",
@@ -448,6 +457,7 @@ def test_generate_service_status_tree_with_nested_child_services(
         }
         result = generate_service_status_tree(
             "grandparent-service",
+            {},
             dependency_graph,
             docker_compose_service_to_status,
             "",
@@ -852,3 +862,315 @@ def test_status_service_not_running(
 
     captured = capsys.readouterr()
     assert "Status unavailable. test-service is not running standalone" in captured.out
+
+
+def test_generate_supervisor_status_details_running_program() -> None:
+    dependency = DependencyNode(
+        name="test-program",
+        dependency_type=DependencyType.SUPERVISOR,
+    )
+    process_statuses: dict[str, ProcessInfo] = {
+        "test-program": {
+            "name": "test-program",
+            "state": SupervisorProcessState.RUNNING,  # RUNNING
+            "state_name": SupervisorProcessState.RUNNING.name,
+            "description": "Test program description",
+            "pid": 12345,
+            "uptime": 3661,  # 1 hour, 1 minute, 1 second
+            "start_time": 1234567890,
+            "stop_time": 0,
+            "group": "test-group",
+        }
+    }
+
+    result = generate_supervisor_status_details(dependency, process_statuses, "")
+
+    assert result == (
+        f"{Color.BOLD}test-program{Color.RESET}:\n"
+        "  Type: process\n"
+        "  Status: running\n"
+        "  PID: 12345\n"
+        "  Uptime: 1h 1m 1s"
+    )
+
+
+def test_generate_supervisor_status_details_stopped_program() -> None:
+    """Test supervisor status details for a stopped program."""
+    dependency = DependencyNode(
+        name="stopped-program",
+        dependency_type=DependencyType.SUPERVISOR,
+    )
+    process_statuses: dict[str, ProcessInfo] = {
+        "stopped-program": {
+            "name": "stopped-program",
+            "state": SupervisorProcessState.STOPPED,  # STOPPED
+            "state_name": SupervisorProcessState.STOPPED.name,
+            "description": "",
+            "pid": 0,
+            "uptime": 0,
+            "start_time": 0,
+            "stop_time": 1234567890,
+            "group": "",
+        }
+    }
+
+    result = generate_supervisor_status_details(dependency, process_statuses, "  ")
+
+    assert result == (
+        f"  {Color.BOLD}stopped-program{Color.RESET}:\n"
+        "    Type: process\n"
+        "    Status: stopped\n"
+        "    PID: N/A\n"
+        "    Uptime: 0s"
+    )
+
+
+def test_generate_supervisor_status_details_program_not_found() -> None:
+    """Test supervisor status details when program is not found."""
+    dependency = DependencyNode(
+        name="missing-program",
+        dependency_type=DependencyType.SUPERVISOR,
+    )
+    process_statuses: dict[str, ProcessInfo] = {
+        "other-program": {
+            "name": "other-program",
+            "state": SupervisorProcessState.RUNNING,
+            "state_name": SupervisorProcessState.RUNNING.name,
+            "description": "",
+            "pid": 12345,
+            "uptime": 100,
+            "start_time": 1234567890,
+            "stop_time": 0,
+            "group": "test",
+        }
+    }
+
+    result = generate_supervisor_status_details(dependency, process_statuses, "")
+
+    assert result == (
+        f"{Color.BOLD}missing-program{Color.RESET}:\n"
+        "  Type: process\n"
+        "  Status: N/A (process not found)"
+    )
+
+
+def test_generate_supervisor_status_details_empty_programs_list() -> None:
+    """Test supervisor status details with empty programs list."""
+    dependency = DependencyNode(
+        name="test-program",
+        dependency_type=DependencyType.SUPERVISOR,
+    )
+    process_statuses: dict[str, ProcessInfo] = {}
+
+    result = generate_supervisor_status_details(dependency, process_statuses, "")
+
+    assert result == (
+        f"{Color.BOLD}test-program{Color.RESET}:\n"
+        "  Type: process\n"
+        "  Status: N/A (process not found)"
+    )
+
+
+def test_generate_service_status_details_supervisor_dependency() -> None:
+    """Test that supervisor dependencies are handled correctly in generate_service_status_details."""
+    dependency = DependencyNode(
+        name="test-supervisor-program",
+        dependency_type=DependencyType.SUPERVISOR,
+    )
+    process_statuses: dict[str, ProcessInfo] = {
+        "test-supervisor-program": {
+            "name": "test-supervisor-program",
+            "state": SupervisorProcessState.RUNNING,
+            "state_name": SupervisorProcessState.RUNNING.name,
+            "description": "Test supervisor program",
+            "pid": 54321,
+            "uptime": 120,
+            "start_time": 1234567890,
+            "stop_time": 0,
+            "group": "supervisor-group",
+        }
+    }
+    docker_compose_service_to_status: dict[str, ServiceStatusOutput] = {}
+
+    result = generate_service_status_details(
+        dependency, process_statuses, docker_compose_service_to_status, ""
+    )
+
+    assert result == (
+        f"{Color.BOLD}test-supervisor-program{Color.RESET}:\n"
+        "  Type: process\n"
+        "  Status: running\n"
+        "  PID: 54321\n"
+        "  Uptime: 2m 0s"
+    )
+
+
+def test_format_uptime_zero_seconds() -> None:
+    """Test format_uptime with zero seconds."""
+    assert format_uptime(0) == "0s"
+
+
+def test_format_uptime_seconds_only() -> None:
+    """Test format_uptime with seconds only."""
+    assert format_uptime(30) == "30s"
+
+
+def test_format_uptime_minutes_and_seconds() -> None:
+    """Test format_uptime with minutes and seconds."""
+    assert format_uptime(90) == "1m 30s"  # 1 minute 30 seconds
+
+
+def test_format_uptime_hours_minutes_seconds() -> None:
+    """Test format_uptime with hours, minutes, and seconds."""
+    assert format_uptime(3661) == "1h 1m 1s"  # 1 hour 1 minute 1 second
+
+
+def test_format_uptime_days_hours_minutes_seconds() -> None:
+    """Test format_uptime with days, hours, minutes, and seconds."""
+    assert format_uptime(90061) == "1d 1h 1m 1s"  # 1 day 1 hour 1 minute 1 second
+
+
+def test_format_uptime_exact_hour() -> None:
+    """Test format_uptime with exact hour."""
+    assert format_uptime(3600) == "1h 0m 0s"
+
+
+def test_format_uptime_exact_day() -> None:
+    """Test format_uptime with exact day."""
+    assert format_uptime(86400) == "1d 0h 0m 0s"
+
+
+def test_format_uptime_large_values() -> None:
+    """Test format_uptime with large values."""
+    # 10 days, 5 hours, 30 minutes, 45 seconds
+    uptime = 10 * 86400 + 5 * 3600 + 30 * 60 + 45
+    assert format_uptime(uptime) == "10d 5h 30m 45s"
+
+
+@mock.patch("devservices.commands.status.SupervisorManager")
+@mock.patch("devservices.commands.status.get_status_json_results")
+def test_status_with_supervisor_programs(
+    mock_get_status_json_results: mock.Mock,
+    mock_supervisor_manager: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.utils.state.DEVSERVICES_LOCAL_DIR", str(tmp_path / "local")
+        ),
+        mock.patch(
+            "devservices.commands.status.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(tmp_path / "code"),
+        ),
+    ):
+        state = State()
+        state.update_service_entry(
+            "test-service", "default", StateTables.STARTED_SERVICES
+        )
+
+        test_service_repo_path = tmp_path / "code" / "test-service"
+        create_mock_git_repo("blank_repo", test_service_repo_path)
+
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "test-service",
+                "dependencies": {
+                    "clickhouse": {"description": "Clickhouse"},
+                    "worker": {"description": "Background worker"},
+                },
+                "modes": {"default": ["clickhouse", "worker"]},
+            },
+            "services": {
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+        create_config_file(test_service_repo_path, config)
+
+        supervisor_program_config = """
+[program:worker]
+command=python worker.py
+autostart=false
+autorestart=true
+"""
+
+        create_programs_conf_file(test_service_repo_path, supervisor_program_config)
+
+        # Commit the config files so find_matching_service can discover them
+        run_git_command(["add", "."], cwd=test_service_repo_path)
+        run_git_command(["commit", "-m", "Add config"], cwd=test_service_repo_path)
+
+        # Mock supervisor programs status
+        mock_process_statuses: dict[str, ProcessInfo] = {
+            "worker": {
+                "name": "worker",
+                "state": SupervisorProcessState.RUNNING,
+                "state_name": "RUNNING",
+                "description": "Background worker process",
+                "pid": 12345,
+                "uptime": 3600,  # 1 hour
+                "start_time": 1234567890,
+                "stop_time": 0,
+                "group": "workers",
+            },
+        }
+
+        # Mock docker compose status for clickhouse (matching the config)
+        mock_docker_status = [
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout='{"Service": "clickhouse", "State": "running", "Health": "healthy", "Name": "test-service-clickhouse-1", "RunningFor": "2 hours ago", "Publishers": [{"URL": "127.0.0.1", "PublishedPort": 9000, "TargetPort": 9000, "Protocol": "tcp"}]}\n',
+                stderr="",
+            )
+        ]
+
+        # Set up mocks
+        mock_get_status_json_results.return_value = mock_docker_status
+        mock_supervisor_manager.return_value.get_all_process_info.return_value = (
+            mock_process_statuses
+        )
+
+        # Change to service directory so find_matching_service can find the config
+        original_cwd = os.getcwd()
+        os.chdir(test_service_repo_path)
+
+        try:
+            # Call the status function
+            args = Namespace(service_name="test-service")
+            status(args)
+        finally:
+            os.chdir(original_cwd)
+
+        # Verify the output
+        captured = capsys.readouterr()
+        output = captured.out
+
+        # Assert on the entire expected output block
+        expected_output = (
+            f"{Color.BOLD}test-service{Color.RESET}:\n"
+            "  Type: service\n"
+            "  Runtime: local\n"
+            f"  {Color.BOLD}clickhouse{Color.RESET}:\n"
+            "    Type: container\n"
+            "    Status: running\n"
+            f"    Health: {Color.GREEN}healthy{Color.RESET}\n"
+            "    Container: test-service-clickhouse-1\n"
+            "    Uptime: 2 hours ago\n"
+            "    Ports:\n"
+            "      127.0.0.1:9000 -> 9000/tcp\n"
+            f"  {Color.BOLD}worker{Color.RESET}:\n"
+            "    Type: process\n"
+            "    Status: running\n"
+            "    PID: 12345\n"
+            "    Uptime: 1h 0m 0s\n"
+        )
+        assert output == expected_output

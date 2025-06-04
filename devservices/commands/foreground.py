@@ -117,7 +117,6 @@ def foreground(args: Namespace) -> None:
 
         # Run the process in foreground
         pty.spawn(argv)
-
     except SupervisorProcessError as e:
         capture_exception(e)
         console.failure(f"Error stopping {program_name} in supervisor: {str(e)}")

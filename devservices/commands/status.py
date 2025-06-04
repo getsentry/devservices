@@ -8,6 +8,7 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 from collections import namedtuple
+from datetime import timedelta
 from typing import TypedDict
 
 from sentry_sdk import capture_exception
@@ -19,6 +20,7 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -37,6 +39,8 @@ from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
+from devservices.utils.supervisor import ProcessInfo
+from devservices.utils.supervisor import SupervisorManager
 
 BASE_INDENTATION = "  "
 
@@ -99,8 +103,19 @@ def status(args: Namespace) -> None:
         console.warning(f"Status unavailable. {service.name} is not running standalone")
         return  # Since exit(0) is captured as an internal_error by sentry
 
+    programs_config_path = os.path.join(
+        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
+    )
+    process_statuses = {}
+    if os.path.exists(programs_config_path):
+        supervisor_manager = SupervisorManager(
+            programs_config_path,
+            service.name,
+        )
+        process_statuses = supervisor_manager.get_all_process_info()
+
     try:
-        status_tree = get_status_for_service(service)
+        status_tree = get_status_for_service(service, process_statuses)
     except DependencyError as de:
         capture_exception(de)
         console.failure(
@@ -114,7 +129,9 @@ def status(args: Namespace) -> None:
     console.info(status_tree)
 
 
-def get_status_for_service(service: Service) -> str:
+def get_status_for_service(
+    service: Service, process_statuses: dict[str, ProcessInfo]
+) -> str:
     state = State()
 
     modes = service.config.modes
@@ -141,7 +158,10 @@ def get_status_for_service(service: Service) -> str:
 
     docker_compose_service_to_status = parse_docker_compose_status(status_json_results)
     status_tree = generate_service_status_tree(
-        service.name, dependency_graph, docker_compose_service_to_status
+        service.name,
+        process_statuses,
+        dependency_graph,
+        docker_compose_service_to_status,
     )
     return status_tree
 
@@ -188,6 +208,7 @@ def get_status_json_results(
 
 def generate_service_status_tree(
     service_name: str,
+    process_statuses: dict[str, ProcessInfo],
     dependency_graph: DependencyGraph,
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str = "",
@@ -227,6 +248,7 @@ def generate_service_status_tree(
             output.append(
                 process_service_with_containerized_runtime(
                     dependency,
+                    process_statuses,
                     docker_compose_service_to_status,
                     indentation + BASE_INDENTATION,
                     dependency_graph,
@@ -261,6 +283,7 @@ def process_service_with_local_runtime(
 
 def process_service_with_containerized_runtime(
     dependency: DependencyNode,
+    process_statuses: dict[str, ProcessInfo],
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str,
     dependency_graph: DependencyGraph,
@@ -268,13 +291,14 @@ def process_service_with_containerized_runtime(
     if len(dependency_graph.graph[dependency]) > 0:
         return generate_service_status_tree(
             dependency.name,
+            process_statuses,
             dependency_graph,
             docker_compose_service_to_status,
             indentation,
         )
     else:
         return generate_service_status_details(
-            dependency, docker_compose_service_to_status, indentation
+            dependency, process_statuses, docker_compose_service_to_status, indentation
         )
 
 
@@ -301,16 +325,23 @@ def parse_docker_compose_status(
 
 def generate_service_status_details(
     dependency: DependencyNode,
+    process_statuses: dict[str, ProcessInfo],
     docker_compose_service_to_status: dict[str, ServiceStatusOutput],
     indentation: str,
 ) -> str:
     output = [f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:"]
 
+    # Handle supervisor dependencies
+    if dependency.dependency_type == DependencyType.SUPERVISOR:
+        return generate_supervisor_status_details(
+            dependency, process_statuses, indentation
+        )
+
     if dependency.name not in docker_compose_service_to_status:
         return "\n".join(
             [
                 *output,
-                f"{indentation}{BASE_INDENTATION}Type: container",
+                (f"{indentation}{BASE_INDENTATION}Type: container"),
                 f"{indentation}{BASE_INDENTATION}Status: N/A",
             ]
         )
@@ -349,7 +380,7 @@ def handle_started_service(dependency: DependencyNode, indentation: str) -> str:
                 f"{indentation}{BASE_INDENTATION}Runtime: local",
             ]
         )
-    service_output = get_status_for_service(service_with_local_runtime)
+    service_output = get_status_for_service(service_with_local_runtime, {})
     return "\n".join(
         [f"{indentation}{line}" for line in service_output.splitlines()],
     )
@@ -365,3 +396,56 @@ def format_health(health: str) -> str:
         else Color.YELLOW
     )
     return f"{color}{health}{Color.RESET}"
+
+
+def generate_supervisor_status_details(
+    dependency: DependencyNode,
+    process_statuses: dict[str, ProcessInfo],
+    indentation: str,
+) -> str:
+    """Generate status details for supervisor dependencies."""
+    output = [f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:"]
+
+    process_info = process_statuses.get(dependency.name)
+
+    if process_info is None:
+        return "\n".join(
+            [
+                *output,
+                f"{indentation}{BASE_INDENTATION}Type: process",
+                f"{indentation}{BASE_INDENTATION}Status: N/A (process not found)",
+            ]
+        )
+
+    uptime_str = format_uptime(process_info["uptime"])
+
+    details = [
+        "Type: process",
+        f"Status: {process_info['state_name'].lower()}",
+        f"PID: {process_info['pid'] if process_info['pid'] > 0 else 'N/A'}",
+        f"Uptime: {uptime_str}",
+    ]
+
+    output.extend(f"{indentation}{BASE_INDENTATION}{detail}" for detail in details)
+
+    return "\n".join(output)
+
+
+def format_uptime(uptime_seconds: int) -> str:
+    """Format uptime seconds into a human-readable string."""
+    SECONDS_PER_MINUTE = 60
+    SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE
+
+    td = timedelta(seconds=uptime_seconds)
+    days = td.days
+    hours, remainder = divmod(td.seconds, SECONDS_PER_HOUR)
+    minutes, seconds = divmod(remainder, SECONDS_PER_MINUTE)
+
+    if days > 0:
+        return f"{days}d {hours}h {minutes}m {seconds}s"
+    elif hours > 0:
+        return f"{hours}h {minutes}m {seconds}s"
+    elif minutes > 0:
+        return f"{minutes}m {seconds}s"
+    else:
+        return f"{seconds}s"
