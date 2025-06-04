@@ -268,14 +268,35 @@ class SupervisorManager:
                     return proc.command
         raise SupervisorConfigError(f"Program {program_name} not found in config")
 
+    def get_program_logs(self, program_name: str) -> str:
+        """Get logs for a supervisor program as text output."""
+
+        try:
+            result = subprocess.run(
+                [
+                    "supervisorctl",
+                    "-c",
+                    self.config_file_path,
+                    "tail",
+                    program_name,
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            raise SupervisorError(f"Failed to get logs for {program_name}: {str(e)}")
+
     def tail_program_logs(self, program_name: str) -> None:
+        console = Console()
+
         if not self._is_program_running(program_name):
-            console = Console()
-            console.failure(f"Program {program_name} is not running")
+            console.info(f"Program {program_name} is not running")
             return
 
         try:
-            # Use supervisorctl tail command
+            # Use supervisorctl tail -f command to follow logs
             subprocess.run(
                 [
                     "supervisorctl",
@@ -290,6 +311,7 @@ class SupervisorManager:
         except subprocess.CalledProcessError as e:
             raise SupervisorError(f"Failed to tail logs for {program_name}: {str(e)}")
         except KeyboardInterrupt:
+            # Handle Ctrl+C gracefully when following logs
             pass
 
     def get_all_process_info(self) -> dict[str, ProcessInfo]:
@@ -316,7 +338,7 @@ class SupervisorManager:
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to get programs status: {e.faultString}")
 
-        process_statuses: dict[str, ProcessInfo] = {}
+        processes_status: dict[str, ProcessInfo] = {}
         for process_info in all_process_info:
             if not isinstance(process_info, dict):
                 continue
@@ -334,7 +356,7 @@ class SupervisorManager:
             now = process_info.get("now", 0)
             uptime = max(0, now - start_time) if start_time > 0 and now > 0 else 0
 
-            process_status: ProcessInfo = {
+            program_status: ProcessInfo = {
                 "name": name,
                 "state": state,
                 "state_name": state_name,
@@ -345,6 +367,6 @@ class SupervisorManager:
                 "stop_time": process_info.get("stop", 0),
                 "group": group,
             }
-            process_statuses[name] = process_status
+            processes_status[name] = program_status
 
-        return process_statuses
+        return processes_status
