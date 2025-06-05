@@ -297,8 +297,13 @@ def test_start_supervisor_daemon_already_running(
     }
     supervisor_manager.start_supervisor_daemon()
     assert mock_rpc_client.return_value.supervisor.getState.call_count == 2
-    assert mock_rpc_client.return_value.supervisor.restart.call_count == 1
-    assert mock_subprocess_run.call_count == 0
+    mock_subprocess_run.assert_called_with(
+        ["supervisorctl", "-c", supervisor_manager.config_file_path, "update"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    mock_subprocess_run.assert_called_once()
 
 
 @mock.patch("devservices.utils.supervisor.subprocess.run")
@@ -613,3 +618,194 @@ def test_wait_for_supervisor_ready_timeout(
     assert mock_sleep.call_count == 5
 
     assert mock_rpc_client.return_value.supervisor.getState.call_count == 5
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_process_info_success(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    """Test successful retrieval of all programs status."""
+    mock_process_info = [
+        {
+            "name": "program1",
+            "state": SupervisorProcessState.RUNNING,
+            "description": "Running program",
+            "pid": 1234,
+            "group": "default",
+            "start": 1000,
+            "now": 1100,
+            "stop": 0,
+        },
+        {
+            "name": "program2",
+            "state": SupervisorProcessState.STOPPED,
+            "description": "Stopped program",
+            "pid": 0,
+            "group": "workers",
+            "start": 0,
+            "now": 1100,
+            "stop": 1050,
+        },
+    ]
+    mock_rpc_client.return_value.supervisor.getAllProcessInfo.return_value = (
+        mock_process_info
+    )
+
+    result = supervisor_manager.get_all_process_info()
+
+    assert len(result) == 2
+
+    expected_results = {
+        "program1": {
+            "name": "program1",
+            "state": SupervisorProcessState.RUNNING,
+            "state_name": "RUNNING",
+            "description": "Running program",
+            "pid": 1234,
+            "group": "default",
+            "uptime": 100,  # 1100 - 1000
+            "start_time": 1000,
+            "stop_time": 0,
+        },
+        "program2": {
+            "name": "program2",
+            "state": SupervisorProcessState.STOPPED,
+            "state_name": "STOPPED",
+            "description": "Stopped program",
+            "pid": 0,
+            "group": "workers",
+            "uptime": 0,  # No uptime for stopped process
+            "start_time": 0,
+            "stop_time": 1050,
+        },
+    }
+
+    for expected, actual in zip(expected_results, result):
+        assert actual == expected
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_process_info_empty_list(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    """Test handling of empty programs list."""
+    mock_rpc_client.return_value.supervisor.getAllProcessInfo.return_value = []
+
+    result = supervisor_manager.get_all_process_info()
+
+    assert result == {}
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_process_info_xmlrpc_fault(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.return_value.supervisor.getAllProcessInfo.side_effect = (
+        xmlrpc.client.Fault(1, "Test error")
+    )
+
+    with pytest.raises(
+        SupervisorError, match="Failed to get programs status: Test error"
+    ):
+        supervisor_manager.get_all_process_info()
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_process_info_connection_error(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    mock_rpc_client.side_effect = SupervisorConnectionError("Connection failed")
+
+    result = supervisor_manager.get_all_process_info()
+
+    # Should return empty dict when supervisor is not running
+    assert result == {}
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_program_logs_success(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    """Test successful retrieval of program logs."""
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    mock_subprocess_run.return_value = subprocess.CompletedProcess(
+        args=["supervisorctl", "tail", "test_program"],
+        returncode=0,
+        stdout="Program logs output",
+        stderr="",
+    )
+
+    result = supervisor_manager.get_program_logs("test_program")
+
+    assert result == "Program logs output"
+    mock_subprocess_run.assert_called_once_with(
+        [
+            "supervisorctl",
+            "-c",
+            supervisor_manager.config_file_path,
+            "tail",
+            "test_program",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_program_logs_failure(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    """Test get_program_logs when subprocess fails."""
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    mock_subprocess_run.side_effect = subprocess.CalledProcessError(
+        1, "supervisorctl", stderr="Command failed"
+    )
+
+    with pytest.raises(SupervisorError, match="Failed to get logs for test_program"):
+        supervisor_manager.get_program_logs("test_program")
+
+
+@mock.patch("devservices.utils.supervisor.subprocess.run")
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_program_logs_with_output_and_error(
+    mock_rpc_client: mock.MagicMock,
+    mock_subprocess_run: mock.MagicMock,
+    supervisor_manager: SupervisorManager,
+) -> None:
+    """Test get_program_logs returns stdout even when there's stderr."""
+    mock_rpc_client.return_value.supervisor.getProcessInfo.return_value = {
+        "state": SupervisorProcessState.RUNNING
+    }
+    mock_subprocess_run.return_value = subprocess.CompletedProcess(
+        args=["supervisorctl", "tail", "test_program"],
+        returncode=0,
+        stdout="Program logs with warnings",
+        stderr="Some warnings",
+    )
+
+    result = supervisor_manager.get_program_logs("test_program")
+
+    assert result == "Program logs with warnings"
+    mock_subprocess_run.assert_called_once_with(
+        [
+            "supervisorctl",
+            "-c",
+            supervisor_manager.config_file_path,
+            "tail",
+            "test_program",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )

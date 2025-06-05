@@ -78,6 +78,20 @@ class UnixSocketTransport(xmlrpc.client.Transport):
         return UnixSocketHTTPConnection(self.socket_path)
 
 
+class ProcessInfo(TypedDict):
+    """Status information for a supervisor process."""
+
+    name: str
+    state: int
+    state_name: str
+    description: str
+    pid: int
+    uptime: int
+    start_time: int
+    stop_time: int
+    group: str
+
+
 class SupervisorProgramConfig(TypedDict, total=False):
     """Supervisor program configuration."""
 
@@ -244,13 +258,21 @@ class SupervisorManager:
         try:
             client = self._get_rpc_client()
             client.supervisor.getState()
-            # Supervisor is already running, restart it since config may have changed
-            client.supervisor.restart()
+            # Supervisor is already running, run supervisord update to update config and restart running processes
+            # Notes:
+            # - xmlrpc.client.reloadConfig does not work well here as config changes don't appear to be reloaded, so we use `supervisorctl update` instead
+            # - processes that are edited/added will not be automatically started
+            subprocess.run(
+                ["supervisorctl", "-c", self.config_file_path, "update"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
-            # Wait for supervisor to be ready after restart
+            # Wait for supervisor to be ready after config reload
             self._wait_for_supervisor_ready()
             return
-        except xmlrpc.client.Fault as e:
+        except (xmlrpc.client.Fault, subprocess.CalledProcessError) as e:
             capture_exception(e, level="info")
             pass
         except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
@@ -305,14 +327,35 @@ class SupervisorManager:
                     return proc.command
         raise SupervisorConfigError(f"Program {program_name} not found in config")
 
+    def get_program_logs(self, program_name: str) -> str:
+        """Get logs for a supervisor program as text output."""
+
+        try:
+            result = subprocess.run(
+                [
+                    "supervisorctl",
+                    "-c",
+                    self.config_file_path,
+                    "tail",
+                    program_name,
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            raise SupervisorError(f"Failed to get logs for {program_name}: {str(e)}")
+
     def tail_program_logs(self, program_name: str) -> None:
+        console = Console()
+
         if not self._is_program_running(program_name):
-            console = Console()
-            console.failure(f"Program {program_name} is not running")
+            console.info(f"Program {program_name} is not running")
             return
 
         try:
-            # Use supervisorctl tail command
+            # Use supervisorctl tail -f command to follow logs
             subprocess.run(
                 [
                     "supervisorctl",
@@ -327,4 +370,62 @@ class SupervisorManager:
         except subprocess.CalledProcessError as e:
             raise SupervisorError(f"Failed to tail logs for {program_name}: {str(e)}")
         except KeyboardInterrupt:
+            # Handle Ctrl+C gracefully when following logs
             pass
+
+    def get_all_process_info(self) -> dict[str, ProcessInfo]:
+        """Get status information for all supervisor programs."""
+        # Check if supervisor client is up first, return empty list if down
+        try:
+            client = self._get_rpc_client()
+            client.supervisor.getState()
+        except (
+            xmlrpc.client.Fault,
+            SupervisorConnectionError,
+            socket.error,
+            ConnectionRefusedError,
+        ):
+            return {}
+
+        try:
+            all_process_info = client.supervisor.getAllProcessInfo()
+
+            # Validate that the response is a list before iterating for typechecking
+            if not isinstance(all_process_info, list):
+                return {}
+
+        except xmlrpc.client.Fault as e:
+            raise SupervisorError(f"Failed to get programs status: {e.faultString}")
+
+        processes_status: dict[str, ProcessInfo] = {}
+        for process_info in all_process_info:
+            if not isinstance(process_info, dict):
+                continue
+
+            # Extract basic fields with defaults
+            name = process_info.get("name", "")
+            state = process_info.get("state", SupervisorProcessState.UNKNOWN)
+            state_name = SupervisorProcessState(state).name
+            description = process_info.get("description", "")
+            pid = process_info.get("pid", 0)
+            group = process_info.get("group", "")
+
+            # Calculate uptime for running processes
+            start_time = process_info.get("start", 0)
+            now = process_info.get("now", 0)
+            uptime = max(0, now - start_time) if start_time > 0 and now > 0 else 0
+
+            program_status: ProcessInfo = {
+                "name": name,
+                "state": state,
+                "state_name": state_name,
+                "description": description,
+                "pid": pid,
+                "uptime": uptime,
+                "start_time": start_time,
+                "stop_time": process_info.get("stop", 0),
+                "group": group,
+            }
+            processes_status[name] = program_status
+
+        return processes_status

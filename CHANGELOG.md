@@ -1,3 +1,18 @@
+## 1.2.0
+
+### Various fixes & improvements
+
+- feat(logs): Support supervisor programs (#283) by @hubertdeng123
+- feat(status): `devservices status` now supports supervisor processes (#282) by @hubertdeng123
+- fix(up): `devservices up` will not restart supervisor if it is already running (#284) by @hubertdeng123
+- feat(foreground): Add foreground command (#281) by @hubertdeng123
+- feat(down): Add supervisor programs to down (#278) by @hubertdeng123
+- feat(up): Add capability of starting supervisor processes to up (#276) by @hubertdeng123
+- ref(up): Adding more context to up (#279) by @IanWoodard
+- fix(up): Fixing local runtime dependency mode (#280) by @IanWoodard
+- feat(config): Add supervisor programs dependency validation (#275) by @hubertdeng123
+- feat(config): Add validation for non remote dependencies (#274) by @hubertdeng123
+
 ## 1.1.6
 
 ### Various fixes & improvements
