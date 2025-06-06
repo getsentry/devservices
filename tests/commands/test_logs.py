@@ -14,7 +14,6 @@ from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import SupervisorError
@@ -22,7 +21,6 @@ from devservices.utils.services import Service
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
-from testing.utils import create_programs_conf_file
 
 
 @mock.patch("devservices.commands.logs.get_docker_compose_commands_to_run")
@@ -410,18 +408,16 @@ def test_logs_with_supervisor_dependencies(
                 },
                 "modes": {"default": ["redis", "worker"]},
             },
+            "x-programs": {
+                "worker": {
+                    "command": "python run worker",
+                },
+            },
             "services": {
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
         create_config_file(test_service_repo_path, config)
-
-        supervisor_config = """
-[program:worker]
-command=python run worker
-"""
-
-        create_programs_conf_file(test_service_repo_path, supervisor_config)
 
         args = Namespace(service_name="test-service")
         mock_get_service_entries.return_value = ["test-service"]
@@ -466,16 +462,13 @@ def test_supervisor_logs_no_config_file(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python run worker",
+            },
+        },
     }
     create_config_file(test_service_repo_path, config)
-
-    supervisor_config = """
-[program:worker]
-command=python run worker
-"""
-
-    # Create programs.conf file for supervisor dependency
-    create_programs_conf_file(test_service_repo_path, supervisor_config)
 
     service_config = load_service_config_from_file(str(test_service_repo_path))
     service = Service(
@@ -510,16 +503,13 @@ def test_supervisor_logs_manager_creation_error(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python run worker",
+            },
+        },
     }
     create_config_file(test_service_repo_path, config)
-
-    supervisor_config = """
-[program:worker]
-command=python run worker
-"""
-
-    # Create programs.conf file for supervisor dependency
-    create_programs_conf_file(test_service_repo_path, supervisor_config)
 
     # Load the service from config
     from devservices.configs.service_config import load_service_config_from_file
@@ -646,19 +636,16 @@ def test_supervisor_logs_success(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python run worker",
+            },
+        },
     }
     create_config_file(test_service_repo_path, config)
 
     # Create the programs.conf file
-    programs_config_path = (
-        test_service_repo_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
-    )
-    supervisor_config = """
-[program:worker]
-command=python run worker
-"""
-
-    create_programs_conf_file(test_service_repo_path, supervisor_config)
+    config_file_path = test_service_repo_path / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME
 
     # Load the service from config
     from devservices.configs.service_config import load_service_config_from_file
@@ -678,7 +665,7 @@ command=python run worker
 
     assert result == {"worker": "worker program logs"}
     mock_supervisor_manager_class.assert_called_once_with(
-        str(programs_config_path), service_name="test-service"
+        "test-service", str(config_file_path)
     )
     mock_manager.get_program_logs.assert_called_once_with("worker")
 
@@ -701,19 +688,16 @@ def test_supervisor_logs_supervisor_error(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python run worker",
+            },
+        },
     }
     create_config_file(test_service_repo_path, config)
 
     # Create the programs.conf file
-    programs_config_path = (
-        test_service_repo_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
-    )
-    supervisor_config = """
-[program:worker]
-command=python run worker
-"""
-
-    create_programs_conf_file(test_service_repo_path, supervisor_config)
+    config_file_path = test_service_repo_path / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME
 
     # Load the service from config
     from devservices.configs.service_config import load_service_config_from_file
@@ -733,6 +717,6 @@ command=python run worker
 
     assert result == {"worker": "Error getting logs for worker: Failed to get logs"}
     mock_supervisor_manager_class.assert_called_once_with(
-        str(programs_config_path), service_name="test-service"
+        "test-service", str(config_file_path)
     )
     mock_manager.get_program_logs.assert_called_once_with("worker")

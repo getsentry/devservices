@@ -18,7 +18,6 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
-from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorError
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import DockerComposeCommand
@@ -1472,50 +1471,6 @@ def test_down_supervisor_program_success(
         assert "Stopping supervisor-program" in captured.out.strip()
         assert "Stopping supervisor daemon" in captured.out.strip()
         assert "example-service stopped" in captured.out.strip()
-
-
-@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_supervisor_daemon")
-@mock.patch("devservices.utils.supervisor.SupervisorManager.stop_process")
-def test_bring_down_supervisor_programs_no_programs_config(
-    mock_stop_process: mock.Mock,
-    mock_stop_supervisor_daemon: mock.Mock,
-    tmp_path: Path,
-) -> None:
-    service_config = ServiceConfig(
-        version=0.1,
-        service_name="test-service",
-        dependencies={
-            "supervisor-program": Dependency(
-                description="Supervisor program",
-                dependency_type=DependencyType.SUPERVISOR,
-            ),
-        },
-        modes={"default": ["supervisor-program"]},
-    )
-    service = Service(
-        name="test-service",
-        repo_path=str(tmp_path),
-        config=service_config,
-    )
-
-    status = mock.MagicMock()
-
-    # Create a config file without x-programs block
-    config = {
-        "x-sentry-service-config": {
-            "version": 0.1,
-            "service_name": "test-service",
-            "services": {},
-        },
-    }
-    create_config_file(tmp_path, config)
-    with pytest.raises(
-        SupervisorConfigError, match="No x-programs block found in config.yml"
-    ):
-        bring_down_supervisor_programs(["supervisor-program"], service, status)
-
-    mock_stop_supervisor_daemon.assert_not_called()
-    mock_stop_process.assert_not_called()
 
 
 @mock.patch("devservices.utils.supervisor.SupervisorManager.stop_supervisor_daemon")

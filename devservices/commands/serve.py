@@ -59,6 +59,12 @@ def serve(args: Namespace) -> None:
         )
         return
 
+    if not manager.has_programs:
+        console.failure(
+            "No programs found in config. Please add the devserver in the `x-programs` block to your config.yml"
+        )
+        return
+
     try:
         devserver_command = manager.get_program_command("devserver")
     except SupervisorConfigError as e:

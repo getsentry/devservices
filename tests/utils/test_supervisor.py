@@ -95,28 +95,6 @@ def test_init_with_nonexistent_config() -> None:
         )
 
 
-def test_init_with_missing_x_programs_block(tmp_path: Path) -> None:
-    """Test that SupervisorManager raises error when x-programs block is missing."""
-    with mock.patch(
-        "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
-    ):
-        # Create a service config YAML file without x-programs
-        service_config_path = tmp_path / DEVSERVICES_DIR_NAME / "config.yml"
-        service_config_path.parent.mkdir(parents=True, exist_ok=True)
-        service_config_path.write_text(
-            """
-services:
-  redis:
-    image: redis:latest
-            """
-        )
-        with pytest.raises(SupervisorConfigError, match="No x-programs block found"):
-            SupervisorManager(
-                service_name="test-service",
-                service_config_path=str(service_config_path),
-            )
-
-
 def test_init_with_empty_config_file(tmp_path: Path) -> None:
     with mock.patch(
         "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR", tmp_path
@@ -682,6 +660,17 @@ def test_get_all_process_info_success(
 
     for expected, actual in zip(expected_results, result):
         assert actual == expected
+
+
+@mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")
+def test_get_all_process_info_no_programs(
+    mock_rpc_client: mock.MagicMock, supervisor_manager: SupervisorManager
+) -> None:
+    supervisor_manager.has_programs = False
+
+    result = supervisor_manager.get_all_process_info()
+
+    assert result == {}
 
 
 @mock.patch("devservices.utils.supervisor.xmlrpc.client.ServerProxy")

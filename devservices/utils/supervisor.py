@@ -142,8 +142,7 @@ class SupervisorManager:
 
         programs_data: ProgramData = config.get("x-programs", {})
 
-        if not programs_data:
-            raise SupervisorConfigError("No x-programs block found in config.yml")
+        self.has_programs = len(programs_data.keys()) > 0
 
         # Generate supervisor config file from x-programs data
         self.config_file_path = self._generate_config_from_programs_data(programs_data)
@@ -376,6 +375,9 @@ class SupervisorManager:
     def get_all_process_info(self) -> dict[str, ProcessInfo]:
         """Get status information for all supervisor programs."""
         # Check if supervisor client is up first, return empty list if down
+        if not self.has_programs:
+            return {}
+
         try:
             client = self._get_rpc_client()
             client.supervisor.getState()
