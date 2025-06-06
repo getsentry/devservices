@@ -20,12 +20,12 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorConfigError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import DependencyGraph
@@ -103,16 +103,18 @@ def status(args: Namespace) -> None:
         console.warning(f"Status unavailable. {service.name} is not running standalone")
         return  # Since exit(0) is captured as an internal_error by sentry
 
-    programs_config_path = os.path.join(
-        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
+    config_file_path = os.path.join(
+        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     process_statuses = {}
-    if os.path.exists(programs_config_path):
-        supervisor_manager = SupervisorManager(
-            programs_config_path,
-            service.name,
-        )
+
+    try:
+        supervisor_manager = SupervisorManager(service.name, config_file_path)
         process_statuses = supervisor_manager.get_all_process_info()
+    except SupervisorConfigError as e:
+        capture_exception(e)
+        console.failure(str(e))
+        exit(1)
 
     try:
         status_tree = get_status_for_service(service, process_statuses)

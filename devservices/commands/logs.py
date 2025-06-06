@@ -16,7 +16,6 @@ from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import MAX_LOG_LINES
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -178,12 +177,11 @@ def _supervisor_logs(
 
     supervisor_logs: dict[str, str] = {}
 
-    programs_config_path = os.path.join(
-        service.repo_path, DEVSERVICES_DIR_NAME, PROGRAMS_CONF_FILE_NAME
+    config_file_path = os.path.join(
+        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
-
     try:
-        manager = SupervisorManager(programs_config_path, service_name=service.name)
+        manager = SupervisorManager(service.name, config_file_path)
     except SupervisorConfigError as e:
         capture_exception(e)
         return supervisor_logs
