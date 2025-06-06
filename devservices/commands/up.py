@@ -381,6 +381,14 @@ def bring_up_docker_compose_services(
         exit(1)
 
 
+def _start_supervisor_program(
+    manager: SupervisorManager, program: str, status: Status
+) -> None:
+    """Start a single supervisor program."""
+    status.info(f"Starting {program}")
+    manager.start_process(program)
+
+
 def bring_up_supervisor_programs(
     service: Service, supervisor_programs: list[str], status: Status
 ) -> None:
@@ -403,6 +411,10 @@ def bring_up_supervisor_programs(
     status.info("Starting supervisor daemon")
     manager.start_supervisor_daemon()
 
-    for program in supervisor_programs:
-        status.info(f"Starting {program}")
-        manager.start_process(program)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(_start_supervisor_program, manager, program, status)
+            for program in supervisor_programs
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            _ = future.result()
