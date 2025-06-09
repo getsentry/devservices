@@ -333,3 +333,6 @@ def bring_down_supervisor_programs(
         ]
         for future in concurrent.futures.as_completed(futures):
             _ = future.result()
+
+    status.info("Stopping supervisor daemon")
+    manager.stop_supervisor_daemon()
