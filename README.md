@@ -23,6 +23,8 @@ NOTE: service-name is an optional parameter. If not provided, devservices will a
 - `devservices update` Update devservices to the latest version.
 - `devservices purge`: Purge the local devservices cache.
 - `devservices toggle <service-name>`: Toggle the runtime for a service between containerized and local.
+- `devservices serve`: Run a service's devserver.
+- `devservices foreground <process-name>`: Foreground a process that is currently running in the background. This enables interactive debugging.
 
 ## Installation
 

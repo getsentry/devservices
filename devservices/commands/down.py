@@ -305,6 +305,14 @@ def _bring_down_dependency(
     return run_cmd(cmd.full_command, current_env)
 
 
+def _stop_supervisor_program(
+    manager: SupervisorManager, program: str, status: Status
+) -> None:
+    """Stop a single supervisor program."""
+    status.info(f"Stopping {program}")
+    manager.stop_process(program)
+
+
 def bring_down_supervisor_programs(
     supervisor_programs: list[str], service: Service, status: Status
 ) -> None:
@@ -320,9 +328,13 @@ def bring_down_supervisor_programs(
     except SupervisorConfigError:
         raise
 
-    for program in supervisor_programs:
-        status.info(f"Stopping {program}")
-        manager.stop_process(program)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(_stop_supervisor_program, manager, program, status)
+            for program in supervisor_programs
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            _ = future.result()
 
     status.info("Stopping supervisor daemon")
     manager.stop_supervisor_daemon()
