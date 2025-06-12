@@ -10,6 +10,7 @@ import xmlrpc.client
 from enum import IntEnum
 from typing import TypedDict
 
+import yaml
 from sentry_sdk import capture_exception
 from supervisor.options import ServerOptions
 
@@ -91,24 +92,81 @@ class ProcessInfo(TypedDict):
     group: str
 
 
+class SupervisorProgramConfig(TypedDict, total=False):
+    """Supervisor program configuration."""
+
+    command: str
+    autostart: str | bool
+    autorestart: str | bool
+    directory: str
+    environment: str
+    user: str
+    priority: str | int
+    startsecs: str | int
+    startretries: str | int
+    stdout_logfile: str
+    stderr_logfile: str
+    redirect_stderr: str | bool
+
+
+ProgramData = dict[str, SupervisorProgramConfig]
+
+
+# Default values for supervisor program configuration
+SUPERVISOR_PROGRAM_DEFAULTS = {
+    "autostart": "false",
+    "autorestart": "true",
+}
+
+
 class SupervisorManager:
-    def __init__(self, config_file_path: str, service_name: str) -> None:
+    def __init__(
+        self,
+        service_name: str,
+        service_config_path: str,
+    ) -> None:
         self.service_name = service_name
-        if not os.path.exists(config_file_path):
-            raise SupervisorConfigError(
-                f"Config file {config_file_path} does not exist"
-            )
         self.socket_path = os.path.join(
             DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{service_name}.sock"
         )
-        self.config_file_path = self._extend_config_file(config_file_path)
 
-    def _extend_config_file(self, config_file_path: str) -> str:
-        """Extend the supervisor config file passed into devservices with configuration settings that should be abstracted from users."""
+        # Load service config and extract x-programs data
+        if os.path.exists(service_config_path):
+            with open(service_config_path, "r", encoding="utf-8") as stream:
+                config = yaml.safe_load(stream)
+        else:
+            raise SupervisorConfigError(f"Config file {service_config_path} not found")
 
+        if config is None:
+            raise SupervisorConfigError(f"Config file {service_config_path} is empty")
+
+        programs_data: ProgramData = config.get("x-programs", {})
+
+        self.has_programs = len(programs_data.keys()) > 0
+
+        # Generate supervisor config file from x-programs data
+        self.config_file_path = self._generate_config_from_programs_data(programs_data)
+
+    def _generate_config_from_programs_data(self, programs_data: ProgramData) -> str:
         config = configparser.ConfigParser()
 
-        config.read(config_file_path)
+        # Add program sections
+        for program_name, program_config in programs_data.items():
+            section_name = f"program:{program_name}"
+            config[section_name] = {}
+
+            # Apply defaults for any missing configuration values
+            program_config_with_defaults = {
+                **SUPERVISOR_PROGRAM_DEFAULTS,
+                **program_config,
+            }
+
+            for key, value in program_config_with_defaults.items():
+                if isinstance(value, bool):
+                    config[section_name][key] = str(value).lower()
+                else:
+                    config[section_name][key] = str(value)
+
         os.makedirs(DEVSERVICES_SUPERVISOR_CONFIG_DIR, exist_ok=True)
 
         # Set unix http server to use the socket path
@@ -129,13 +187,13 @@ class SupervisorManager:
             "supervisor.rpcinterface_factory": "supervisor.rpcinterface:make_main_rpcinterface"
         }
 
-        extended_config_file_path = os.path.join(
+        config_file_path = os.path.join(
             DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{self.service_name}.processes.conf"
         )
-        with open(extended_config_file_path, "w") as f:
+        with open(config_file_path, "w") as f:
             config.write(f)
 
-        return extended_config_file_path
+        return config_file_path
 
     def _get_rpc_client(self) -> xmlrpc.client.ServerProxy:
         """Get or create an XML-RPC client that connects to the supervisor daemon."""
@@ -317,6 +375,9 @@ class SupervisorManager:
     def get_all_process_info(self) -> dict[str, ProcessInfo]:
         """Get status information for all supervisor programs."""
         # Check if supervisor client is up first, return empty list if down
+        if not self.has_programs:
+            return {}
+
         try:
             client = self._get_rpc_client()
             client.supervisor.getState()

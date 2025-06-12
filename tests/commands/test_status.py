@@ -36,7 +36,6 @@ from devservices.utils.supervisor import ProcessInfo
 from devservices.utils.supervisor import SupervisorProcessState
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
-from testing.utils import create_programs_conf_file
 from testing.utils import run_git_command
 
 
@@ -740,32 +739,38 @@ def test_status_service_not_found(
     assert "Service not found" in captured.out
 
 
-@mock.patch("devservices.commands.status.find_matching_service")
 @mock.patch("devservices.commands.status.install_and_verify_dependencies")
+@mock.patch(
+    "devservices.commands.status.SupervisorManager.get_all_process_info",
+    return_value={},
+)
 def test_status_dependency_error(
+    mock_supervisor_get_all_process_info: mock.Mock,
     mock_install_and_verify_dependencies: mock.Mock,
-    mock_find_matching_service: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(tmp_path),
+        ),
     ):
         state = State()
         state.update_service_entry(
             "test-service", "default", StateTables.STARTED_SERVICES
         )
-        service = Service(
-            name="test-service",
-            repo_path=str(tmp_path),
-            config=ServiceConfig(
-                version=0.1,
-                service_name="test-service",
-                dependencies={},
-                modes={"default": []},
-            ),
-        )
-        mock_find_matching_service.return_value = service
+        config_file = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "test-service",
+                "dependencies": {},
+                "modes": {"default": []},
+            },
+        }
+        create_config_file(tmp_path / "test-service", config_file)
+        os.chdir(tmp_path / "test-service")
         mock_install_and_verify_dependencies.side_effect = DependencyError(
             repo_name="test-service", repo_link=str(tmp_path), branch="main"
         )
@@ -776,8 +781,7 @@ def test_status_dependency_error(
 
         assert exc_info.value.code == 1
 
-        mock_find_matching_service.assert_called_once_with("test-service")
-        mock_install_and_verify_dependencies.assert_called_once_with(service)
+        mock_install_and_verify_dependencies.assert_called_once()
 
         captured = capsys.readouterr()
         assert (
@@ -785,7 +789,6 @@ def test_status_dependency_error(
         )
 
 
-@mock.patch("devservices.commands.status.find_matching_service")
 @mock.patch(
     "devservices.commands.status.install_and_verify_dependencies", return_value=set()
 )
@@ -795,28 +798,30 @@ def test_status_docker_compose_error(
     mock_generate_service_status_tree: mock.Mock,
     mock_get_status_json_results: mock.Mock,
     mock_install_and_verify_dependencies: mock.Mock,
-    mock_find_matching_service: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.utils.services.get_coderoot",
+            return_value=str(tmp_path),
+        ),
     ):
         state = State()
         state.update_service_entry(
             "test-service", "default", StateTables.STARTED_SERVICES
         )
-        service = Service(
-            name="test-service",
-            repo_path=str(tmp_path),
-            config=ServiceConfig(
-                version=0.1,
-                service_name="test-service",
-                dependencies={},
-                modes={"default": []},
-            ),
-        )
-        mock_find_matching_service.return_value = service
+        config_file = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "test-service",
+                "dependencies": {},
+                "modes": {"default": []},
+            },
+        }
+        create_config_file(tmp_path / "test-service", config_file)
+        os.chdir(tmp_path / "test-service")
         mock_get_status_json_results.side_effect = DockerComposeError(
             command="docker compose ps",
             returncode=1,
@@ -1087,6 +1092,11 @@ def test_status_with_supervisor_programs(
                 },
                 "modes": {"default": ["clickhouse", "worker"]},
             },
+            "x-programs": {
+                "worker": {
+                    "command": "python worker.py",
+                },
+            },
             "services": {
                 "clickhouse": {
                     "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
@@ -1094,15 +1104,6 @@ def test_status_with_supervisor_programs(
             },
         }
         create_config_file(test_service_repo_path, config)
-
-        supervisor_program_config = """
-[program:worker]
-command=python worker.py
-autostart=false
-autorestart=true
-"""
-
-        create_programs_conf_file(test_service_repo_path, supervisor_program_config)
 
         # Commit the config files so find_matching_service can discover them
         run_git_command(["add", "."], cwd=test_service_repo_path)
