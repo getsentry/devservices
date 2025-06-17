@@ -17,7 +17,6 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import HEALTHCHECK_TIMEOUT
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DependencyError
@@ -32,7 +31,6 @@ from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
-from testing.utils import create_programs_conf_file
 from testing.utils import run_git_command
 
 
@@ -2474,19 +2472,17 @@ def test_up_supervisor_program(
                 },
                 "modes": {"default": ["supervisor-program"]},
             },
+            "x-programs": {
+                "supervisor-program": {
+                    "command": "python run program",
+                }
+            },
             "services": {},
         }
 
         service_path = tmp_path / "example-service"
         create_config_file(service_path, config)
         os.chdir(service_path)
-
-        supervisor_program_config = """
-[program:supervisor-program]
-command=echo "Hello, world!"
-"""
-
-        create_programs_conf_file(service_path, supervisor_program_config)
 
         args = Namespace(
             service_name=None, debug=False, mode="default", exclude_local=False
@@ -2571,19 +2567,17 @@ def test_up_supervisor_program_error(
                 },
                 "modes": {"default": ["supervisor-program"]},
             },
+            "x-programs": {
+                "supervisor-program": {
+                    "command": "python run program",
+                }
+            },
             "services": {},
         }
 
         service_path = tmp_path / "example-service"
         create_config_file(service_path, config)
         os.chdir(service_path)
-
-        supervisor_program_config = """
-[program:supervisor-program]
-command=echo "Hello, world!"
-"""
-
-        create_programs_conf_file(service_path, supervisor_program_config)
 
         args = Namespace(
             service_name=None, debug=False, mode="default", exclude_local=False
@@ -2654,7 +2648,7 @@ def test_bring_up_supervisor_programs_no_programs_config(
 
     with pytest.raises(
         SupervisorConfigError,
-        match=f"Config file {tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME} does not exist",
+        match=f"Config file {tmp_path / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME} not found",
     ):
         os.chdir(tmp_path)
         bring_up_supervisor_programs(service, ["supervisor-program"], status)
@@ -2722,15 +2716,25 @@ def test_bring_up_supervisor_programs_success(
         config=service_config,
     )
 
-    programs_conf_path = tmp_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
+    # Create config file with x-programs
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "test-service",
+            "dependencies": {
+                "supervisor-program": {"description": "Supervisor program"},
+            },
+            "modes": {"default": ["supervisor-program"]},
+        },
+        "x-programs": {
+            "supervisor-program": {
+                "command": "echo 'Hello, world!'",
+            }
+        },
+        "services": {},
+    }
 
-    create_programs_conf_file(
-        programs_conf_path,
-        """
-[program:supervisor-program]
-command=echo "Hello, world!"
-""",
-    )
+    create_config_file(tmp_path, config)
 
     status = mock.MagicMock()
 
@@ -2777,16 +2781,25 @@ def test_bring_up_supervisor_programs_wrong_directory(
         config=service_config,
     )
 
-    programs_conf_path = (
-        service_repo_path / DEVSERVICES_DIR_NAME / PROGRAMS_CONF_FILE_NAME
-    )
-    create_programs_conf_file(
-        programs_conf_path,
-        """
-[program:supervisor-program]
-command=echo "Hello, world!"
-""",
-    )
+    # Create config file with x-programs
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "test-service",
+            "dependencies": {
+                "supervisor-program": {"description": "Supervisor program"},
+            },
+            "modes": {"default": ["supervisor-program"]},
+        },
+        "x-programs": {
+            "supervisor-program": {
+                "command": "echo 'Hello, world!'",
+            }
+        },
+        "services": {},
+    }
+
+    create_config_file(service_repo_path, config)
 
     status = mock.MagicMock()
 

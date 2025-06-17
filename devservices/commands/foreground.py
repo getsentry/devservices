@@ -9,9 +9,9 @@ from argparse import Namespace
 
 from sentry_sdk import capture_exception
 
+from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ServiceNotFoundError
@@ -92,14 +92,15 @@ def foreground(args: Namespace) -> None:
         )
         return
 
-    programs_config_path = os.path.join(
-        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
+    config_file_path = os.path.join(
+        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
 
-    manager = SupervisorManager(
-        programs_config_path,
-        service_name=service.name,
-    )
+    try:
+        manager = SupervisorManager(service.name, config_file_path)
+    except SupervisorConfigError as e:
+        capture_exception(e, level="info")
+        return
 
     try:
         program_command = manager.get_program_command(program_name)

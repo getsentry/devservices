@@ -18,7 +18,6 @@ from devservices.exceptions import SupervisorProcessError
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
-from testing.utils import create_programs_conf_file
 
 
 @mock.patch("devservices.commands.foreground.pty.spawn")
@@ -40,6 +39,11 @@ def test_foreground_success(
             },
             "modes": {"default": ["redis", "worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
         "services": {
             "redis": {"image": "redis:6.2.14-alpine"},
         },
@@ -48,14 +52,6 @@ def test_foreground_success(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(program_name="worker")
 
@@ -86,19 +82,16 @@ def test_foreground_service_not_running(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
     }
 
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(program_name="worker")
 
@@ -129,6 +122,11 @@ def test_foreground_program_not_in_supervisor_programs(
             },
             "modes": {"default": ["redis", "worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
         "services": {
             "redis": {"image": "redis:6.2.14-alpine"},
         },
@@ -137,14 +135,6 @@ def test_foreground_program_not_in_supervisor_programs(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(program_name="nonexistent")
 
@@ -180,6 +170,11 @@ def test_foreground_program_not_in_active_modes(
             },
             "modes": {"default": ["redis"], "other": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
         "services": {
             "redis": {"image": "redis:6.2.14-alpine"},
         },
@@ -188,14 +183,6 @@ def test_foreground_program_not_in_active_modes(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(program_name="worker")
 
@@ -254,7 +241,7 @@ def test_foreground_programs_conf_not_found(
 
     captured = capsys.readouterr()
     assert (
-        f"{Color.RED}Dependency 'worker' is not remote but is not defined in docker-compose services or programs file{Color.RESET}\n"
+        f"{Color.RED}Dependency 'worker' is not remote but is not defined in docker-compose services or x-programs{Color.RESET}\n"
         == captured.out
     )
 
@@ -328,19 +315,16 @@ def test_foreground_supervisor_config_error(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
     }
 
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     mock_get_program_command.side_effect = SupervisorConfigError("Program config error")
 
@@ -383,19 +367,16 @@ def test_foreground_pty_spawn_exception(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
     }
 
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     mock_pty_spawn.side_effect = OSError("Spawn failed")
 
@@ -437,19 +418,16 @@ def test_foreground_stop_process_exception(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
     }
 
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     mock_stop_process.side_effect = SupervisorProcessError("Stop process failed")
 
@@ -492,19 +470,16 @@ def test_foreground_start_process_exception(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
     }
 
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     mock_start_process.side_effect = SupervisorProcessError("Start process failed")
 
@@ -547,19 +522,16 @@ def test_foreground_with_starting_services(
             },
             "modes": {"default": ["worker"]},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
     }
 
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(program_name="worker")
 
@@ -608,6 +580,14 @@ def test_foreground_multiple_modes_and_dependencies(
                 "full": ["redis", "postgres", "worker", "consumer"],
             },
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+            "consumer": {
+                "command": "python consumer.py",
+            },
+        },
         "services": {
             "redis": {"image": "redis:6.2.14-alpine"},
             "postgres": {"image": "postgres:13"},
@@ -617,19 +597,6 @@ def test_foreground_multiple_modes_and_dependencies(
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-
-[program:consumer]
-command=python consumer.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(program_name="consumer")
 
@@ -668,19 +635,16 @@ def test_foreground_no_active_modes(
             },
             "modes": {"default": ["worker"], "other": []},
         },
+        "x-programs": {
+            "worker": {
+                "command": "python worker.py",
+            },
+        },
     }
 
     service_path = tmp_path / "example-service"
     create_config_file(service_path, config)
     os.chdir(service_path)
-
-    programs_config = """
-[program:worker]
-command=python worker.py
-autostart=true
-autorestart=true
-"""
-    create_programs_conf_file(service_path, programs_config)
 
     args = Namespace(program_name="worker")
 

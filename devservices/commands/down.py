@@ -15,12 +15,12 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import PROGRAMS_CONF_FILE_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
@@ -318,13 +318,15 @@ def bring_down_supervisor_programs(
 ) -> None:
     if len(supervisor_programs) == 0:
         return
-    programs_config_path = os.path.join(
-        service.repo_path, f"{DEVSERVICES_DIR_NAME}/{PROGRAMS_CONF_FILE_NAME}"
+
+    config_file_path = os.path.join(
+        service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
-    manager = SupervisorManager(
-        programs_config_path,
-        service_name=service.name,
-    )
+
+    try:
+        manager = SupervisorManager(service.name, config_file_path)
+    except SupervisorConfigError:
+        raise
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
