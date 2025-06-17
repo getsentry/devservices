@@ -1,3 +1,12 @@
+## 1.2.1
+
+### Various fixes & improvements
+
+- chore(config): Consolidate programs.conf file into config.yml (#285) by @hubertdeng123
+- feat(up/down): Multithread bringing up/down supervisor programs (#286) by @hubertdeng123
+- chore(readme): Add serve (#288) by @hubertdeng123
+- add foreground command to readme (#287) by @hubertdeng123
+
 ## 1.2.0
 
 ### Various fixes & improvements
