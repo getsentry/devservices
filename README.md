@@ -47,7 +47,7 @@ The configuration file is a yaml file that looks like this:
 # - version: The version of the devservices config file. This is used to ensure compatibility between devservices and the config file.
 # - service_name: The name of the service. This is used to identify the service in the config file.
 # - dependencies: A list of dependencies for the service. Each dependency is a yaml block that holds the dependency configuration. There are two types of dependencies:
-#   - local: A dependency that is defined in the config file. These dependencies do not have a remote field. These dependency definitions are specific to the service and are not defined elsewhere.
+#   - local: A dependency that is defined in the config file. These dependencies do not have a remote field and must correspond to either a service defined in the 'services' section or a program defined in the 'x-programs' section.
 #   - remote: A dependency that is defined in the devservices directory in a remote repository. These configs are automatically fetched from the remote repository and installed. Any dependency with a remote field will be treated as a remote dependency. Example: https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L8
 # - modes: A list of modes for the service. Each mode includes a list of dependencies that are used in that mode.
 x-sentry-service-config:
@@ -68,6 +68,27 @@ x-sentry-service-config:
   modes:
     default: [example-dependency-1, example-remote-dependency]
     custom-mode: [example-dependency-1, example-dependency-2, example-remote-dependency]
+
+# This block defines supervisor programs that can be managed by devservices.
+# Programs defined here are managed using Python's supervisor package and can be:
+# - Started and stopped along with docker services when running `devservices up/down`
+# - Run in the foreground for interactive debugging using `devservices foreground <program-name>`
+# - Used as development server with `devservices serve` (requires a program named "devserver")
+#
+# These are particularly useful for:
+# - Defining a devserver to run locally
+# - Background workers or task processors
+# - Any process that needs to be managed alongside your docker services
+x-programs:
+  # Example devserver
+  devserver:
+    # Required: The command to execute
+    command: "python manage.py run_server"
+    # Optional: You can also specify any of the supervisor program settings defined here: https://supervisord.org/configuration.html#program-x-section-settings
+
+  # Example background worker
+  example-worker:
+    command: "python manage.py worker"
 
 # This will be a standard block used by docker compose to define dependencies.
 #
