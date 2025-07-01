@@ -98,14 +98,16 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
 
     with Status(
         lambda: (
-            console.warning(f"Starting '{service.name}' in mode: '{mode}'")
+            console.warning(f"Starting '{service.name}' dependencies in mode: '{mode}'")
             if existing_status is None
-            else existing_status.warning(f"Starting '{service.name}' in mode: '{mode}'")
+            else existing_status.warning(
+                f"Starting '{service.name}' dependencies in mode: '{mode}'"
+            )
         ),
         lambda: (
-            console.success(f"{service.name} started")
+            console.success(f"{service.name} dependencies started")
             if existing_status is None
-            else existing_status.success(f"{service.name} started")
+            else existing_status.success(f"{service.name} dependencies started")
         ),
     ) as status:
         local_runtime_dependency_names = set()
@@ -305,9 +307,9 @@ def bring_up_docker_compose_services(
     )
     # Set the environment variable for the local dependencies directory to be used by docker compose
     current_env = os.environ.copy()
-    current_env[
-        DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
-    ] = relative_local_dependency_directory
+    current_env[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY] = (
+        relative_local_dependency_directory
+    )
     dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
