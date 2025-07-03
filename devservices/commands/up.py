@@ -307,9 +307,9 @@ def bring_up_docker_compose_services(
     )
     # Set the environment variable for the local dependencies directory to be used by docker compose
     current_env = os.environ.copy()
-    current_env[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY] = (
-        relative_local_dependency_directory
-    )
+    current_env[
+        DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
+    ] = relative_local_dependency_directory
     dependency_graph = construct_dependency_graph(service, modes=modes)
     starting_order = dependency_graph.get_starting_order()
     sorted_remote_dependencies = sorted(
