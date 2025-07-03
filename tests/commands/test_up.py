@@ -170,7 +170,10 @@ def test_up_simple(
         mock_check_all_containers_healthy.assert_called_once()
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
-        assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'default'"
+            in captured.out.strip()
+        )
         assert "Starting clickhouse" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
 
@@ -238,7 +241,8 @@ def test_up_dependency_error(
         captured = capsys.readouterr()
         assert "Retrieving dependencies" not in captured.out.strip()
         assert (
-            "Starting 'example-service' in mode: 'default'" not in captured.out.strip()
+            "Starting 'example-service' dependencies in mode: 'default'"
+            not in captured.out.strip()
         )
         assert "Starting clickhouse" not in captured.out.strip()
         assert "Starting redis" not in captured.out.strip()
@@ -348,7 +352,10 @@ def test_up_error(
     mock_remove_service_entry.assert_not_called()
 
     assert "Retrieving dependencies" in captured.out.strip()
-    assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+    assert (
+        "Starting 'example-service' dependencies in mode: 'default'"
+        in captured.out.strip()
+    )
     assert "Starting clickhouse" not in captured.out.strip()
     assert "Starting redis" not in captured.out.strip()
 
@@ -564,7 +571,7 @@ def test_up_pull_error_eventual_success(
     mock_create_devservices_network.assert_called_once()
     captured = capsys.readouterr()
 
-    assert "example-service started" in captured.out.strip()
+    assert "example-service dependencies started" in captured.out.strip()
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")
@@ -704,7 +711,10 @@ def test_up_docker_compose_container_lookup_error(
         mock_check_all_containers_healthy.assert_not_called()
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
-        assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'default'"
+            in captured.out.strip()
+        )
         assert "Starting clickhouse" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
         assert (
@@ -848,7 +858,10 @@ def test_up_docker_compose_container_healthcheck_failed(
         mock_check_all_containers_healthy.assert_called_once()
         captured = capsys.readouterr()
         assert "Retrieving dependencies" in captured.out.strip()
-        assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'default'"
+            in captured.out.strip()
+        )
         assert "Starting clickhouse" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
         assert (
@@ -993,7 +1006,10 @@ def test_up_mode_simple(
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
         ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
-        assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'test'"
+            in captured.out.strip()
+        )
         assert "Starting redis" in captured.out.strip()
 
 
@@ -1079,7 +1095,10 @@ def test_up_mode_does_not_exist(
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
         ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
-        assert "Starting 'example-service' in mode: 'test'" not in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'test'"
+            not in captured.out.strip()
+        )
         assert "Starting clickhouse" not in captured.out.strip()
         assert "Starting redis" not in captured.out.strip()
 
@@ -1184,7 +1203,10 @@ def test_up_multiple_modes(
         mock_check_all_containers_healthy.assert_called_once()
 
         captured = capsys.readouterr()
-        assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'test'"
+            in captured.out.strip()
+        )
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
         ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
@@ -1351,7 +1373,10 @@ def test_up_multiple_modes_overlapping_running_service(
         )
 
         captured = capsys.readouterr()
-        assert "Starting 'example-service' in mode: 'test'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'test'"
+            in captured.out.strip()
+        )
         assert "Retrieving dependencies" in captured.out.strip()
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
@@ -2522,7 +2547,10 @@ def test_up_supervisor_program(
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
         ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
-        assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'default'"
+            in captured.out.strip()
+        )
         assert "Starting supervisor daemon" in captured.out.strip()
         assert "Starting supervisor-program" in captured.out.strip()
 
@@ -2615,7 +2643,10 @@ def test_up_supervisor_program_error(
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
         ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
-        assert "Starting 'example-service' in mode: 'default'" in captured.out.strip()
+        assert (
+            "Starting 'example-service' dependencies in mode: 'default'"
+            in captured.out.strip()
+        )
         assert "Starting supervisor daemon" in captured.out.strip()
         assert "Error starting supervisor daemon" in captured.out.strip()
 

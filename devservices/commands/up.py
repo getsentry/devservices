@@ -98,14 +98,16 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
 
     with Status(
         lambda: (
-            console.warning(f"Starting '{service.name}' in mode: '{mode}'")
+            console.warning(f"Starting '{service.name}' dependencies in mode: '{mode}'")
             if existing_status is None
-            else existing_status.warning(f"Starting '{service.name}' in mode: '{mode}'")
+            else existing_status.warning(
+                f"Starting '{service.name}' dependencies in mode: '{mode}'"
+            )
         ),
         lambda: (
-            console.success(f"{service.name} started")
+            console.success(f"{service.name} dependencies started")
             if existing_status is None
-            else existing_status.success(f"{service.name} started")
+            else existing_status.success(f"{service.name} dependencies started")
         ),
     ) as status:
         local_runtime_dependency_names = set()
