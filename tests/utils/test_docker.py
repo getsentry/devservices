@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 
+from devservices.constants import Color
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.constants import DOCKER_NETWORK_NAME
 from devservices.constants import HEALTHCHECK_INTERVAL
@@ -25,15 +26,29 @@ from devservices.utils.docker import wait_for_healthy
 
 
 @mock.patch("subprocess.run")
-def test_check_docker_daemon_running_error(mock_run: mock.Mock) -> None:
+def test_check_docker_daemon_running_error(
+    mock_run: mock.Mock, capsys: pytest.CaptureFixture[str]
+) -> None:
     mock_run.side_effect = subprocess.CalledProcessError(1, "cmd")
     with pytest.raises(DockerDaemonNotRunningError):
         check_docker_daemon_running()
-    mock_run.assert_called_once_with(
-        ["docker", "info"],
-        capture_output=True,
-        text=True,
-        check=True,
+    mock_run.assert_has_calls(
+        [
+            mock.call(
+                ["docker", "info"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ),
+            mock.call(
+                ["devenv", "colima", "start"],
+                check=True,
+            ),
+        ]
+    )
+    assert (
+        capsys.readouterr().out
+        == f"Docker daemon is not running. Checking if colima is available\n{Color.RED}Failed to start colima{Color.RESET}\n"
     )
 
 
