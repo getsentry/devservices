@@ -79,7 +79,10 @@ def test_check_docker_compose_invalid_version(
 
 @mock.patch(
     "subprocess.run",
-    side_effect=[subprocess.CalledProcessError(returncode=1, cmd="docker info")],
+    side_effect=[
+        subprocess.CalledProcessError(returncode=1, cmd="docker info"),
+        subprocess.CalledProcessError(returncode=1, cmd="devenv colima start"),
+    ],
 )
 @mock.patch(
     "devservices.utils.docker_compose.install_docker_compose", side_effect=lambda: None
