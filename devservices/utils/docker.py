@@ -10,6 +10,7 @@ from devservices.constants import HEALTHCHECK_TIMEOUT
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
+from devservices.utils.console import Console
 from devservices.utils.console import Status
 
 
@@ -20,6 +21,7 @@ class ContainerNames(NamedTuple):
 
 def check_docker_daemon_running() -> None:
     """Checks if the Docker daemon is running. Raises DockerDaemonNotRunningError if not."""
+    console = Console()
     try:
         subprocess.run(
             ["docker", "info"],
@@ -27,7 +29,13 @@ def check_docker_daemon_running() -> None:
             text=True,
             check=True,
         )
+        return
+    except subprocess.CalledProcessError:
+        console.info("Docker daemon is not running. Checking if colima is available")
+    try:
+        subprocess.run(["devenv", "colima", "start"], check=True)
     except subprocess.CalledProcessError as e:
+        console.failure("Failed to start colima")
         raise DockerDaemonNotRunningError from e
 
 
