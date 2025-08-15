@@ -1,0 +1,214 @@
+# Devservices Cursor Rules
+
+## Project Overview
+Devservices is a CLI tool for managing development dependencies and services. It uses Docker Compose for containerized services and Python's Supervisor for managing local processes.
+
+## Code Style and Conventions
+
+### Python Code Style
+- Use Python 3.8+ features and type hints extensively
+- Follow PEP 8 with line length limit of 88 characters (Black formatter)
+- Use `from __future__ import annotations` at the top of files
+- Prefer explicit imports over wildcard imports
+- Use descriptive variable and function names
+
+### Error Handling
+- Define custom exceptions in `devservices.exceptions`
+- Use Sentry SDK for error tracking with appropriate levels
+- Capture exceptions with context using `capture_exception()`
+- Provide clear, actionable error messages to users
+
+## Architecture and Design Patterns
+
+### Command Structure
+- Each CLI command should be in its own module under `devservices/commands/`
+- Commands must implement:
+  - `add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None`
+  - Main function taking `args: Namespace` as parameter
+- Use `Console` class for all user output
+- Use `Status` context manager for operation progress
+
+### Service Configuration
+- Service configs are YAML files in `devservices/config.yml`
+- Required sections:
+  - `x-sentry-service-config`: Service metadata and dependencies
+  - `x-programs`: Supervisor-managed programs
+  - `services`: Docker Compose service definitions
+  - `networks`: Must include external `devservices` network
+  - `volumes`: Optional persistent volumes
+
+### Dependency Management
+- Two types of dependencies:
+  - Docker Compose services (containerized)
+  - Supervisor programs (local processes)
+- Dependencies can be local or remote (fetched from other repos)
+- Use dependency graph for determining start/stop order
+
+### State Management
+- Use SQLite for state persistence via `State` class
+- Track service states in `StateTables`:
+  - `STARTING_SERVICES`
+  - `STARTED_SERVICES`
+- Store service runtime preferences (containerized vs local)
+
+## Testing Conventions
+
+### Test Structure
+- Tests mirror source structure under `tests/`
+- Use pytest fixtures for common setup
+- Mock external dependencies (Docker, Supervisor, filesystem)
+- Test both success and failure paths
+- test util functions and fixtures are in the `testing/` directory
+
+### Common Test Patterns
+```python
+@mock.patch("module.function")
+def test_feature(mock_function: mock.Mock, tmp_path: Path) -> None:
+    # Setup
+    create_config_file(tmp_path, config_dict)
+
+    # Execute
+    result = function_under_test(args)
+
+    # Assert
+    assert expected_result
+    mock_function.assert_called_once_with(expected_args)
+```
+
+### Test Utilities
+- Use `create_config_file()` for test configs
+- Use `create_mock_git_repo()` for Git operations
+- Use `capsys` fixture for testing console output
+
+## Console Output
+
+### Output Standards
+- Use `Console` class methods:
+  - `info()`: General information
+  - `warning()`: Important notices
+  - `success()`: Operation completed successfully
+  - `failure()`: Operation failed (typically followed by exit)
+- Use `Status` context manager for long operations
+- Include colors via `Color` enum for better UX
+
+### Progress Indication
+```python
+with Status(
+    lambda: console.info("Starting operation..."),
+    lambda: console.success("Operation completed")
+) as status:
+    status.info("Processing step 1")
+    # ... operation code
+```
+
+## Docker and Supervisor Integration
+
+### Docker Compose
+- Use `DockerComposeCommand` for building commands
+- Always include required labels: `orchestrator=devservices`
+- Run commands with retry logic for network operations
+- Check container health before considering services ready
+
+### Supervisor Programs
+- Generate supervisor configs dynamically from `x-programs`
+- Default settings: `autostart=false`, `autorestart=true`
+- Support foreground mode for debugging
+- Manage supervisor daemon per service
+
+### Constants
+- constant variables are defined in `devservices.constants`
+
+## File and Path Handling
+
+### Path Constants
+- Use constants from `devservices.constants`:
+  - `DEVSERVICES_DIR_NAME`: "devservices"
+  - `CONFIG_FILE_NAME`: "config.yml"
+  - `DEVSERVICES_DEPENDENCIES_CACHE_DIR`: Cache location
+
+### Path Resolution
+- Use `pathlib.Path` for path operations when possible
+- Use `os.path` for compatibility with existing code
+- Always use absolute paths for Docker operations
+- Convert to relative paths when needed for Docker Compose
+
+## Local Caches
+
+### Cache Structure
+- Main cache directory: `~/.local/share/devservices/`
+- Dependency cache: `dependencies/{version}/` - stores fetched remote dependencies
+- State database: `state.db` - SQLite database for service state
+- Supervisor configs: `supervisor/` - generated supervisor configuration files
+
+### Dependency Caching
+- Remote dependencies are cloned once and reused across services
+- Cache key includes dependency version from `DEPENDENCY_CONFIG_VERSION`
+- Dependencies are updated when `force_update_dependencies=True`
+- Use `devservices purge` to clear all caches
+
+### Cache Management
+- Always use `DEVSERVICES_DEPENDENCIES_CACHE_DIR` constant
+- Create cache directories with appropriate permissions (0o755)
+- Handle cache corruption gracefully - regenerate if needed
+- Clean up stale cache entries when possible
+
+### State Persistence
+- Service states persist between runs in SQLite database
+- Runtime preferences (local vs containerized) are cached
+
+## Logging and Debugging
+
+### Debug Mode
+- Respect `--debug` flag in commands
+- Use Sentry spans for performance tracking:
+```python
+with start_span(op="operation.name", name="Description") as span:
+    span.set_data("key", value)
+    # ... operation code
+```
+
+### Log Management
+- Capture Docker Compose logs
+- Capture Supervisor program logs
+- Provide unified log viewing via `devservices logs`
+
+## Important Patterns
+
+### Service Lifecycle
+1. Find matching service configuration
+2. Install dependencies (local and remote)
+3. Create devservices network
+4. Start Docker containers in dependency order
+5. Start Supervisor programs
+6. Check health of all components
+7. Update state
+
+### Cleanup on Failure
+- Always clean up resources on failure
+- Stop partially started services
+- Remove from starting services table
+- Provide clear error messages
+
+### Mode Support
+- Services can have multiple modes (e.g., default, testing)
+- Modes define which dependencies to start
+- Mode configurations are in service config
+
+## Documentation
+
+### Docstrings
+- Use Google-style docstrings
+- Document all public functions and classes
+- Include parameter types and return values
+
+### Comments
+- Explain complex logic and non-obvious decisions only
+- Reference external documentation when needed
+- Keep comments up-to-date with code changes
+
+## Security Considerations
+
+### File Permissions
+- Respect user file permissions
+- Create directories with appropriate permissions
+- Handle permission errors gracefully
