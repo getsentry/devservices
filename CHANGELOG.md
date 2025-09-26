@@ -1,3 +1,11 @@
+## 1.2.2
+
+### Various fixes & improvements
+
+- feat(docker): Auto start colima (#293) by @hubertdeng123
+- chore(devservices): add 'dependencies' string within startup console logs (#291) by @NicoHinderling
+- add x-programs block to readme (#290) by @hubertdeng123
+
 ## 1.2.1
 
 ### Various fixes & improvements
