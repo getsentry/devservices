@@ -12,6 +12,7 @@ from typing import cast
 from typing import NamedTuple
 
 from packaging import version
+from sentry_sdk import logger as sentry_logger
 
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
@@ -306,7 +307,7 @@ def run_cmd(
     console = Console()
     cmd_pretty = shlex.join(cmd)
 
-    logger.debug(
+    sentry_logger.info(
         "Running docker compose command",
         extra={
             "command": cmd_pretty,

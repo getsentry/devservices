@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import concurrent.futures
-import logging
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -9,6 +8,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import logger as sentry_logger
 from sentry_sdk import set_context
 from sentry_sdk import start_span
 
@@ -18,7 +18,6 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import LOGGER_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ContainerHealthcheckFailedError
@@ -96,8 +95,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
     mode = args.mode
     exclude_local = getattr(args, "exclude_local", False)
 
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.debug(
+    sentry_logger.info(
         "Starting service",
         extra={
             "service_name": service.name,

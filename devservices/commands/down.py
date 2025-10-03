@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import concurrent.futures
-import logging
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -9,6 +8,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import logger as sentry_logger
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
@@ -16,7 +16,6 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import LOGGER_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -118,8 +117,7 @@ def down(args: Namespace) -> None:
         == DependencyType.SUPERVISOR
     ]
 
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.debug(
+    sentry_logger.info(
         "Stopping service",
         extra={
             "service_name": service.name,
