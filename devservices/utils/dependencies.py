@@ -14,6 +14,7 @@ from typing import TextIO
 from typing import TypeGuard
 
 from sentry_sdk import capture_message
+from sentry_sdk import logger as sentry_logger
 from sentry_sdk import set_context
 
 from devservices.configs.service_config import Dependency
@@ -411,14 +412,13 @@ def install_dependencies(
 
 
 def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependency]:
-    logger = logging.getLogger(LOGGER_NAME)
     dependency_repo_dir = os.path.join(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR,
         DEPENDENCY_CONFIG_VERSION,
         dependency.repo_name,
     )
 
-    logger.debug(
+    sentry_logger.info(
         "Installing dependency",
         extra={
             "repo_name": dependency.repo_name,
@@ -509,8 +509,7 @@ def _update_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.debug(
+    sentry_logger.info(
         "Updating dependency",
         extra={
             "repo_name": dependency.repo_name,
@@ -600,8 +599,7 @@ def _checkout_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.debug(
+    sentry_logger.info(
         "Checking out dependency",
         extra={
             "repo_name": dependency.repo_name,
