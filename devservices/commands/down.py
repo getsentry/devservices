@@ -124,7 +124,7 @@ def down(args: Namespace) -> None:
         extra={
             "service_name": service.name,
             "exclude_local": exclude_local,
-            "mode": list(active_modes),
+            "active_modes": list(active_modes),
         },
     )
 
