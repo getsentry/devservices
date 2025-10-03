@@ -418,7 +418,7 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
         dependency.repo_name,
     )
 
-    logger.info(
+    logger.debug(
         "Installing dependency",
         extra={
             "repo_name": dependency.repo_name,
@@ -510,7 +510,7 @@ def _update_dependency(
     dependency_repo_dir: str,
 ) -> None:
     logger = logging.getLogger(LOGGER_NAME)
-    logger.info(
+    logger.debug(
         "Updating dependency",
         extra={
             "repo_name": dependency.repo_name,
@@ -601,7 +601,7 @@ def _checkout_dependency(
     dependency_repo_dir: str,
 ) -> None:
     logger = logging.getLogger(LOGGER_NAME)
-    logger.info(
+    logger.debug(
         "Checking out dependency",
         extra={
             "repo_name": dependency.repo_name,

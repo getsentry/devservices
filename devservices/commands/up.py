@@ -97,7 +97,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
     exclude_local = getattr(args, "exclude_local", False)
 
     logger = logging.getLogger(LOGGER_NAME)
-    logger.info(
+    logger.debug(
         "Starting service",
         extra={
             "service_name": service.name,

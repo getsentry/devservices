@@ -306,7 +306,7 @@ def run_cmd(
     console = Console()
     cmd_pretty = shlex.join(cmd)
 
-    logger.info(
+    logger.debug(
         "Running docker compose command",
         extra={
             "command": cmd_pretty,

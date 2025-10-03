@@ -119,7 +119,7 @@ def down(args: Namespace) -> None:
     ]
 
     logger = logging.getLogger(LOGGER_NAME)
-    logger.info(
+    logger.debug(
         "Stopping service",
         extra={
             "service_name": service.name,
