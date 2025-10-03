@@ -306,6 +306,14 @@ def run_cmd(
     console = Console()
     cmd_pretty = shlex.join(cmd)
 
+    logger.info(
+        "Running docker compose command",
+        extra={
+            "command": cmd_pretty,
+            "max_retries": retries,
+        },
+    )
+
     proc = None
     retries += 1  # initial try
 

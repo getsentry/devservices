@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import logging
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -15,6 +16,7 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import LOGGER_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -115,6 +117,16 @@ def down(args: Namespace) -> None:
         and service.config.dependencies[dep].dependency_type
         == DependencyType.SUPERVISOR
     ]
+
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.info(
+        "Stopping service",
+        extra={
+            "service_name": service.name,
+            "exclude_local": exclude_local,
+            "mode": list(active_modes),
+        },
+    )
 
     with Status(
         lambda: console.warning(f"Stopping {service.name}"),

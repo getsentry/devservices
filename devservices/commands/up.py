@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import logging
 import os
 import subprocess
 from argparse import _SubParsersAction
@@ -17,6 +18,7 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import LOGGER_NAME
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ContainerHealthcheckFailedError
@@ -93,6 +95,17 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
     modes = service.config.modes
     mode = args.mode
     exclude_local = getattr(args, "exclude_local", False)
+
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.info(
+        "Starting service",
+        extra={
+            "service_name": service.name,
+            "mode": mode,
+            "exclude_local": exclude_local,
+            "available_modes": list(modes.keys()),
+        },
+    )
 
     state = State()
 

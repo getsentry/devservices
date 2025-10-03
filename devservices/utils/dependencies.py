@@ -411,10 +411,21 @@ def install_dependencies(
 
 
 def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependency]:
+    logger = logging.getLogger(LOGGER_NAME)
     dependency_repo_dir = os.path.join(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR,
         DEPENDENCY_CONFIG_VERSION,
         dependency.repo_name,
+    )
+
+    logger.info(
+        "Installing dependency",
+        extra={
+            "repo_name": dependency.repo_name,
+            "repo_link": dependency.repo_link,
+            "branch": dependency.branch,
+            "mode": dependency.mode,
+        },
     )
 
     os.makedirs(DEVSERVICES_DEPENDENCIES_CACHE_DIR, exist_ok=True)
@@ -498,6 +509,15 @@ def _update_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.info(
+        "Updating dependency",
+        extra={
+            "repo_name": dependency.repo_name,
+            "repo_link": dependency.repo_link,
+            "branch": dependency.branch,
+        },
+    )
     git_config_manager = GitConfigManager(
         dependency_repo_dir,
         DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS,
@@ -580,6 +600,15 @@ def _checkout_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
+    logger = logging.getLogger(LOGGER_NAME)
+    logger.info(
+        "Checking out dependency",
+        extra={
+            "repo_name": dependency.repo_name,
+            "repo_link": dependency.repo_link,
+            "branch": dependency.branch,
+        },
+    )
     with tempfile.TemporaryDirectory() as temp_dir:
         try:
             _run_command(

@@ -16,6 +16,7 @@ from sentry_sdk import set_tag
 from sentry_sdk import set_user
 from sentry_sdk import start_transaction
 from sentry_sdk.integrations.argv import ArgvIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.types import Event
 from sentry_sdk.types import Hint
 
@@ -79,7 +80,11 @@ if not disable_sentry:
         dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
-        integrations=[ArgvIntegration()],
+        integrations=[
+            ArgvIntegration(),
+            LoggingIntegration(sentry_logs_level=logging.DEBUG),
+        ],
+        enable_logs=True,
         environment=sentry_environment,
         before_send=before_send_error,
         before_send_transaction=before_send_transaction,
