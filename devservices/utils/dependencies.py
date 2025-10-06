@@ -14,6 +14,7 @@ from typing import TextIO
 from typing import TypeGuard
 
 from sentry_sdk import capture_message
+from sentry_sdk import logger as sentry_logger
 from sentry_sdk import set_context
 
 from devservices.configs.service_config import Dependency
@@ -417,6 +418,16 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
         dependency.repo_name,
     )
 
+    sentry_logger.info(
+        "Installing dependency",
+        extra={
+            "repo_name": dependency.repo_name,
+            "repo_link": dependency.repo_link,
+            "branch": dependency.branch,
+            "mode": dependency.mode,
+        },
+    )
+
     os.makedirs(DEVSERVICES_DEPENDENCIES_CACHE_DIR, exist_ok=True)
 
     # Ensure that only one process is installing a specific dependency at a time
@@ -498,6 +509,14 @@ def _update_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
+    sentry_logger.info(
+        "Updating dependency",
+        extra={
+            "repo_name": dependency.repo_name,
+            "repo_link": dependency.repo_link,
+            "branch": dependency.branch,
+        },
+    )
     git_config_manager = GitConfigManager(
         dependency_repo_dir,
         DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS,
@@ -580,6 +599,14 @@ def _checkout_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
+    sentry_logger.info(
+        "Checking out dependency",
+        extra={
+            "repo_name": dependency.repo_name,
+            "repo_link": dependency.repo_link,
+            "branch": dependency.branch,
+        },
+    )
     with tempfile.TemporaryDirectory() as temp_dir:
         try:
             _run_command(

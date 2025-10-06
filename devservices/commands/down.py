@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import logger as sentry_logger
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
@@ -115,6 +116,15 @@ def down(args: Namespace) -> None:
         and service.config.dependencies[dep].dependency_type
         == DependencyType.SUPERVISOR
     ]
+
+    sentry_logger.info(
+        "Stopping service",
+        extra={
+            "service_name": service.name,
+            "exclude_local": exclude_local,
+            "active_modes": list(active_modes),
+        },
+    )
 
     with Status(
         lambda: console.warning(f"Stopping {service.name}"),

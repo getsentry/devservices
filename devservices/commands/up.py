@@ -8,6 +8,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import logger as sentry_logger
 from sentry_sdk import set_context
 from sentry_sdk import start_span
 
@@ -93,6 +94,16 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
     modes = service.config.modes
     mode = args.mode
     exclude_local = getattr(args, "exclude_local", False)
+
+    sentry_logger.info(
+        "Starting service",
+        extra={
+            "service_name": service.name,
+            "mode": mode,
+            "exclude_local": exclude_local,
+            "available_modes": list(modes.keys()),
+        },
+    )
 
     state = State()
 
