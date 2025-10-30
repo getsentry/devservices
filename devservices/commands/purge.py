@@ -6,11 +6,15 @@ from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
 
+from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.constants import DOCKER_NETWORK_NAME
+from devservices.exceptions import ConfigNotFoundError
+from devservices.exceptions import ConfigParseError
+from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.console import Console
@@ -22,10 +26,6 @@ from devservices.utils.docker import remove_docker_resources
 from devservices.utils.docker import stop_containers
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
-from devservices.configs.service_config import load_service_config_from_file
-from devservices.exceptions import ConfigNotFoundError
-from devservices.exceptions import ConfigParseError
-from devservices.exceptions import ConfigValidationError
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -42,19 +42,19 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 def _get_service_cache_paths(service_name: str) -> list[str]:
     """Find cache directory paths for a given service name."""
 
-    cache_paths = []
+    cache_paths: list[str] = []
     dependencies_cache_dir = os.path.join(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION
     )
-    
+
     if not os.path.exists(dependencies_cache_dir):
         return cache_paths
-    
+
     for repo_name in os.listdir(dependencies_cache_dir):
         repo_path = os.path.join(dependencies_cache_dir, repo_name)
         if not os.path.isdir(repo_path):
             continue
-        
+
         try:
             service_config = load_service_config_from_file(repo_path)
             if service_config.service_name == service_name:
@@ -62,7 +62,7 @@ def _get_service_cache_paths(service_name: str) -> list[str]:
         except (ConfigNotFoundError, ConfigParseError, ConfigValidationError):
             # Skip invalid configs
             continue
-    
+
     return cache_paths
 
 
@@ -80,7 +80,7 @@ def purge(args: Namespace) -> None:
 def _purge_service(service_name: str, console: Console) -> None:
     """Purge a specific service."""
     state = State()
-    
+
     state.remove_service_entry(service_name, StateTables.STARTED_SERVICES)
     state.remove_service_entry(service_name, StateTables.STARTING_SERVICES)
     state.remove_service_entry(service_name, StateTables.SERVICE_RUNTIME)

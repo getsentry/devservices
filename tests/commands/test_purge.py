@@ -6,7 +6,6 @@ from unittest import mock
 
 import pytest
 
-from devservices.commands.purge import _get_service_cache_paths
 from devservices.commands.purge import purge
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.constants import DOCKER_NETWORK_NAME
@@ -569,12 +568,15 @@ def test_purge_specific_service(
     tmp_path: Path,
 ) -> None:
     """Test that purging a specific service removes only that service's containers, volumes, and cache."""
-    mock_get_matching_containers.return_value = ["kafka-container-1", "kafka-container-2"]
+    mock_get_matching_containers.return_value = [
+        "kafka-container-1",
+        "kafka-container-2",
+    ]
     mock_get_volumes_for_containers.return_value = ["kafka-volume-1", "kafka-volume-2"]
     cache_path = tmp_path / "dependencies" / "v1" / "kafka-repo"
     cache_path.mkdir(parents=True, exist_ok=True)
     mock_get_service_cache_paths.return_value = [str(cache_path)]
-    
+
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
         mock.patch(
@@ -582,15 +584,12 @@ def test_purge_specific_service(
         ),
     ):
         state = State()
-        state.update_service_entry(
-            "kafka", "default", StateTables.STARTED_SERVICES
-        )
-        state.update_service_entry(
-            "redis", "default", StateTables.STARTED_SERVICES
-        )
+        state.update_service_entry("kafka", "default", StateTables.STARTED_SERVICES)
+        state.update_service_entry("redis", "default", StateTables.STARTED_SERVICES)
 
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == [
-            "kafka", "redis"
+            "kafka",
+            "redis",
         ]
         assert cache_path.exists()
 
@@ -631,7 +630,7 @@ def test_purge_specific_service_no_containers(
     """Test that purging a service with no containers or cache still removes it from state."""
     mock_get_matching_containers.return_value = []
     mock_get_service_cache_paths.return_value = []
-    
+
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
         mock.patch(
@@ -639,16 +638,14 @@ def test_purge_specific_service_no_containers(
         ),
     ):
         state = State()
-        state.update_service_entry(
-            "kafka", "default", StateTables.STARTED_SERVICES
-        )
+        state.update_service_entry("kafka", "default", StateTables.STARTED_SERVICES)
 
         args = Namespace(service_name="kafka")
         purge(args)
 
         # Service should be removed from state even if no containers found
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == []
-        
+
         captured = capsys.readouterr()
         assert "No containers found for kafka" in captured.out
         assert "No cache found for kafka" in captured.out
