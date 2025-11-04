@@ -81,8 +81,17 @@ def _purge_service(service_name: str, console: Console) -> None:
     """Purge a specific service."""
     state = State()
 
-    state.remove_service_entry(service_name, StateTables.STARTED_SERVICES)
-    state.remove_service_entry(service_name, StateTables.STARTING_SERVICES)
+    # Check if service is currently running or starting
+    started_services = state.get_service_entries(StateTables.STARTED_SERVICES)
+    starting_services = state.get_service_entries(StateTables.STARTING_SERVICES)
+    
+    if service_name in started_services or service_name in starting_services:
+        console.failure(
+            f"Cannot purge {service_name} while it is running or starting. "
+            f"Please stop the service first using 'devservices down {service_name}'"
+        )
+        exit(1)
+
     state.remove_service_entry(service_name, StateTables.SERVICE_RUNTIME)
 
     try:
