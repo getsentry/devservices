@@ -554,6 +554,7 @@ def test_purge_with_cache_and_state_and_containers_with_networks_and_volumes(
         )
 
 
+@mock.patch("devservices.commands.purge.Console.confirm")
 @mock.patch("devservices.commands.purge.get_matching_containers")
 @mock.patch("devservices.commands.purge.get_volumes_for_containers")
 @mock.patch("devservices.commands.purge.stop_containers")
@@ -565,9 +566,11 @@ def test_purge_specific_service(
     mock_stop_containers: mock.Mock,
     mock_get_volumes_for_containers: mock.Mock,
     mock_get_matching_containers: mock.Mock,
+    mock_console_confirm: mock.Mock,
     tmp_path: Path,
 ) -> None:
     """Test that purging a specific service removes only that service's containers, volumes, and cache."""
+    mock_console_confirm.return_value = True
     mock_get_matching_containers.return_value = [
         "kafka-container-1",
         "kafka-container-2",
@@ -617,15 +620,18 @@ def test_purge_specific_service(
         mock_get_service_cache_paths.assert_called_once_with("kafka")
 
 
+@mock.patch("devservices.commands.purge.Console.confirm")
 @mock.patch("devservices.commands.purge.get_matching_containers")
 @mock.patch("devservices.commands.purge._get_service_cache_paths")
 def test_purge_specific_service_no_containers(
     mock_get_service_cache_paths: mock.Mock,
     mock_get_matching_containers: mock.Mock,
+    mock_console_confirm: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     """Test that purging a service with no containers or cache still removes it from state."""
+    mock_console_confirm.return_value = True
     mock_get_matching_containers.return_value = []
     mock_get_service_cache_paths.return_value = []
 
@@ -650,47 +656,43 @@ def test_purge_specific_service_no_containers(
         assert "kafka has been purged" in captured.out
 
 
-def test_purge_specific_service_fails_if_started(
+@mock.patch("devservices.commands.purge.Console.confirm")
+@mock.patch("devservices.commands.purge.get_matching_containers")
+@mock.patch("devservices.commands.purge._get_service_cache_paths")
+def test_purge_specific_service_cancelled_by_user(
+    mock_get_service_cache_paths: mock.Mock,
+    mock_get_matching_containers: mock.Mock,
+    mock_console_confirm: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    """Test that purging a service that is in STARTED_SERVICES fails with an error."""
-    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+    """Test that purging a service can be cancelled by the user."""
+    mock_console_confirm.return_value = False
+    mock_get_matching_containers.return_value = []
+    mock_get_service_cache_paths.return_value = []
+
+    with (
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.utils.docker.check_docker_daemon_running", return_value=None
+        ),
+    ):
         state = State()
+        # Add kafka to state
         state.update_service_entry("kafka", "default", StateTables.STARTED_SERVICES)
 
         args = Namespace(service_name="kafka")
-        with pytest.raises(SystemExit) as exc_info:
-            purge(args)
+        purge(args)
 
-        assert exc_info.value.code == 1
-
-        # Service should still be in state (purge was blocked)
+        # Service should still be in state (purge was cancelled)
         assert state.get_service_entries(StateTables.STARTED_SERVICES) == ["kafka"]
 
-        captured = capsys.readouterr()
-        assert "Cannot purge kafka while it is running or starting" in captured.out
-        assert "Please stop the service first" in captured.out
+        # Should have prompted user
+        mock_console_confirm.assert_called_once()
 
-
-def test_purge_specific_service_fails_if_starting(
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-) -> None:
-    """Test that purging a service that is in STARTING_SERVICES fails with an error."""
-    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
-        state = State()
-        state.update_service_entry("kafka", "default", StateTables.STARTING_SERVICES)
-
-        args = Namespace(service_name="kafka")
-        with pytest.raises(SystemExit) as exc_info:
-            purge(args)
-
-        assert exc_info.value.code == 1
-
-        # Service should still be in state (purge was blocked)
-        assert state.get_service_entries(StateTables.STARTING_SERVICES) == ["kafka"]
+        # Should not have attempted to get containers
+        mock_get_matching_containers.assert_not_called()
+        mock_get_service_cache_paths.assert_not_called()
 
         captured = capsys.readouterr()
-        assert "Cannot purge kafka while it is running or starting" in captured.out
-        assert "Please stop the service first" in captured.out
+        assert "Purge cancelled." in captured.out
