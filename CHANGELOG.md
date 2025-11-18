@@ -1,3 +1,10 @@
+## 1.2.3
+
+### Various fixes & improvements
+
+- feat(purge): Add ability to purge single service (#296) by @NicoHinderling
+- feat(logging): Add some basic logs (#295) by @hubertdeng123
+
 ## 1.2.2
 
 ### Various fixes & improvements
