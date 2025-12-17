@@ -53,6 +53,17 @@ class SupervisorDaemonState(IntEnum):
     SHUTDOWN = -1
 
 
+class SupervisorFaultCode(IntEnum):
+    """
+    Supervisor XML-RPC fault codes.
+
+    https://supervisord.org/api.html#xml-rpc-api-documentation
+    """
+
+    ALREADY_STARTED = 60
+    NOT_RUNNING = 70
+
+
 class UnixSocketHTTPConnection(http.client.HTTPConnection):
     """HTTP connection over Unix sockets."""
 
@@ -302,6 +313,10 @@ class SupervisorManager:
         try:
             self._get_rpc_client().supervisor.startProcess(name)
         except xmlrpc.client.Fault as e:
+            # ALREADY_STARTED is acceptable in concurrent scenarios
+            # where multiple threads may attempt to start the same process
+            if e.faultCode == SupervisorFaultCode.ALREADY_STARTED:
+                return
             raise SupervisorProcessError(
                 f"Failed to start process {name}: {e.faultString}"
             )
@@ -312,6 +327,10 @@ class SupervisorManager:
         try:
             self._get_rpc_client().supervisor.stopProcess(name)
         except xmlrpc.client.Fault as e:
+            # NOT_RUNNING is acceptable in concurrent scenarios
+            # where multiple threads may attempt to stop the same process
+            if e.faultCode == SupervisorFaultCode.NOT_RUNNING:
+                return
             raise SupervisorProcessError(
                 f"Failed to stop process {name}: {e.faultString}"
             )
