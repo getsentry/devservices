@@ -1,3 +1,12 @@
+## 1.2.4
+
+### Bug Fixes 🐛
+
+#### Supervisor
+
+- fix(supervisor): Gracefully handle connection errors when interacting with supervisor by @seer-by-sentry in [#298](https://github.com/getsentry/devservices/pull/298)
+- fix(supervisor): Ignore expected faults during process start/stop by @seer-by-sentry in [#297](https://github.com/getsentry/devservices/pull/297)
+
 ## 1.2.3
 
 ### Various fixes & improvements
