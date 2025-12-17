@@ -302,6 +302,10 @@ class SupervisorManager:
         try:
             self._get_rpc_client().supervisor.startProcess(name)
         except xmlrpc.client.Fault as e:
+            # Fault code 60 means ALREADY_STARTED, which is acceptable in concurrent scenarios
+            # where multiple threads may attempt to start the same process
+            if e.faultCode == 60:
+                return
             raise SupervisorProcessError(
                 f"Failed to start process {name}: {e.faultString}"
             )
@@ -312,6 +316,10 @@ class SupervisorManager:
         try:
             self._get_rpc_client().supervisor.stopProcess(name)
         except xmlrpc.client.Fault as e:
+            # Fault code 70 means NOT_RUNNING, which is acceptable in concurrent scenarios
+            # where multiple threads may attempt to stop the same process
+            if e.faultCode == 70:
+                return
             raise SupervisorProcessError(
                 f"Failed to stop process {name}: {e.faultString}"
             )
