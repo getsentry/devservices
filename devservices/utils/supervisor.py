@@ -222,7 +222,12 @@ class SupervisorManager:
             if not isinstance(state, int):
                 return False
             return state == SupervisorProcessState.RUNNING
-        except xmlrpc.client.Fault:
+        except (
+            xmlrpc.client.Fault,
+            SupervisorConnectionError,
+            socket.error,
+            ConnectionRefusedError,
+        ):
             # If we can't get the process info, assume it's not running
             return False
 
@@ -295,6 +300,9 @@ class SupervisorManager:
             self._get_rpc_client().supervisor.shutdown()
         except xmlrpc.client.Fault as e:
             raise SupervisorError(f"Failed to stop supervisor: {e.faultString}")
+        except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
+            # Supervisor is already down, nothing to do
+            pass
 
     def start_process(self, name: str) -> None:
         if self._is_program_running(name):
@@ -315,6 +323,9 @@ class SupervisorManager:
             raise SupervisorProcessError(
                 f"Failed to stop process {name}: {e.faultString}"
             )
+        except (SupervisorConnectionError, socket.error, ConnectionRefusedError):
+            # Supervisor is not available, process is already stopped
+            pass
 
     def get_program_command(self, program_name: str) -> str:
         opts = ServerOptions()
