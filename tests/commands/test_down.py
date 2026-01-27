@@ -80,6 +80,10 @@ def test_down_starting(
                 "devservices.commands.down.get_active_service_names",
                 return_value={"example-service"},
             ),
+            mock.patch(
+                "devservices.utils.dependencies.get_active_service_names",
+                return_value={"example-service"},
+            ),
         ):
             state = State()
             state.update_service_entry(
@@ -162,6 +166,10 @@ def test_down_started(
             ),
             mock.patch(
                 "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
+            ),
+            mock.patch(
+                "devservices.utils.dependencies.get_active_service_names",
                 return_value={"example-service"},
             ),
         ):
@@ -335,6 +343,10 @@ def test_down_mode_simple(
             ),
             mock.patch(
                 "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
+            ),
+            mock.patch(
+                "devservices.utils.dependencies.get_active_service_names",
                 return_value={"example-service"},
             ),
         ):
@@ -1481,6 +1493,10 @@ def test_down_supervisor_program_success(
             ),
             mock.patch(
                 "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
+            ),
+            mock.patch(
+                "devservices.utils.dependencies.get_active_service_names",
                 return_value={"example-service"},
             ),
         ):

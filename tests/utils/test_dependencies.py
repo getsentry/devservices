@@ -19,10 +19,10 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
-from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import DependencyNode
 from devservices.utils.dependencies import get_installed_remote_dependencies
@@ -2043,6 +2043,10 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
 
 
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(),
 )
@@ -2063,6 +2067,7 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
 def test_get_non_shared_remote_dependencies_no_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -3412,7 +3417,9 @@ def test_construct_dependency_graph_complex(
             DependencyNode(
                 name="grandparent-service", dependency_type=DependencyType.SERVICE
             )
-        ), "Grandparent service should come before complex service in the starting order"
+        ), (
+            "Grandparent service should come before complex service in the starting order"
+        )
 
 
 @mock.patch(
@@ -3429,9 +3436,7 @@ def test_get_active_service_names_removes_stale_entries(
     """
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
-        state.update_service_entry(
-            "service-1", "default", StateTables.STARTED_SERVICES
-        )
+        state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
         state.update_service_entry(
             "stale-service", "default", StateTables.STARTED_SERVICES
         )
