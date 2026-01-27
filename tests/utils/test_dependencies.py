@@ -19,6 +19,7 @@ from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
@@ -3396,3 +3397,74 @@ def test_construct_dependency_graph_complex(
                 name="grandparent-service", dependency_type=DependencyType.SERVICE
             )
         ), "Grandparent service should come before complex service in the starting order"
+
+
+@mock.patch(
+    "devservices.utils.dependencies.find_matching_service",
+    side_effect=ServiceNotFoundError("Service 'stale-service' not found."),
+)
+@pytest.mark.parametrize("exclude_local", [True, False])
+def test_get_non_shared_remote_dependencies_stale_service_entry(
+    mock_find_matching_service: mock.Mock,
+    tmp_path: Path,
+    exclude_local: bool,
+) -> None:
+    """
+    Test that when the state DB contains a service name that no longer exists on disk,
+    the stale entry is skipped and cleaned up rather than crashing.
+    """
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.update_service_entry(
+            "service-1", "default", StateTables.STARTED_SERVICES
+        )
+        state.update_service_entry(
+            "stale-service", "default", StateTables.STARTED_SERVICES
+        )
+    service_to_stop = Service(
+        name="service-1",
+        repo_path="/path/to/service-1",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="service-1",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                    dependency_type=DependencyType.SERVICE,
+                )
+            },
+            modes={"default": ["dependency-1"]},
+        ),
+    )
+    # Should NOT raise ServiceNotFoundError
+    non_shared_remote_dependencies = get_non_shared_remote_dependencies(
+        service_to_stop,
+        set(
+            [
+                InstalledRemoteDependency(
+                    service_name="dependency-1",
+                    repo_path="/path/to/dependency-1",
+                    mode="default",
+                )
+            ]
+        ),
+        exclude_local=exclude_local,
+    )
+    # Both entries are filtered out by validation (mock raises for all),
+    # so no active services remain and dependency-1 is non-shared
+    assert len(non_shared_remote_dependencies) == 1
+    assert non_shared_remote_dependencies == {
+        InstalledRemoteDependency(
+            service_name="dependency-1",
+            repo_path="/path/to/dependency-1",
+            mode="default",
+        )
+    }
+    # Verify the stale entries were removed from the state DB
+    remaining = state.get_service_entries(StateTables.STARTED_SERVICES)
+    assert "stale-service" not in remaining

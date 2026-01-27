@@ -34,6 +34,7 @@ from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -90,9 +91,7 @@ def down(args: Namespace) -> None:
     exclude_local = getattr(args, "exclude_local", False)
 
     state = State()
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names()
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
         return  # Since exit(0) is captured as an internal_error by sentry
@@ -282,7 +281,15 @@ def _get_dependent_service(
     state: State,
 ) -> str | None:
     for other_started_service in other_started_services:
-        other_service = find_matching_service(other_started_service)
+        try:
+            other_service = find_matching_service(other_started_service)
+        except ServiceNotFoundError:
+            sentry_logger.warning(
+                "Stale service entry found in state database, removing",
+                extra={"service_name": other_started_service},
+            )
+            state.remove_stale_service_entry(other_started_service)
+            continue
         other_service_active_starting_modes = state.get_active_modes_for_service(
             other_service.name, StateTables.STARTING_SERVICES
         )

@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import logger as sentry_logger
 
 from devservices.commands.down import bring_down_service
 from devservices.commands.up import up
@@ -20,6 +21,7 @@ from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -97,9 +99,7 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
     console = Console()
     state = State()
 
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names()
 
     # If the service is already running standalone, we can just update the runtime
     if service_to_transition.name in active_services:
@@ -110,7 +110,15 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
         return
 
     for active_service_name in active_services:
-        active_service = find_matching_service(active_service_name)
+        try:
+            active_service = find_matching_service(active_service_name)
+        except ServiceNotFoundError:
+            sentry_logger.warning(
+                "Stale service entry found in state database, removing",
+                extra={"service_name": active_service_name},
+            )
+            state.remove_stale_service_entry(active_service_name)
+            continue
         starting_active_modes = set(
             state.get_active_modes_for_service(
                 active_service_name, StateTables.STARTING_SERVICES
@@ -158,9 +166,7 @@ def handle_transition_to_containerized_runtime(service: Service) -> None:
     """Handle the transition to a containerized runtime for a service."""
     console = Console()
     state = State()
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names()
     if service.name in active_services:
         console.warning(f"{service.name} is running, please stop it first")
         return
@@ -178,7 +184,15 @@ def find_dependent_services(
     state = State()
     dependent_services: dict[str, list[str]] = dict()
     for active_service_name in active_services:
-        active_service = find_matching_service(active_service_name)
+        try:
+            active_service = find_matching_service(active_service_name)
+        except ServiceNotFoundError:
+            sentry_logger.warning(
+                "Stale service entry found in state database, removing",
+                extra={"service_name": active_service_name},
+            )
+            state.remove_stale_service_entry(active_service_name)
+            continue
         starting_active_modes = set(
             state.get_active_modes_for_service(
                 active_service_name, StateTables.STARTING_SERVICES

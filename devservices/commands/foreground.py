@@ -19,6 +19,7 @@ from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorProcessError
 from devservices.utils.console import Console
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from devservices.utils.supervisor import SupervisorManager
@@ -60,9 +61,7 @@ def foreground(args: Namespace) -> None:
         )
         return
     state = State()
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names()
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
         return

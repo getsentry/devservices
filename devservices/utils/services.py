@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from sentry_sdk import logger as sentry_logger
+
 from devservices.configs.service_config import ServiceConfig
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
@@ -73,3 +75,36 @@ def find_matching_service(service_name: str | None = None) -> Service:
         )
         error_message += "\nSupported services:\n" + service_bullet_points
     raise ServiceNotFoundError(error_message)
+
+
+def get_active_service_names(validate: bool = False) -> set[str]:
+    """Get the names of all services currently starting or started.
+
+    Args:
+        validate: If True, verify each service still exists on disk.
+            Stale entries (services that no longer exist) are removed
+            from the state database and excluded from the result.
+    """
+    from devservices.utils.state import State
+    from devservices.utils.state import StateTables
+
+    state = State()
+    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
+    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
+    active_services = starting_services.union(started_services)
+
+    if not validate:
+        return active_services
+
+    valid_services: set[str] = set()
+    for service_name in active_services:
+        try:
+            find_matching_service(service_name)
+            valid_services.add(service_name)
+        except ServiceNotFoundError:
+            sentry_logger.warning(
+                "Stale service entry found in state database, removing",
+                extra={"service_name": service_name},
+            )
+            state.remove_stale_service_entry(service_name)
+    return valid_services

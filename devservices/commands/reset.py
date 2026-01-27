@@ -5,12 +5,14 @@ from argparse import ArgumentParser
 from argparse import Namespace
 
 from sentry_sdk import capture_exception
+from sentry_sdk import logger as sentry_logger
 
 from devservices.commands.down import down
 from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
@@ -20,6 +22,7 @@ from devservices.utils.docker import get_volumes_for_containers
 from devservices.utils.docker import remove_docker_resources
 from devservices.utils.docker import stop_containers
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 
@@ -69,13 +72,19 @@ def reset(args: Namespace) -> None:
         exit(1)
 
     state = State()
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    active_service_names = starting_services.union(started_services)
+    active_service_names = get_active_service_names()
 
     # TODO: We should add threading here to speed up the process
     for active_service_name in active_service_names:
-        active_service = find_matching_service(active_service_name)
+        try:
+            active_service = find_matching_service(active_service_name)
+        except ServiceNotFoundError:
+            sentry_logger.warning(
+                "Stale service entry found in state database, removing",
+                extra={"service_name": active_service_name},
+            )
+            state.remove_stale_service_entry(active_service_name)
+            continue
         starting_active_modes = state.get_active_modes_for_service(
             active_service_name, StateTables.STARTING_SERVICES
         )

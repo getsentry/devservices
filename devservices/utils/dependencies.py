@@ -34,11 +34,13 @@ from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -281,12 +283,9 @@ def get_non_shared_remote_dependencies(
     exclude_local: bool,
 ) -> set[InstalledRemoteDependency]:
     state = State()
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names()
     # We don't care about the remote dependencies of the service we are stopping
-    if service_to_stop.name in active_services:
-        active_services.remove(service_to_stop.name)
+    active_services.discard(service_to_stop.name)
 
     active_modes: dict[str, list[str]] = dict()
     for active_service in active_services:
@@ -302,7 +301,15 @@ def get_non_shared_remote_dependencies(
     other_running_remote_dependencies: set[InstalledRemoteDependency] = set()
     base_running_service_names: set[str] = set()
     for started_service_name in active_services:
-        started_service = find_matching_service(started_service_name)
+        try:
+            started_service = find_matching_service(started_service_name)
+        except ServiceNotFoundError:
+            sentry_logger.warning(
+                "Stale service entry found in state database, removing",
+                extra={"service_name": started_service_name},
+            )
+            state.remove_stale_service_entry(started_service_name)
+            continue
         started_service_runtime = state.get_service_runtime(started_service_name)
         if exclude_local or started_service_runtime != ServiceRuntime.LOCAL:
             # TODO: In theory, we should only be able to run the base-service when a dependent service is running if
