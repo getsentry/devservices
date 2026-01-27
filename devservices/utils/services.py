@@ -12,6 +12,8 @@ from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.console import Console
 from devservices.utils.devenv import get_coderoot
+from devservices.utils.state import State
+from devservices.utils.state import StateTables
 
 
 @dataclass
@@ -85,9 +87,6 @@ def get_active_service_names(validate: bool = False) -> set[str]:
             Stale entries (services that no longer exist) are removed
             from the state database and excluded from the result.
     """
-    from devservices.utils.state import State
-    from devservices.utils.state import StateTables
-
     state = State()
     starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
