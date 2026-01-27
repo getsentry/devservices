@@ -33,6 +33,7 @@ from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -2117,6 +2118,10 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
 
 
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(
         [
@@ -2155,6 +2160,7 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
 def test_get_non_shared_remote_dependencies_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -2218,6 +2224,10 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
 
 # Implies that dependency-3 depends on dependency-1
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(
         [
@@ -2265,6 +2275,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
 def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -2349,6 +2360,10 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
 
 
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(),
 )
@@ -2379,6 +2394,7 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
 def test_get_non_shared_remote_dependencies_with_local_runtime_dependency(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -3400,18 +3416,16 @@ def test_construct_dependency_graph_complex(
 
 
 @mock.patch(
-    "devservices.utils.dependencies.find_matching_service",
+    "devservices.utils.services.find_matching_service",
     side_effect=ServiceNotFoundError("Service 'stale-service' not found."),
 )
-@pytest.mark.parametrize("exclude_local", [True, False])
-def test_get_non_shared_remote_dependencies_stale_service_entry(
+def test_get_active_service_names_removes_stale_entries(
     mock_find_matching_service: mock.Mock,
     tmp_path: Path,
-    exclude_local: bool,
 ) -> None:
     """
-    Test that when the state DB contains a service name that no longer exists on disk,
-    the stale entry is skipped and cleaned up rather than crashing.
+    Test that get_active_service_names(validate=True) removes stale entries
+    from the state DB and excludes them from the result.
     """
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
         state = State()
@@ -3421,50 +3435,11 @@ def test_get_non_shared_remote_dependencies_stale_service_entry(
         state.update_service_entry(
             "stale-service", "default", StateTables.STARTED_SERVICES
         )
-    service_to_stop = Service(
-        name="service-1",
-        repo_path="/path/to/service-1",
-        config=ServiceConfig(
-            version=0.1,
-            service_name="service-1",
-            dependencies={
-                "dependency-1": Dependency(
-                    description="dependency-1",
-                    remote=RemoteConfig(
-                        repo_name="dependency-1",
-                        repo_link="file://path/to/dependency-1",
-                        branch="main",
-                    ),
-                    dependency_type=DependencyType.SERVICE,
-                )
-            },
-            modes={"default": ["dependency-1"]},
-        ),
-    )
     # Should NOT raise ServiceNotFoundError
-    non_shared_remote_dependencies = get_non_shared_remote_dependencies(
-        service_to_stop,
-        set(
-            [
-                InstalledRemoteDependency(
-                    service_name="dependency-1",
-                    repo_path="/path/to/dependency-1",
-                    mode="default",
-                )
-            ]
-        ),
-        exclude_local=exclude_local,
-    )
-    # Both entries are filtered out by validation (mock raises for all),
-    # so no active services remain and dependency-1 is non-shared
-    assert len(non_shared_remote_dependencies) == 1
-    assert non_shared_remote_dependencies == {
-        InstalledRemoteDependency(
-            service_name="dependency-1",
-            repo_path="/path/to/dependency-1",
-            mode="default",
-        )
-    }
+    active_services = get_active_service_names(validate=True)
+    # Both entries are stale (mock raises for all), so none remain
+    assert len(active_services) == 0
     # Verify the stale entries were removed from the state DB
     remaining = state.get_service_entries(StateTables.STARTED_SERVICES)
     assert "stale-service" not in remaining
+    assert "service-1" not in remaining

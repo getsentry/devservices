@@ -34,7 +34,6 @@ from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
-from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import UnableToCloneDependencyError
@@ -283,7 +282,7 @@ def get_non_shared_remote_dependencies(
     exclude_local: bool,
 ) -> set[InstalledRemoteDependency]:
     state = State()
-    active_services = get_active_service_names()
+    active_services = get_active_service_names(validate=True)
     # We don't care about the remote dependencies of the service we are stopping
     active_services.discard(service_to_stop.name)
 
@@ -301,15 +300,7 @@ def get_non_shared_remote_dependencies(
     other_running_remote_dependencies: set[InstalledRemoteDependency] = set()
     base_running_service_names: set[str] = set()
     for started_service_name in active_services:
-        try:
-            started_service = find_matching_service(started_service_name)
-        except ServiceNotFoundError:
-            sentry_logger.warning(
-                "Stale service entry found in state database, removing",
-                extra={"service_name": started_service_name},
-            )
-            state.remove_stale_service_entry(started_service_name)
-            continue
+        started_service = find_matching_service(started_service_name)
         started_service_runtime = state.get_service_runtime(started_service_name)
         if exclude_local or started_service_runtime != ServiceRuntime.LOCAL:
             # TODO: In theory, we should only be able to run the base-service when a dependent service is running if

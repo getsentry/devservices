@@ -91,7 +91,7 @@ def down(args: Namespace) -> None:
     exclude_local = getattr(args, "exclude_local", False)
 
     state = State()
-    active_services = get_active_service_names()
+    active_services = get_active_service_names(validate=True)
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
         return  # Since exit(0) is captured as an internal_error by sentry
@@ -281,15 +281,7 @@ def _get_dependent_service(
     state: State,
 ) -> str | None:
     for other_started_service in other_started_services:
-        try:
-            other_service = find_matching_service(other_started_service)
-        except ServiceNotFoundError:
-            sentry_logger.warning(
-                "Stale service entry found in state database, removing",
-                extra={"service_name": other_started_service},
-            )
-            state.remove_stale_service_entry(other_started_service)
-            continue
+        other_service = find_matching_service(other_started_service)
         other_service_active_starting_modes = state.get_active_modes_for_service(
             other_service.name, StateTables.STARTING_SERVICES
         )

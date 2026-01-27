@@ -76,6 +76,10 @@ def test_down_starting(
             mock.patch(
                 "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
             ),
+            mock.patch(
+                "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
+            ),
         ):
             state = State()
             state.update_service_entry(
@@ -155,6 +159,10 @@ def test_down_started(
             ) as mock_run_cmd,
             mock.patch(
                 "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
+            mock.patch(
+                "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
             ),
         ):
             state = State()
@@ -250,6 +258,14 @@ def test_down_error(
 
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.commands.down.get_active_service_names",
+            return_value={"example-service"},
+        ),
+        mock.patch(
+            "devservices.utils.dependencies.get_active_service_names",
+            return_value={"example-service"},
+        ),
         pytest.raises(SystemExit),
     ):
         state = State()
@@ -316,6 +332,10 @@ def test_down_mode_simple(
             ) as mock_run_cmd,
             mock.patch(
                 "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
+            mock.patch(
+                "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
             ),
         ):
             state = State()
@@ -1387,6 +1407,14 @@ def test_down_supervisor_program_error(
             mock.patch(
                 "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
             ),
+            mock.patch(
+                "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
+            ),
+            mock.patch(
+                "devservices.utils.dependencies.get_active_service_names",
+                return_value={"example-service"},
+            ),
             pytest.raises(SystemExit),
         ):
             state = State()
@@ -1450,6 +1478,10 @@ def test_down_supervisor_program_success(
         with (
             mock.patch(
                 "devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")
+            ),
+            mock.patch(
+                "devservices.commands.down.get_active_service_names",
+                return_value={"example-service"},
             ),
         ):
             state = State()
