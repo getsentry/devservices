@@ -3417,9 +3417,7 @@ def test_construct_dependency_graph_complex(
             DependencyNode(
                 name="grandparent-service", dependency_type=DependencyType.SERVICE
             )
-        ), (
-            "Grandparent service should come before complex service in the starting order"
-        )
+        ), "Grandparent service should come before complex service in the starting order"
 
 
 @mock.patch(

@@ -96,7 +96,6 @@ def status(args: Namespace) -> None:
         console.failure(str(e))
         exit(1)
 
-    state = State()
     active_services = get_active_service_names()
     if service.name not in active_services:
         console.warning(f"Status unavailable. {service.name} is not running standalone")
