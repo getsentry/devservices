@@ -98,7 +98,7 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
     console = Console()
     state = State()
 
-    active_services = get_active_service_names(validate=True)
+    active_services = get_active_service_names(clean_stale_entries=True)
 
     # If the service is already running standalone, we can just update the runtime
     if service_to_transition.name in active_services:
@@ -157,7 +157,7 @@ def handle_transition_to_containerized_runtime(service: Service) -> None:
     """Handle the transition to a containerized runtime for a service."""
     console = Console()
     state = State()
-    active_services = get_active_service_names(validate=True)
+    active_services = get_active_service_names(clean_stale_entries=True)
     if service.name in active_services:
         console.warning(f"{service.name} is running, please stop it first")
         return

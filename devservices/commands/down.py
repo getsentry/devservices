@@ -91,7 +91,7 @@ def down(args: Namespace) -> None:
     exclude_local = getattr(args, "exclude_local", False)
 
     state = State()
-    active_services = get_active_service_names(validate=True)
+    active_services = get_active_service_names(clean_stale_entries=True)
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
         return  # Since exit(0) is captured as an internal_error by sentry

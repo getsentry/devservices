@@ -79,11 +79,11 @@ def find_matching_service(service_name: str | None = None) -> Service:
     raise ServiceNotFoundError(error_message)
 
 
-def get_active_service_names(validate: bool = False) -> set[str]:
+def get_active_service_names(clean_stale_entries: bool = False) -> set[str]:
     """Get the names of all services currently starting or started.
 
     Args:
-        validate: If True, verify each service still exists on disk.
+        clean_stale_entries: If True, verify each service still exists on disk.
             Stale entries (services that no longer exist) are removed
             from the state database and excluded from the result.
     """
@@ -92,7 +92,7 @@ def get_active_service_names(validate: bool = False) -> set[str]:
     started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
     active_services = starting_services.union(started_services)
 
-    if not validate:
+    if not clean_stale_entries:
         return active_services
 
     valid_services: set[str] = set()

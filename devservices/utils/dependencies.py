@@ -282,7 +282,7 @@ def get_non_shared_remote_dependencies(
     exclude_local: bool,
 ) -> set[InstalledRemoteDependency]:
     state = State()
-    active_services = get_active_service_names(validate=True)
+    active_services = get_active_service_names(clean_stale_entries=True)
     # We don't care about the remote dependencies of the service we are stopping
     active_services.discard(service_to_stop.name)
 

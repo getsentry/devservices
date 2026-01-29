@@ -70,7 +70,7 @@ def reset(args: Namespace) -> None:
         exit(1)
 
     state = State()
-    active_service_names = get_active_service_names(validate=True)
+    active_service_names = get_active_service_names(clean_stale_entries=True)
 
     # TODO: We should add threading here to speed up the process
     for active_service_name in active_service_names:

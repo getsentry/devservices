@@ -3429,7 +3429,7 @@ def test_get_active_service_names_removes_stale_entries(
     tmp_path: Path,
 ) -> None:
     """
-    Test that get_active_service_names(validate=True) removes stale entries
+    Test that get_active_service_names(clean_stale_entries=True) removes stale entries
     from the state DB and excludes them from the result.
     """
     with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
@@ -3438,11 +3438,11 @@ def test_get_active_service_names_removes_stale_entries(
         state.update_service_entry(
             "stale-service", "default", StateTables.STARTED_SERVICES
         )
-    # Should NOT raise ServiceNotFoundError
-    active_services = get_active_service_names(validate=True)
-    # Both entries are stale (mock raises for all), so none remain
-    assert len(active_services) == 0
-    # Verify the stale entries were removed from the state DB
-    remaining = state.get_service_entries(StateTables.STARTED_SERVICES)
-    assert "stale-service" not in remaining
-    assert "service-1" not in remaining
+        # Should NOT raise ServiceNotFoundError
+        active_services = get_active_service_names(clean_stale_entries=True)
+        # Both entries are stale (mock raises for all), so none remain
+        assert len(active_services) == 0
+        # Verify the stale entries were removed from the state DB
+        remaining = state.get_service_entries(StateTables.STARTED_SERVICES)
+        assert "stale-service" not in remaining
+        assert "service-1" not in remaining
