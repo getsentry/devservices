@@ -39,6 +39,7 @@ from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -281,12 +282,9 @@ def get_non_shared_remote_dependencies(
     exclude_local: bool,
 ) -> set[InstalledRemoteDependency]:
     state = State()
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names(clean_stale_entries=True)
     # We don't care about the remote dependencies of the service we are stopping
-    if service_to_stop.name in active_services:
-        active_services.remove(service_to_stop.name)
+    active_services.discard(service_to_stop.name)
 
     active_modes: dict[str, list[str]] = dict()
     for active_service in active_services:

@@ -174,6 +174,22 @@ class State:
         )
         return [row[0] for row in cursor.fetchall()]
 
+    def remove_stale_service_entry(self, service_name: str) -> None:
+        """Remove a service from all state tables.
+
+        Used to clean up entries for services that no longer exist on disk.
+        """
+        self.remove_service_entry(service_name, StateTables.STARTING_SERVICES)
+        self.remove_service_entry(service_name, StateTables.STARTED_SERVICES)
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            DELETE FROM {StateTables.SERVICE_RUNTIME.value} WHERE service_name = ?
+        """,
+            (service_name,),
+        )
+        self.conn.commit()
+
     def clear_state(self) -> None:
         cursor = self.conn.cursor()
         cursor.execute(

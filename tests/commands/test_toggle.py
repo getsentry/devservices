@@ -525,6 +525,10 @@ def test_handle_transition_to_local_runtime_currently_running_standalone(
 ) -> None:
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.commands.toggle.get_active_service_names",
+            return_value={"example-service"},
+        ),
     ):
         state = State()
         state.update_service_runtime("example-service", ServiceRuntime.CONTAINERIZED)
@@ -723,6 +727,10 @@ def test_handle_transition_to_containerized_runtime_with_service_running(
 ) -> None:
     with (
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+        mock.patch(
+            "devservices.commands.toggle.get_active_service_names",
+            return_value={"redis"},
+        ),
     ):
         redis_repo_path = create_mock_git_repo("blank_repo", tmp_path / "redis")
         redis_config = {

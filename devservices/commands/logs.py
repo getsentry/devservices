@@ -29,6 +29,7 @@ from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
@@ -84,9 +85,7 @@ def logs(args: Namespace) -> None:
     if not mode_dependencies and "default" in modes:
         mode_dependencies.update(modes["default"])
 
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    running_services = starting_services.union(started_services)
+    running_services = get_active_service_names()
     if service.name not in running_services:
         console.warning(f"Service {service.name} is not running")
         return

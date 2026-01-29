@@ -20,6 +20,7 @@ from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -97,9 +98,7 @@ def handle_transition_to_local_runtime(service_to_transition: Service) -> None:
     console = Console()
     state = State()
 
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names(clean_stale_entries=True)
 
     # If the service is already running standalone, we can just update the runtime
     if service_to_transition.name in active_services:
@@ -158,9 +157,7 @@ def handle_transition_to_containerized_runtime(service: Service) -> None:
     """Handle the transition to a containerized runtime for a service."""
     console = Console()
     state = State()
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names(clean_stale_entries=True)
     if service.name in active_services:
         console.warning(f"{service.name} is running, please stop it first")
         return

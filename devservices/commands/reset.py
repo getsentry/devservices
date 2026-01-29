@@ -20,6 +20,7 @@ from devservices.utils.docker import get_volumes_for_containers
 from devservices.utils.docker import remove_docker_resources
 from devservices.utils.docker import stop_containers
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 
@@ -69,9 +70,7 @@ def reset(args: Namespace) -> None:
         exit(1)
 
     state = State()
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    active_service_names = starting_services.union(started_services)
+    active_service_names = get_active_service_names(clean_stale_entries=True)
 
     # TODO: We should add threading here to speed up the process
     for active_service_name in active_service_names:

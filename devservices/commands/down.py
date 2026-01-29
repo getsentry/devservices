@@ -34,6 +34,7 @@ from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import find_matching_service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -90,9 +91,7 @@ def down(args: Namespace) -> None:
     exclude_local = getattr(args, "exclude_local", False)
 
     state = State()
-    starting_services = set(state.get_service_entries(StateTables.STARTING_SERVICES))
-    started_services = set(state.get_service_entries(StateTables.STARTED_SERVICES))
-    active_services = starting_services.union(started_services)
+    active_services = get_active_service_names(clean_stale_entries=True)
     if service.name not in active_services:
         console.warning(f"{service.name} is not running")
         return  # Since exit(0) is captured as an internal_error by sentry

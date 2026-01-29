@@ -22,6 +22,7 @@ from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
+from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import DependencyNode
 from devservices.utils.dependencies import get_installed_remote_dependencies
@@ -32,6 +33,7 @@ from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
+from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
@@ -2041,6 +2043,10 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
 
 
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(),
 )
@@ -2061,6 +2067,7 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
 def test_get_non_shared_remote_dependencies_no_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -2116,6 +2123,10 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
 
 
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(
         [
@@ -2154,6 +2165,7 @@ def test_get_non_shared_remote_dependencies_no_shared_dependencies(
 def test_get_non_shared_remote_dependencies_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -2217,6 +2229,10 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
 
 # Implies that dependency-3 depends on dependency-1
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(
         [
@@ -2264,6 +2280,7 @@ def test_get_non_shared_remote_dependencies_shared_dependencies(
 def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -2348,6 +2365,10 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
 
 
 @mock.patch(
+    "devservices.utils.dependencies.get_active_service_names",
+    return_value={"service-1", "service-2"},
+)
+@mock.patch(
     "devservices.utils.dependencies.get_installed_remote_dependencies",
     return_value=set(),
 )
@@ -2378,6 +2399,7 @@ def test_get_non_shared_remote_dependencies_nested_shared_dependencies(
 def test_get_non_shared_remote_dependencies_with_local_runtime_dependency(
     mock_find_matching_service: mock.Mock,
     mock_get_installed_remote_dependencies: mock.Mock,
+    mock_get_active_service_names: mock.Mock,
     tmp_path: Path,
     exclude_local: bool,
 ) -> None:
@@ -3396,3 +3418,31 @@ def test_construct_dependency_graph_complex(
                 name="grandparent-service", dependency_type=DependencyType.SERVICE
             )
         ), "Grandparent service should come before complex service in the starting order"
+
+
+@mock.patch(
+    "devservices.utils.services.find_matching_service",
+    side_effect=ServiceNotFoundError("Service 'stale-service' not found."),
+)
+def test_get_active_service_names_removes_stale_entries(
+    mock_find_matching_service: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    """
+    Test that get_active_service_names(clean_stale_entries=True) removes stale entries
+    from the state DB and excludes them from the result.
+    """
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.update_service_entry("service-1", "default", StateTables.STARTED_SERVICES)
+        state.update_service_entry(
+            "stale-service", "default", StateTables.STARTED_SERVICES
+        )
+        # Should NOT raise ServiceNotFoundError
+        active_services = get_active_service_names(clean_stale_entries=True)
+        # Both entries are stale (mock raises for all), so none remain
+        assert len(active_services) == 0
+        # Verify the stale entries were removed from the state DB
+        remaining = state.get_service_entries(StateTables.STARTED_SERVICES)
+        assert "stale-service" not in remaining
+        assert "service-1" not in remaining
