@@ -15,6 +15,7 @@ from devservices.constants import SANDBOX_IMAGE_PROJECT
 from devservices.constants import SANDBOX_LABEL_KEY
 from devservices.constants import SANDBOX_LABEL_VALUE
 from devservices.constants import SANDBOX_NETWORK_TAG
+from devservices.constants import SANDBOX_REQUIRED_APIS
 from devservices.exceptions import GCloudNotFoundError
 from devservices.exceptions import SandboxOperationError
 from devservices.utils.sandbox import check_api_enabled
@@ -726,7 +727,7 @@ def test_validate_sandbox_apis_one_missing(
     console = Console()
     assert validate_sandbox_apis("my-project", console) is False
     output = capsys.readouterr().out
-    assert "compute.googleapis.com" in output
+    assert SANDBOX_REQUIRED_APIS[1] in output
 
 
 @mock.patch("devservices.utils.sandbox.check_api_enabled")
@@ -740,8 +741,8 @@ def test_validate_sandbox_apis_all_missing(
     console = Console()
     assert validate_sandbox_apis("my-project", console) is False
     output = capsys.readouterr().out
-    assert "iap.googleapis.com" in output
-    assert "compute.googleapis.com" in output
+    for api in SANDBOX_REQUIRED_APIS:
+        assert api in output
 
 
 # --- get_instance_details ---
