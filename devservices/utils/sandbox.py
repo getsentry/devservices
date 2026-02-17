@@ -247,7 +247,9 @@ def list_instances(project: str, zone: str | None = None) -> list[dict[str, str]
         return []
 
 
-def ssh_exec(name: str, project: str, zone: str) -> None:
+def ssh_exec(
+    name: str, project: str, zone: str, ports: list[int] | None = None
+) -> None:
     """SSH into a sandbox instance via IAP tunnel. Replaces the current process."""
     cmd = [
         "gcloud",
@@ -259,6 +261,9 @@ def ssh_exec(name: str, project: str, zone: str) -> None:
         "--tunnel-through-iap",
         "--ssh-flag=-A",
     ]
+    if ports:
+        for port in ports:
+            cmd.append(f"--ssh-flag=-L {port}:localhost:{port}")
     os.execvp("gcloud", cmd)
 
 

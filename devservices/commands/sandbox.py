@@ -92,6 +92,17 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         default=SANDBOX_DEFAULT_ZONE,
         help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
     )
+    ssh_parser.add_argument(
+        "--ports",
+        default=None,
+        help="Comma-separated ports to forward (default: 8000)",
+    )
+    ssh_parser.add_argument(
+        "--no-forward",
+        action="store_true",
+        default=False,
+        help="Skip automatic port forwarding",
+    )
     ssh_parser.set_defaults(func=sandbox_ssh)
 
     # stop
@@ -336,8 +347,19 @@ def sandbox_ssh(args: Namespace) -> None:
         )
         exit(1)
 
+    # Resolve ports for forwarding
+    if args.no_forward:
+        ports = None
+    elif args.ports:
+        ports = [int(p.strip()) for p in args.ports.split(",")]
+    else:
+        ports = SANDBOX_DEFAULT_PORTS
+
     console.info(f"Connecting to sandbox '{name}'...")
-    ssh_exec(name, project, zone)
+    if ports:
+        port_str = ", ".join(str(p) for p in ports)
+        console.info(f"Forwarding ports: {port_str}")
+    ssh_exec(name, project, zone, ports=ports)
 
 
 def sandbox_stop(args: Namespace) -> None:

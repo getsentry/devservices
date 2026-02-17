@@ -533,6 +533,91 @@ def test_ssh_exec(mock_execvp: mock.Mock) -> None:
     )
 
 
+@mock.patch("devservices.utils.sandbox.os.execvp")
+def test_ssh_exec_with_ports(mock_execvp: mock.Mock) -> None:
+    ssh_exec(
+        name="sandbox-test", project="my-project", zone="us-central1-a", ports=[8000]
+    )
+    mock_execvp.assert_called_once_with(
+        "gcloud",
+        [
+            "gcloud",
+            "compute",
+            "ssh",
+            "sandbox-test",
+            "--project=my-project",
+            "--zone=us-central1-a",
+            "--tunnel-through-iap",
+            "--ssh-flag=-A",
+            "--ssh-flag=-L 8000:localhost:8000",
+        ],
+    )
+
+
+@mock.patch("devservices.utils.sandbox.os.execvp")
+def test_ssh_exec_with_multiple_ports(mock_execvp: mock.Mock) -> None:
+    ssh_exec(
+        name="sandbox-test",
+        project="my-project",
+        zone="us-central1-a",
+        ports=[8000, 8010, 7999],
+    )
+    mock_execvp.assert_called_once_with(
+        "gcloud",
+        [
+            "gcloud",
+            "compute",
+            "ssh",
+            "sandbox-test",
+            "--project=my-project",
+            "--zone=us-central1-a",
+            "--tunnel-through-iap",
+            "--ssh-flag=-A",
+            "--ssh-flag=-L 8000:localhost:8000",
+            "--ssh-flag=-L 8010:localhost:8010",
+            "--ssh-flag=-L 7999:localhost:7999",
+        ],
+    )
+
+
+@mock.patch("devservices.utils.sandbox.os.execvp")
+def test_ssh_exec_with_no_ports(mock_execvp: mock.Mock) -> None:
+    ssh_exec(
+        name="sandbox-test", project="my-project", zone="us-central1-a", ports=None
+    )
+    mock_execvp.assert_called_once_with(
+        "gcloud",
+        [
+            "gcloud",
+            "compute",
+            "ssh",
+            "sandbox-test",
+            "--project=my-project",
+            "--zone=us-central1-a",
+            "--tunnel-through-iap",
+            "--ssh-flag=-A",
+        ],
+    )
+
+
+@mock.patch("devservices.utils.sandbox.os.execvp")
+def test_ssh_exec_with_empty_ports(mock_execvp: mock.Mock) -> None:
+    ssh_exec(name="sandbox-test", project="my-project", zone="us-central1-a", ports=[])
+    mock_execvp.assert_called_once_with(
+        "gcloud",
+        [
+            "gcloud",
+            "compute",
+            "ssh",
+            "sandbox-test",
+            "--project=my-project",
+            "--zone=us-central1-a",
+            "--tunnel-through-iap",
+            "--ssh-flag=-A",
+        ],
+    )
+
+
 # --- ssh_command ---
 
 

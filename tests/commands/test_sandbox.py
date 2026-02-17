@@ -98,6 +98,18 @@ def test_add_parser_ssh_defaults() -> None:
     assert args.name is None
     assert args.project is None
     assert args.zone == SANDBOX_DEFAULT_ZONE
+    assert args.ports is None
+    assert args.no_forward is False
+
+
+def test_add_parser_ssh_with_ports_and_no_forward() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_parser(subparsers)
+
+    args = parser.parse_args(["sandbox", "ssh", "--ports", "8000,8010", "--no-forward"])
+    assert args.ports == "8000,8010"
+    assert args.no_forward is True
 
 
 def test_add_parser_list_defaults() -> None:
@@ -441,14 +453,21 @@ def test_sandbox_ssh_running(
             "master",
             "default",
         )
-        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            no_forward=False,
+        )
         sandbox_ssh(args)
 
         mock_ssh.assert_called_once_with(
-            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, ports=[8000]
         )
         captured = capsys.readouterr()
         assert "Connecting to sandbox" in captured.out
+        assert "Forwarding ports: 8000" in captured.out
 
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
@@ -473,7 +492,13 @@ def test_sandbox_ssh_not_running(
             "master",
             "default",
         )
-        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            no_forward=False,
+        )
         with pytest.raises(SystemExit):
             sandbox_ssh(args)
 
@@ -502,7 +527,13 @@ def test_sandbox_ssh_not_found(
             "master",
             "default",
         )
-        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            no_forward=False,
+        )
         with pytest.raises(SystemExit):
             sandbox_ssh(args)
 
@@ -533,12 +564,135 @@ def test_sandbox_ssh_default_name(
             "default",
         )
         # No name arg - should use default from state
-        args = Namespace(name=None, project=None, zone=SANDBOX_DEFAULT_ZONE)
+        args = Namespace(
+            name=None,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            no_forward=False,
+        )
         sandbox_ssh(args)
 
         mock_ssh.assert_called_once_with(
-            "sandbox-recent", "test-project", SANDBOX_DEFAULT_ZONE
+            "sandbox-recent", "test-project", SANDBOX_DEFAULT_ZONE, ports=[8000]
         )
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_exec")
+def test_sandbox_ssh_with_custom_ports(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports="8000,8010,7999",
+            no_forward=False,
+        )
+        sandbox_ssh(args)
+
+        mock_ssh.assert_called_once_with(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            ports=[8000, 8010, 7999],
+        )
+        captured = capsys.readouterr()
+        assert "Forwarding ports: 8000, 8010, 7999" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_exec")
+def test_sandbox_ssh_with_no_forward(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            no_forward=True,
+        )
+        sandbox_ssh(args)
+
+        mock_ssh.assert_called_once_with(
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, ports=None
+        )
+        captured = capsys.readouterr()
+        assert "Forwarding ports" not in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_exec")
+def test_sandbox_ssh_no_forward_overrides_ports(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports="8000,9001",
+            no_forward=True,
+        )
+        sandbox_ssh(args)
+
+        mock_ssh.assert_called_once_with(
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, ports=None
+        )
+        captured = capsys.readouterr()
+        assert "Forwarding ports" not in captured.out
 
 
 # --- sandbox_stop tests ---
