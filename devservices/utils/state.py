@@ -19,6 +19,7 @@ class StateTables(Enum):
     STARTED_SERVICES = "started_services"
     STARTING_SERVICES = "starting_services"
     SERVICE_RUNTIME = "service_runtime"
+    SANDBOX_INSTANCES = "sandbox_instances"
 
 
 class State:
@@ -65,6 +66,21 @@ class State:
                 service_name TEXT PRIMARY KEY,
                 runtime TEXT
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """
+        )
+
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {StateTables.SANDBOX_INSTANCES.value} (
+                name TEXT PRIMARY KEY,
+                project TEXT NOT NULL,
+                zone TEXT NOT NULL,
+                machine_type TEXT NOT NULL,
+                branch TEXT DEFAULT 'master',
+                mode TEXT DEFAULT 'default',
+                status TEXT DEFAULT 'CREATING',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """
         )
@@ -190,6 +206,104 @@ class State:
         )
         self.conn.commit()
 
+    def add_sandbox_instance(
+        self,
+        name: str,
+        project: str,
+        zone: str,
+        machine_type: str,
+        branch: str = "master",
+        mode: str = "default",
+    ) -> None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            INSERT INTO {StateTables.SANDBOX_INSTANCES.value}
+            (name, project, zone, machine_type, branch, mode)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """,
+            (name, project, zone, machine_type, branch, mode),
+        )
+        self.conn.commit()
+
+    def get_sandbox_instance(self, name: str) -> dict[str, str] | None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT name, project, zone, machine_type, branch, mode, status, created_at
+            FROM {StateTables.SANDBOX_INSTANCES.value} WHERE name = ?
+        """,
+            (name,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return {
+            "name": row[0],
+            "project": row[1],
+            "zone": row[2],
+            "machine_type": row[3],
+            "branch": row[4],
+            "mode": row[5],
+            "status": row[6],
+            "created_at": row[7],
+        }
+
+    def get_sandbox_instances(self) -> list[dict[str, str]]:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT name, project, zone, machine_type, branch, mode, status, created_at
+            FROM {StateTables.SANDBOX_INSTANCES.value}
+            ORDER BY created_at DESC
+        """
+        )
+        rows = cursor.fetchall()
+        return [
+            {
+                "name": row[0],
+                "project": row[1],
+                "zone": row[2],
+                "machine_type": row[3],
+                "branch": row[4],
+                "mode": row[5],
+                "status": row[6],
+                "created_at": row[7],
+            }
+            for row in rows
+        ]
+
+    def update_sandbox_status(self, name: str, status: str) -> None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            UPDATE {StateTables.SANDBOX_INSTANCES.value} SET status = ? WHERE name = ?
+        """,
+            (status, name),
+        )
+        self.conn.commit()
+
+    def remove_sandbox_instance(self, name: str) -> None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            DELETE FROM {StateTables.SANDBOX_INSTANCES.value} WHERE name = ?
+        """,
+            (name,),
+        )
+        self.conn.commit()
+
+    def get_default_sandbox(self) -> str | None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT name FROM {StateTables.SANDBOX_INSTANCES.value}
+            ORDER BY created_at DESC LIMIT 1
+        """
+        )
+        row = cursor.fetchone()
+        return row[0] if row else None
+
     def clear_state(self) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
@@ -205,6 +319,11 @@ class State:
         cursor.execute(
             f"""
             DELETE FROM {StateTables.SERVICE_RUNTIME.value}
+        """
+        )
+        cursor.execute(
+            f"""
+            DELETE FROM {StateTables.SANDBOX_INSTANCES.value}
         """
         )
         self.conn.commit()

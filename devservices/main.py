@@ -27,6 +27,7 @@ from devservices.commands import list_services
 from devservices.commands import logs
 from devservices.commands import purge
 from devservices.commands import reset
+from devservices.commands import sandbox
 from devservices.commands import serve
 from devservices.commands import status
 from devservices.commands import toggle
@@ -126,16 +127,6 @@ def cleanup() -> None:
 def main() -> None:
     console = Console()
     set_tag("devservices_version", current_version)
-    try:
-        check_docker_compose_version()
-    except DockerDaemonNotRunningError as e:
-        capture_exception(e, level="info")
-        console.failure(str(e))
-        exit(1)
-    except DockerComposeInstallationError as e:
-        capture_exception(e, level="info")
-        console.failure("Failed to ensure docker compose is installed and up-to-date")
-        exit(1)
     parser = argparse.ArgumentParser(
         prog="devservices",
         description="CLI tool for managing service dependencies.",
@@ -158,8 +149,25 @@ def main() -> None:
     toggle.add_parser(subparsers)
     foreground.add_parser(subparsers)
     reset.add_parser(subparsers)
+    sandbox.add_parser(subparsers)
 
     args = parser.parse_args()
+
+    # Only check Docker for commands that need it
+    DOCKER_FREE_COMMANDS = {"sandbox", "update"}
+    if args.command and args.command not in DOCKER_FREE_COMMANDS:
+        try:
+            check_docker_compose_version()
+        except DockerDaemonNotRunningError as e:
+            capture_exception(e, level="info")
+            console.failure(str(e))
+            exit(1)
+        except DockerComposeInstallationError as e:
+            capture_exception(e, level="info")
+            console.failure(
+                "Failed to ensure docker compose is installed and up-to-date"
+            )
+            exit(1)
 
     # If the command has a debug flag, set the logger to debug
     if "debug" in args and args.debug:

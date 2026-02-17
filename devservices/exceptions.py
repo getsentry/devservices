@@ -187,3 +187,55 @@ class SupervisorProcessError(SupervisorError):
     """Raised when there's an error with a supervisor process."""
 
     pass
+
+
+class SandboxError(Exception):
+    """Base class for sandbox-related errors."""
+
+    pass
+
+
+class GCloudNotFoundError(SandboxError):
+    """Raised when gcloud CLI is not installed."""
+
+    def __str__(self) -> str:
+        return "gcloud CLI is not installed. Install it from https://cloud.google.com/sdk/docs/install"
+
+
+class GCloudAuthError(SandboxError):
+    """Raised when gcloud is not authenticated."""
+
+    def __str__(self) -> str:
+        return "gcloud is not authenticated. Run 'gcloud auth login' first."
+
+
+class SandboxNotFoundError(SandboxError):
+    """Raised when a sandbox instance is not found."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def __str__(self) -> str:
+        return f"Sandbox '{self.name}' not found. Run 'devservices sandbox list' to see available sandboxes."
+
+
+class SandboxAlreadyExistsError(SandboxError):
+    """Raised when a sandbox instance already exists with the given name."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def __str__(self) -> str:
+        return f"Sandbox '{self.name}' already exists. Choose a different name or destroy the existing one."
+
+
+class SandboxOperationError(SandboxError):
+    """Raised when a GCE operation fails."""
+
+    def __init__(self, command: str, returncode: int, stderr: str):
+        self.command = command
+        self.returncode = returncode
+        self.stderr = stderr
+
+    def __str__(self) -> str:
+        return f"Sandbox operation failed: {self.command} (exit {self.returncode}): {self.stderr}"
