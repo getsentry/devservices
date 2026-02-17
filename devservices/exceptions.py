@@ -239,3 +239,27 @@ class SandboxOperationError(SandboxError):
 
     def __str__(self) -> str:
         return f"Sandbox operation failed: {self.command} (exit {self.returncode}): {self.stderr}"
+
+
+class GCPAPINotEnabledError(SandboxError):
+    """Raised when a required GCP API is not enabled."""
+
+    def __init__(self, api_name: str, project: str):
+        self.api_name = api_name
+        self.project = project
+
+    def __str__(self) -> str:
+        return (
+            f"Required API '{self.api_name}' is not enabled on project '{self.project}'. "
+            f"Enable it with: gcloud services enable {self.api_name} --project={self.project}"
+        )
+
+
+class PortForwardError(SandboxError):
+    """Raised when port forwarding fails."""
+
+    def __init__(self, message: str):
+        self.message = message
+
+    def __str__(self) -> str:
+        return f"Port forwarding error: {self.message}"

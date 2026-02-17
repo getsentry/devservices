@@ -260,3 +260,140 @@ def ssh_exec(name: str, project: str, zone: str) -> None:
         "--ssh-flag=-A",
     ]
     os.execvp("gcloud", cmd)
+
+
+def ssh_command(
+    name: str, project: str, zone: str, command: str
+) -> subprocess.CompletedProcess[str]:
+    """Run a command on a sandbox instance via SSH."""
+    return run_gcloud(
+        "compute",
+        "ssh",
+        name,
+        f"--project={project}",
+        f"--zone={zone}",
+        "--tunnel-through-iap",
+        f"--command={command}",
+    )
+
+
+def check_api_enabled(project: str, api_name: str) -> bool:
+    """Check if a GCP API is enabled on the project."""
+    try:
+        result = run_gcloud(
+            "services",
+            "list",
+            "--enabled",
+            f"--filter=name:{api_name}",
+            "--format=value(name)",
+            f"--project={project}",
+            check=False,
+        )
+        return api_name in result.stdout.strip()
+    except (GCloudNotFoundError, SandboxOperationError):
+        return False
+
+
+def validate_sandbox_apis(project: str, console: Console) -> bool:
+    """Validate that required GCP APIs are enabled."""
+    from devservices.constants import SANDBOX_REQUIRED_APIS
+
+    all_enabled = True
+    for api_name in SANDBOX_REQUIRED_APIS:
+        if not check_api_enabled(project, api_name):
+            console.failure(
+                f"Required API '{api_name}' is not enabled on project '{project}'. "
+                f"Enable it with: gcloud services enable {api_name} --project={project}"
+            )
+            all_enabled = False
+    return all_enabled
+
+
+def get_instance_details(name: str, project: str, zone: str) -> dict[str, str] | None:
+    """Get detailed information about a sandbox instance."""
+    import json as json_mod
+
+    try:
+        result = run_gcloud(
+            "compute",
+            "instances",
+            "describe",
+            name,
+            f"--project={project}",
+            f"--zone={zone}",
+            "--format=json",
+        )
+        inst = json_mod.loads(result.stdout) if result.stdout.strip() else None
+        if inst is None:
+            return None
+
+        metadata = {}
+        for item in inst.get("metadata", {}).get("items", []):
+            metadata[item["key"]] = item["value"]
+
+        return {
+            "name": inst.get("name", ""),
+            "status": inst.get("status", ""),
+            "zone": inst.get("zone", "").rsplit("/", 1)[-1] if inst.get("zone") else "",
+            "machine_type": inst.get("machineType", "").rsplit("/", 1)[-1]
+            if inst.get("machineType")
+            else "",
+            "internal_ip": inst.get("networkInterfaces", [{}])[0].get(
+                "networkIP", "N/A"
+            ),
+            "branch": metadata.get("SANDBOX_BRANCH", ""),
+            "mode": metadata.get("SANDBOX_MODE", ""),
+            "created": inst.get("creationTimestamp", ""),
+        }
+    except SandboxOperationError:
+        return None
+
+
+def start_port_forward(
+    name: str, project: str, zone: str, ports: list[int]
+) -> subprocess.Popen[bytes]:
+    """Start a background SSH tunnel for port forwarding."""
+    tunnel_args = []
+    for port in ports:
+        tunnel_args.extend(["-L", f"{port}:localhost:{port}"])
+
+    cmd = [
+        "gcloud",
+        "compute",
+        "ssh",
+        name,
+        f"--project={project}",
+        f"--zone={zone}",
+        "--tunnel-through-iap",
+        "--",
+        "-N",
+        *tunnel_args,
+    ]
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return proc
+    except FileNotFoundError:
+        raise GCloudNotFoundError()
+
+
+def stop_port_forward(pid: int) -> None:
+    """Stop a port-forward process by PID."""
+    import signal
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+
+
+def is_port_forward_running(pid: int) -> bool:
+    """Check if a port-forward process is still running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False

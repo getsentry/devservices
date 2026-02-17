@@ -13,12 +13,17 @@ from devservices.commands.sandbox import add_parser
 from devservices.commands.sandbox import sandbox_create
 from devservices.commands.sandbox import sandbox_destroy
 from devservices.commands.sandbox import sandbox_list
+from devservices.commands.sandbox import sandbox_port_forward
 from devservices.commands.sandbox import sandbox_ssh
 from devservices.commands.sandbox import sandbox_start
+from devservices.commands.sandbox import sandbox_status
 from devservices.commands.sandbox import sandbox_stop
+from devservices.commands.sandbox import sandbox_sync
 from devservices.constants import SANDBOX_DEFAULT_MACHINE_TYPE
 from devservices.constants import SANDBOX_DEFAULT_ZONE
+from devservices.constants import SANDBOX_MAINTENANCE_SYNC_PATH
 from devservices.exceptions import SandboxError
+from devservices.exceptions import SandboxOperationError
 from devservices.utils.console import Console
 from devservices.utils.state import State
 
@@ -214,6 +219,7 @@ def test_wait_for_status_timeout(
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
 @mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.validate_sandbox_apis", return_value=True)
 @mock.patch(
     "devservices.commands.sandbox.generate_instance_name", return_value="sandbox-test"
 )
@@ -225,6 +231,7 @@ def test_sandbox_create_basic(
     mock_create: mock.Mock,
     mock_get_status: mock.Mock,
     mock_gen_name: mock.Mock,
+    mock_validate_apis: mock.Mock,
     mock_resolve: mock.Mock,
     mock_validate: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -268,6 +275,7 @@ def test_sandbox_create_basic(
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
 @mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.validate_sandbox_apis", return_value=True)
 @mock.patch(
     "devservices.commands.sandbox.generate_instance_name", return_value="sandbox-test"
 )
@@ -275,6 +283,7 @@ def test_sandbox_create_basic(
 def test_sandbox_create_already_exists(
     mock_get_status: mock.Mock,
     mock_gen_name: mock.Mock,
+    mock_validate_apis: mock.Mock,
     mock_resolve: mock.Mock,
     mock_validate: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -299,6 +308,7 @@ def test_sandbox_create_already_exists(
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
 @mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.validate_sandbox_apis", return_value=True)
 @mock.patch(
     "devservices.commands.sandbox.generate_instance_name", return_value="sandbox-test"
 )
@@ -311,6 +321,7 @@ def test_sandbox_create_gcloud_error(
     mock_create: mock.Mock,
     mock_get_status: mock.Mock,
     mock_gen_name: mock.Mock,
+    mock_validate_apis: mock.Mock,
     mock_resolve: mock.Mock,
     mock_validate: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -335,6 +346,7 @@ def test_sandbox_create_gcloud_error(
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
 @mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.validate_sandbox_apis", return_value=True)
 @mock.patch(
     "devservices.commands.sandbox.generate_instance_name", return_value="sandbox-test"
 )
@@ -346,6 +358,7 @@ def test_sandbox_create_custom_branch_and_spot(
     mock_create: mock.Mock,
     mock_get_status: mock.Mock,
     mock_gen_name: mock.Mock,
+    mock_validate_apis: mock.Mock,
     mock_resolve: mock.Mock,
     mock_validate: mock.Mock,
     capsys: pytest.CaptureFixture[str],
@@ -994,3 +1007,869 @@ def test_sandbox_list_empty(
         captured = capsys.readouterr()
         assert "No sandbox instances found" in captured.out
         assert "devservices sandbox create" in captured.out
+
+
+# --- sandbox_sync tests ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_command")
+def test_sandbox_sync_basic(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_ssh.return_value = mock.Mock(stdout="Updated to latest\n")
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_sync(args)
+
+        mock_ssh.assert_called_once_with(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            f"{SANDBOX_MAINTENANCE_SYNC_PATH} master",
+        )
+        captured = capsys.readouterr()
+        assert "synced successfully" in captured.out
+        assert "Updated to latest" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch(
+    "devservices.commands.sandbox.get_instance_status", return_value="TERMINATED"
+)
+def test_sandbox_sync_not_running(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        with pytest.raises(SystemExit):
+            sandbox_sync(args)
+
+        captured = capsys.readouterr()
+        assert "TERMINATED" in captured.out
+        assert "Start it first" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value=None)
+def test_sandbox_sync_not_found(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        with pytest.raises(SystemExit):
+            sandbox_sync(args)
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch(
+    "devservices.commands.sandbox.ssh_command",
+    side_effect=SandboxOperationError("ssh", 1, "connection refused"),
+)
+def test_sandbox_sync_ssh_error(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        with pytest.raises(SystemExit):
+            sandbox_sync(args)
+
+        captured = capsys.readouterr()
+        assert "Failed to sync sandbox" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_command")
+def test_sandbox_sync_default_name(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_ssh.return_value = mock.Mock(stdout="")
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-recent",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        # No name arg - should use default from state
+        args = Namespace(name=None, project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_sync(args)
+
+        mock_ssh.assert_called_once_with(
+            "sandbox-recent",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            f"{SANDBOX_MAINTENANCE_SYNC_PATH} master",
+        )
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_command")
+def test_sandbox_sync_custom_branch(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_ssh.return_value = mock.Mock(stdout="")
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "feature-x",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_sync(args)
+
+        mock_ssh.assert_called_once_with(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            f"{SANDBOX_MAINTENANCE_SYNC_PATH} feature-x",
+        )
+        captured = capsys.readouterr()
+        assert "feature-x" in captured.out
+        assert "synced successfully" in captured.out
+
+
+# --- sandbox_status tests ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_details")
+def test_sandbox_status_running(
+    mock_details: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_details.return_value = {
+        "name": "sandbox-test",
+        "status": "RUNNING",
+        "zone": "us-central1-a",
+        "machine_type": "e2-standard-8",
+        "branch": "master",
+        "mode": "default",
+        "internal_ip": "10.128.0.5",
+        "created": "2025-01-15T10:00:00Z",
+    }
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_status(args)
+
+        captured = capsys.readouterr()
+        assert "sandbox-test" in captured.out
+        assert "RUNNING" in captured.out
+        assert "us-central1-a" in captured.out
+        assert "e2-standard-8" in captured.out
+        assert "master" in captured.out
+        assert "10.128.0.5" in captured.out
+        assert "devservices sandbox ssh" in captured.out
+        assert "devservices sandbox sync" in captured.out
+        assert "devservices sandbox port-forward" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_details")
+def test_sandbox_status_stopped(
+    mock_details: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_details.return_value = {
+        "name": "sandbox-test",
+        "status": "TERMINATED",
+        "zone": "us-central1-a",
+        "machine_type": "e2-standard-8",
+        "branch": "master",
+        "mode": "default",
+        "internal_ip": "N/A",
+        "created": "2025-01-15T10:00:00Z",
+    }
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_status(args)
+
+        captured = capsys.readouterr()
+        assert "TERMINATED" in captured.out
+        # Should not show connect/sync/forward hints for non-RUNNING
+        assert "devservices sandbox ssh" not in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_details", return_value=None)
+def test_sandbox_status_not_found(
+    mock_details: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        with pytest.raises(SystemExit):
+            sandbox_status(args)
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_details")
+@mock.patch("devservices.commands.sandbox.is_port_forward_running", return_value=True)
+def test_sandbox_status_with_port_forward(
+    mock_pf_running: mock.Mock,
+    mock_details: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_details.return_value = {
+        "name": "sandbox-test",
+        "status": "RUNNING",
+        "zone": "us-central1-a",
+        "machine_type": "e2-standard-8",
+        "branch": "master",
+        "mode": "default",
+        "internal_ip": "10.128.0.5",
+        "created": "2025-01-15T10:00:00Z",
+    }
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        state.update_port_forward_pid("sandbox-test", 12345)
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_status(args)
+
+        captured = capsys.readouterr()
+        assert "Port Forward: Active (PID 12345)" in captured.out
+        mock_pf_running.assert_called_once_with(12345)
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_details")
+@mock.patch("devservices.commands.sandbox.is_port_forward_running", return_value=False)
+def test_sandbox_status_stale_port_forward(
+    mock_pf_running: mock.Mock,
+    mock_details: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_details.return_value = {
+        "name": "sandbox-test",
+        "status": "RUNNING",
+        "zone": "us-central1-a",
+        "machine_type": "e2-standard-8",
+        "branch": "master",
+        "mode": "default",
+        "internal_ip": "10.128.0.5",
+        "created": "2025-01-15T10:00:00Z",
+    }
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        state.update_port_forward_pid("sandbox-test", 99999)
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_status(args)
+
+        captured = capsys.readouterr()
+        assert "Port Forward: Stale (PID 99999 not running)" in captured.out
+
+        # Verify PID was cleaned up in state
+        instance = state.get_sandbox_instance("sandbox-test")
+        assert instance is not None
+        assert instance["port_forward_pid"] is None
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_details")
+def test_sandbox_status_default_name(
+    mock_details: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_details.return_value = {
+        "name": "sandbox-recent",
+        "status": "RUNNING",
+        "zone": "us-central1-a",
+        "machine_type": "e2-standard-8",
+        "branch": "master",
+        "mode": "default",
+        "internal_ip": "10.128.0.5",
+        "created": "2025-01-15T10:00:00Z",
+    }
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-recent",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        # No name arg - should use default from state
+        args = Namespace(name=None, project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_status(args)
+
+        mock_details.assert_called_once_with(
+            "sandbox-recent", "test-project", SANDBOX_DEFAULT_ZONE
+        )
+        captured = capsys.readouterr()
+        assert "sandbox-recent" in captured.out
+
+
+# --- sandbox_port_forward tests ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.start_port_forward")
+def test_sandbox_port_forward_basic(
+    mock_start_pf: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_proc = mock.Mock()
+    mock_proc.pid = 12345
+    mock_start_pf.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            stop=False,
+        )
+        sandbox_port_forward(args)
+
+        mock_start_pf.assert_called_once_with(
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, [8000]
+        )
+        captured = capsys.readouterr()
+        assert "Port forwarding active (PID 12345)" in captured.out
+        assert "http://localhost:8000" in captured.out
+
+        instance = state.get_sandbox_instance("sandbox-test")
+        assert instance is not None
+        assert instance["port_forward_pid"] == "12345"
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.start_port_forward")
+def test_sandbox_port_forward_custom_ports(
+    mock_start_pf: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_proc = mock.Mock()
+    mock_proc.pid = 54321
+    mock_start_pf.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports="8000,8001",
+            stop=False,
+        )
+        sandbox_port_forward(args)
+
+        mock_start_pf.assert_called_once_with(
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, [8000, 8001]
+        )
+        captured = capsys.readouterr()
+        assert "Port forwarding active (PID 54321)" in captured.out
+        assert "http://localhost:8000" in captured.out
+        assert "http://localhost:8001" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.is_port_forward_running", return_value=True)
+@mock.patch("devservices.commands.sandbox.stop_port_forward")
+def test_sandbox_port_forward_stop(
+    mock_stop_pf: mock.Mock,
+    mock_pf_running: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        state.update_port_forward_pid("sandbox-test", 12345)
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            stop=True,
+        )
+        sandbox_port_forward(args)
+
+        mock_stop_pf.assert_called_once_with(12345)
+        captured = capsys.readouterr()
+        assert "Port forwarding stopped (PID 12345)" in captured.out
+
+        instance = state.get_sandbox_instance("sandbox-test")
+        assert instance is not None
+        assert instance["port_forward_pid"] is None
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+def test_sandbox_port_forward_stop_no_tunnel(
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            stop=True,
+        )
+        sandbox_port_forward(args)
+
+        captured = capsys.readouterr()
+        assert "No active port forwarding" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.is_port_forward_running", return_value=True)
+def test_sandbox_port_forward_already_running(
+    mock_pf_running: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        state.update_port_forward_pid("sandbox-test", 99999)
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            stop=False,
+        )
+        sandbox_port_forward(args)
+
+        captured = capsys.readouterr()
+        assert "Port forwarding already active (PID 99999)" in captured.out
+        assert "Use --stop to stop it first" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch(
+    "devservices.commands.sandbox.get_instance_status", return_value="TERMINATED"
+)
+def test_sandbox_port_forward_not_running(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            stop=False,
+        )
+        with pytest.raises(SystemExit):
+            sandbox_port_forward(args)
+
+        captured = capsys.readouterr()
+        assert "TERMINATED" in captured.out
+        assert "Start it first" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value=None)
+def test_sandbox_port_forward_not_found(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            stop=False,
+        )
+        with pytest.raises(SystemExit):
+            sandbox_port_forward(args)
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.out
+
+
+# --- stop/destroy port-forward cleanup tests ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.stop_instance")
+@mock.patch("devservices.commands.sandbox.is_port_forward_running", return_value=True)
+@mock.patch("devservices.commands.sandbox.stop_port_forward")
+def test_sandbox_stop_kills_port_forward(
+    mock_stop_pf: mock.Mock,
+    mock_pf_running: mock.Mock,
+    mock_stop: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        state.update_port_forward_pid("sandbox-test", 12345)
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_stop(args)
+
+        mock_stop_pf.assert_called_once_with(12345)
+        captured = capsys.readouterr()
+        assert "Port forwarding stopped (PID 12345)" in captured.out
+
+        instance = state.get_sandbox_instance("sandbox-test")
+        assert instance is not None
+        assert instance["port_forward_pid"] is None
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.delete_instance")
+@mock.patch("devservices.commands.sandbox.Console.confirm", return_value=True)
+@mock.patch("devservices.commands.sandbox.is_port_forward_running", return_value=True)
+@mock.patch("devservices.commands.sandbox.stop_port_forward")
+def test_sandbox_destroy_kills_port_forward(
+    mock_stop_pf: mock.Mock,
+    mock_pf_running: mock.Mock,
+    mock_confirm: mock.Mock,
+    mock_delete: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        state.update_port_forward_pid("sandbox-test", 12345)
+        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        sandbox_destroy(args)
+
+        mock_stop_pf.assert_called_once_with(12345)
+        mock_delete.assert_called_once()
+        captured = capsys.readouterr()
+        assert "Port forwarding stopped (PID 12345)" in captured.out
+
+
+# --- sandbox_create API validation tests ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.validate_sandbox_apis", return_value=False)
+def test_sandbox_create_missing_apis(
+    mock_validate_apis: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        args = Namespace(
+            name=None,
+            branch="master",
+            mode="default",
+            machine_type=SANDBOX_DEFAULT_MACHINE_TYPE,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            spot=False,
+        )
+        with pytest.raises(SystemExit):
+            sandbox_create(args)
+
+        mock_validate_apis.assert_called_once_with("test-project", mock.ANY)
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.validate_sandbox_apis", return_value=True)
+@mock.patch(
+    "devservices.commands.sandbox.generate_instance_name", return_value="sandbox-test"
+)
+@mock.patch("devservices.commands.sandbox.get_instance_status")
+@mock.patch("devservices.commands.sandbox.create_instance")
+@mock.patch("devservices.commands.sandbox.time.sleep")
+def test_sandbox_create_apis_valid(
+    mock_sleep: mock.Mock,
+    mock_create: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_gen_name: mock.Mock,
+    mock_validate_apis: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_get_status.side_effect = [None, "RUNNING"]
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        args = Namespace(
+            name=None,
+            branch="master",
+            mode="default",
+            machine_type=SANDBOX_DEFAULT_MACHINE_TYPE,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            spot=False,
+        )
+        sandbox_create(args)
+
+        mock_validate_apis.assert_called_once_with("test-project", mock.ANY)
+        mock_create.assert_called_once()
+        captured = capsys.readouterr()
+        assert "created successfully" in captured.out

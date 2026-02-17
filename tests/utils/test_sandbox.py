@@ -17,19 +17,26 @@ from devservices.constants import SANDBOX_LABEL_VALUE
 from devservices.constants import SANDBOX_NETWORK_TAG
 from devservices.exceptions import GCloudNotFoundError
 from devservices.exceptions import SandboxOperationError
+from devservices.utils.sandbox import check_api_enabled
 from devservices.utils.sandbox import check_gcloud_installed
 from devservices.utils.sandbox import create_instance
 from devservices.utils.sandbox import delete_instance
 from devservices.utils.sandbox import generate_instance_name
 from devservices.utils.sandbox import get_gcloud_account
 from devservices.utils.sandbox import get_gcloud_project
+from devservices.utils.sandbox import get_instance_details
 from devservices.utils.sandbox import get_instance_status
+from devservices.utils.sandbox import is_port_forward_running
 from devservices.utils.sandbox import list_instances
 from devservices.utils.sandbox import resolve_project
 from devservices.utils.sandbox import run_gcloud
+from devservices.utils.sandbox import ssh_command
 from devservices.utils.sandbox import ssh_exec
 from devservices.utils.sandbox import start_instance
+from devservices.utils.sandbox import start_port_forward
 from devservices.utils.sandbox import stop_instance
+from devservices.utils.sandbox import stop_port_forward
+from devservices.utils.sandbox import validate_sandbox_apis
 from devservices.utils.sandbox import validate_sandbox_prerequisites
 
 
@@ -524,3 +531,298 @@ def test_ssh_exec(mock_execvp: mock.Mock) -> None:
             "--ssh-flag=-A",
         ],
     )
+
+
+# --- ssh_command ---
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_ssh_command_success(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="hello\n", stderr=""
+    )
+    result = ssh_command("sandbox-test", "my-project", "us-central1-a", "echo hello")
+    assert result.stdout == "hello\n"
+    mock_run_gcloud.assert_called_once_with(
+        "compute",
+        "ssh",
+        "sandbox-test",
+        "--project=my-project",
+        "--zone=us-central1-a",
+        "--tunnel-through-iap",
+        "--command=echo hello",
+    )
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_ssh_command_error(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.side_effect = SandboxOperationError(
+        command="gcloud compute ssh sandbox-test",
+        returncode=1,
+        stderr="connection refused",
+    )
+    with pytest.raises(SandboxOperationError):
+        ssh_command("sandbox-test", "my-project", "us-central1-a", "echo hello")
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_ssh_command_gcloud_not_found(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.side_effect = GCloudNotFoundError()
+    with pytest.raises(GCloudNotFoundError):
+        ssh_command("sandbox-test", "my-project", "us-central1-a", "echo hello")
+
+
+# --- check_api_enabled ---
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_check_api_enabled_true(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="iap.googleapis.com\n", stderr=""
+    )
+    assert check_api_enabled("my-project", "iap.googleapis.com") is True
+    mock_run_gcloud.assert_called_once_with(
+        "services",
+        "list",
+        "--enabled",
+        "--filter=name:iap.googleapis.com",
+        "--format=value(name)",
+        "--project=my-project",
+        check=False,
+    )
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_check_api_enabled_false(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="", stderr=""
+    )
+    assert check_api_enabled("my-project", "iap.googleapis.com") is False
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_check_api_enabled_gcloud_error(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.side_effect = GCloudNotFoundError()
+    assert check_api_enabled("my-project", "iap.googleapis.com") is False
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_check_api_enabled_operation_error(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.side_effect = SandboxOperationError(
+        command="gcloud services list", returncode=1, stderr="error"
+    )
+    assert check_api_enabled("my-project", "iap.googleapis.com") is False
+
+
+# --- validate_sandbox_apis ---
+
+
+@mock.patch("devservices.utils.sandbox.check_api_enabled")
+def test_validate_sandbox_apis_all_enabled(
+    mock_check: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_check.return_value = True
+    from devservices.utils.console import Console
+
+    console = Console()
+    assert validate_sandbox_apis("my-project", console) is True
+    assert mock_check.call_count == 2
+
+
+@mock.patch("devservices.utils.sandbox.check_api_enabled")
+def test_validate_sandbox_apis_one_missing(
+    mock_check: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_check.side_effect = [True, False]
+    from devservices.utils.console import Console
+
+    console = Console()
+    assert validate_sandbox_apis("my-project", console) is False
+    output = capsys.readouterr().out
+    assert "compute.googleapis.com" in output
+
+
+@mock.patch("devservices.utils.sandbox.check_api_enabled")
+def test_validate_sandbox_apis_all_missing(
+    mock_check: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_check.return_value = False
+    from devservices.utils.console import Console
+
+    console = Console()
+    assert validate_sandbox_apis("my-project", console) is False
+    output = capsys.readouterr().out
+    assert "iap.googleapis.com" in output
+    assert "compute.googleapis.com" in output
+
+
+# --- get_instance_details ---
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_get_instance_details_success(mock_run_gcloud: mock.Mock) -> None:
+    instance_json = json.dumps(
+        {
+            "name": "sandbox-test",
+            "status": "RUNNING",
+            "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a",
+            "machineType": "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a/machineTypes/e2-standard-8",
+            "networkInterfaces": [{"networkIP": "10.0.0.2"}],
+            "metadata": {
+                "items": [
+                    {"key": "SANDBOX_BRANCH", "value": "main"},
+                    {"key": "SANDBOX_MODE", "value": "default"},
+                ]
+            },
+            "creationTimestamp": "2025-01-01T00:00:00.000-07:00",
+        }
+    )
+    mock_run_gcloud.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout=instance_json, stderr=""
+    )
+    result = get_instance_details("sandbox-test", "my-project", "us-central1-a")
+    assert result is not None
+    assert result["name"] == "sandbox-test"
+    assert result["status"] == "RUNNING"
+    assert result["zone"] == "us-central1-a"
+    assert result["machine_type"] == "e2-standard-8"
+    assert result["internal_ip"] == "10.0.0.2"
+    assert result["branch"] == "main"
+    assert result["mode"] == "default"
+    assert result["created"] == "2025-01-01T00:00:00.000-07:00"
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_get_instance_details_not_found(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.side_effect = SandboxOperationError(
+        command="gcloud compute instances describe sandbox-test",
+        returncode=1,
+        stderr="not found",
+    )
+    result = get_instance_details("sandbox-test", "my-project", "us-central1-a")
+    assert result is None
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_get_instance_details_partial_data(mock_run_gcloud: mock.Mock) -> None:
+    instance_json = json.dumps(
+        {
+            "name": "sandbox-test",
+            "status": "TERMINATED",
+            "metadata": {},
+        }
+    )
+    mock_run_gcloud.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout=instance_json, stderr=""
+    )
+    result = get_instance_details("sandbox-test", "my-project", "us-central1-a")
+    assert result is not None
+    assert result["name"] == "sandbox-test"
+    assert result["status"] == "TERMINATED"
+    assert result["zone"] == ""
+    assert result["machine_type"] == ""
+    assert result["internal_ip"] == "N/A"
+    assert result["branch"] == ""
+    assert result["mode"] == ""
+    assert result["created"] == ""
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_get_instance_details_empty_stdout(mock_run_gcloud: mock.Mock) -> None:
+    mock_run_gcloud.return_value = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="", stderr=""
+    )
+    result = get_instance_details("sandbox-test", "my-project", "us-central1-a")
+    assert result is None
+
+
+# --- start_port_forward ---
+
+
+@mock.patch("subprocess.Popen")
+def test_start_port_forward_success(mock_popen: mock.Mock) -> None:
+    mock_proc = mock.Mock()
+    mock_popen.return_value = mock_proc
+    result = start_port_forward("sandbox-test", "my-project", "us-central1-a", [8000])
+    assert result is mock_proc
+    mock_popen.assert_called_once_with(
+        [
+            "gcloud",
+            "compute",
+            "ssh",
+            "sandbox-test",
+            "--project=my-project",
+            "--zone=us-central1-a",
+            "--tunnel-through-iap",
+            "--",
+            "-N",
+            "-L",
+            "8000:localhost:8000",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@mock.patch("subprocess.Popen")
+def test_start_port_forward_multiple_ports(mock_popen: mock.Mock) -> None:
+    mock_proc = mock.Mock()
+    mock_popen.return_value = mock_proc
+    result = start_port_forward(
+        "sandbox-test", "my-project", "us-central1-a", [8000, 9000]
+    )
+    assert result is mock_proc
+    call_args = mock_popen.call_args[0][0]
+    assert "-L" in call_args
+    assert "8000:localhost:8000" in call_args
+    assert "9000:localhost:9000" in call_args
+
+
+@mock.patch("subprocess.Popen")
+def test_start_port_forward_gcloud_not_found(mock_popen: mock.Mock) -> None:
+    mock_popen.side_effect = FileNotFoundError()
+    with pytest.raises(GCloudNotFoundError):
+        start_port_forward("sandbox-test", "my-project", "us-central1-a", [8000])
+
+
+# --- stop_port_forward ---
+
+
+@mock.patch("devservices.utils.sandbox.os.kill")
+def test_stop_port_forward_success(mock_kill: mock.Mock) -> None:
+    stop_port_forward(12345)
+    mock_kill.assert_called_once()
+    args = mock_kill.call_args[0]
+    assert args[0] == 12345
+
+
+@mock.patch("devservices.utils.sandbox.os.kill")
+def test_stop_port_forward_process_already_dead(mock_kill: mock.Mock) -> None:
+    mock_kill.side_effect = ProcessLookupError()
+    stop_port_forward(12345)
+    mock_kill.assert_called_once()
+
+
+# --- is_port_forward_running ---
+
+
+@mock.patch("devservices.utils.sandbox.os.kill")
+def test_is_port_forward_running_true(mock_kill: mock.Mock) -> None:
+    mock_kill.return_value = None
+    assert is_port_forward_running(12345) is True
+    mock_kill.assert_called_once_with(12345, 0)
+
+
+@mock.patch("devservices.utils.sandbox.os.kill")
+def test_is_port_forward_running_false(mock_kill: mock.Mock) -> None:
+    mock_kill.side_effect = ProcessLookupError()
+    assert is_port_forward_running(12345) is False
+
+
+@mock.patch("devservices.utils.sandbox.os.kill")
+def test_is_port_forward_running_permission_error(mock_kill: mock.Mock) -> None:
+    mock_kill.side_effect = PermissionError()
+    assert is_port_forward_running(12345) is False

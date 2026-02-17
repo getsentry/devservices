@@ -264,3 +264,44 @@ def test_clear_state_includes_sandbox(tmp_path: Path) -> None:
         assert len(state.get_sandbox_instances()) == 1
         state.clear_state()
         assert len(state.get_sandbox_instances()) == 0
+
+
+def test_port_forward_pid_default_none(tmp_path: Path) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance("sandbox-test", "proj", "zone", "e2-standard-8")
+        assert state.get_port_forward_pid("sandbox-test") is None
+
+
+def test_update_port_forward_pid(tmp_path: Path) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance("sandbox-test", "proj", "zone", "e2-standard-8")
+        state.update_port_forward_pid("sandbox-test", 12345)
+        assert state.get_port_forward_pid("sandbox-test") == 12345
+
+
+def test_clear_port_forward_pid(tmp_path: Path) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance("sandbox-test", "proj", "zone", "e2-standard-8")
+        state.update_port_forward_pid("sandbox-test", 12345)
+        assert state.get_port_forward_pid("sandbox-test") == 12345
+        state.update_port_forward_pid("sandbox-test", None)
+        assert state.get_port_forward_pid("sandbox-test") is None
+
+
+def test_get_port_forward_pid_not_found(tmp_path: Path) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        assert state.get_port_forward_pid("nonexistent") is None
+
+
+def test_port_forward_pid_in_instance_details(tmp_path: Path) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance("sandbox-test", "proj", "zone", "e2-standard-8")
+        state.update_port_forward_pid("sandbox-test", 99999)
+        inst = state.get_sandbox_instance("sandbox-test")
+        assert inst is not None
+        assert inst["port_forward_pid"] == "99999"

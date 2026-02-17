@@ -80,10 +80,20 @@ class State:
                 branch TEXT DEFAULT 'master',
                 mode TEXT DEFAULT 'default',
                 status TEXT DEFAULT 'CREATING',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                port_forward_pid INTEGER
             )
         """
         )
+
+        # Migrate: add port_forward_pid column if not present
+        cursor.execute(f"PRAGMA table_info({StateTables.SANDBOX_INSTANCES.value})")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "port_forward_pid" not in columns:
+            cursor.execute(
+                f"ALTER TABLE {StateTables.SANDBOX_INSTANCES.value} ADD COLUMN port_forward_pid INTEGER"
+            )
+
         self.conn.commit()
 
     def update_service_entry(
@@ -226,11 +236,34 @@ class State:
         )
         self.conn.commit()
 
-    def get_sandbox_instance(self, name: str) -> dict[str, str] | None:
+    def update_port_forward_pid(self, name: str, pid: int | None) -> None:
         cursor = self.conn.cursor()
         cursor.execute(
             f"""
-            SELECT name, project, zone, machine_type, branch, mode, status, created_at
+            UPDATE {StateTables.SANDBOX_INSTANCES.value} SET port_forward_pid = ? WHERE name = ?
+        """,
+            (pid, name),
+        )
+        self.conn.commit()
+
+    def get_port_forward_pid(self, name: str) -> int | None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT port_forward_pid FROM {StateTables.SANDBOX_INSTANCES.value} WHERE name = ?
+        """,
+            (name,),
+        )
+        row = cursor.fetchone()
+        if row is None or row[0] is None:
+            return None
+        return int(row[0])
+
+    def get_sandbox_instance(self, name: str) -> dict[str, str | None] | None:
+        cursor = self.conn.cursor()
+        cursor.execute(
+            f"""
+            SELECT name, project, zone, machine_type, branch, mode, status, created_at, port_forward_pid
             FROM {StateTables.SANDBOX_INSTANCES.value} WHERE name = ?
         """,
             (name,),
@@ -247,13 +280,14 @@ class State:
             "mode": row[5],
             "status": row[6],
             "created_at": row[7],
+            "port_forward_pid": str(row[8]) if row[8] else None,
         }
 
-    def get_sandbox_instances(self) -> list[dict[str, str]]:
+    def get_sandbox_instances(self) -> list[dict[str, str | None]]:
         cursor = self.conn.cursor()
         cursor.execute(
             f"""
-            SELECT name, project, zone, machine_type, branch, mode, status, created_at
+            SELECT name, project, zone, machine_type, branch, mode, status, created_at, port_forward_pid
             FROM {StateTables.SANDBOX_INSTANCES.value}
             ORDER BY created_at DESC
         """
@@ -269,6 +303,7 @@ class State:
                 "mode": row[5],
                 "status": row[6],
                 "created_at": row[7],
+                "port_forward_pid": str(row[8]) if row[8] else None,
             }
             for row in rows
         ]
