@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from devservices.commands.sandbox import _parse_port_specs
 from devservices.commands.sandbox import _resolve_sandbox_name
 from devservices.commands.sandbox import _wait_for_status
 from devservices.commands.sandbox import add_parser
@@ -224,6 +225,39 @@ def test_wait_for_status_timeout(
     status = mock.MagicMock()
     result = _wait_for_status("sandbox-test", "proj", "zone", "RUNNING", status)
     assert result is False
+
+
+# --- _parse_port_specs tests ---
+
+
+def test_parse_port_specs_none_returns_defaults() -> None:
+    result = _parse_port_specs(None)
+    assert result == [(8000, 8000)]
+
+
+def test_parse_port_specs_single_port() -> None:
+    result = _parse_port_specs("8000")
+    assert result == [(8000, 8000)]
+
+
+def test_parse_port_specs_multiple_same_ports() -> None:
+    result = _parse_port_specs("8000,5432")
+    assert result == [(8000, 8000), (5432, 5432)]
+
+
+def test_parse_port_specs_custom_mapping() -> None:
+    result = _parse_port_specs("15432:5432")
+    assert result == [(15432, 5432)]
+
+
+def test_parse_port_specs_mixed() -> None:
+    result = _parse_port_specs("8000,15432:5432,16379:6379")
+    assert result == [(8000, 8000), (15432, 5432), (16379, 6379)]
+
+
+def test_parse_port_specs_with_spaces() -> None:
+    result = _parse_port_specs("8000, 15432:5432")
+    assert result == [(8000, 8000), (15432, 5432)]
 
 
 # --- sandbox_create tests ---
@@ -463,11 +497,11 @@ def test_sandbox_ssh_running(
         sandbox_ssh(args)
 
         mock_ssh.assert_called_once_with(
-            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, ports=[8000]
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, ports=[(8000, 8000)]
         )
         captured = capsys.readouterr()
         assert "Connecting to sandbox" in captured.out
-        assert "Forwarding ports: 8000" in captured.out
+        assert "Forwarding port 8000" in captured.out
 
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
@@ -574,7 +608,7 @@ def test_sandbox_ssh_default_name(
         sandbox_ssh(args)
 
         mock_ssh.assert_called_once_with(
-            "sandbox-recent", "test-project", SANDBOX_DEFAULT_ZONE, ports=[8000]
+            "sandbox-recent", "test-project", SANDBOX_DEFAULT_ZONE, ports=[(8000, 8000)]
         )
 
 
@@ -613,10 +647,10 @@ def test_sandbox_ssh_with_custom_ports(
             "sandbox-test",
             "test-project",
             SANDBOX_DEFAULT_ZONE,
-            ports=[8000, 8010, 7999],
+            ports=[(8000, 8000), (8010, 8010), (7999, 7999)],
         )
         captured = capsys.readouterr()
-        assert "Forwarding ports: 8000, 8010, 7999" in captured.out
+        assert "Forwarding port 8000" in captured.out
 
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
@@ -1647,7 +1681,7 @@ def test_sandbox_port_forward_basic(
         sandbox_port_forward(args)
 
         mock_start_pf.assert_called_once_with(
-            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, [8000]
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, [(8000, 8000)]
         )
         captured = capsys.readouterr()
         assert "Port forwarding active (PID 12345)" in captured.out
@@ -1693,7 +1727,7 @@ def test_sandbox_port_forward_custom_ports(
         sandbox_port_forward(args)
 
         mock_start_pf.assert_called_once_with(
-            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, [8000, 8001]
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, [(8000, 8000), (8001, 8001)]
         )
         captured = capsys.readouterr()
         assert "Port forwarding active (PID 54321)" in captured.out

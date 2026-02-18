@@ -46,6 +46,28 @@ SANDBOX_SYSTEMD_SERVICES = {
 }
 
 
+def _parse_port_specs(
+    ports_arg: str | None,
+) -> list[tuple[int, int]]:
+    """Parse port specifications into (local_port, remote_port) tuples.
+
+    Supports: '8000' (same local/remote), '15432:5432' (custom local port),
+    or comma-separated: '8000,15432:5432'.
+    """
+    if not ports_arg:
+        return [(p, p) for p in SANDBOX_DEFAULT_PORTS]
+    result = []
+    for spec in ports_arg.split(","):
+        spec = spec.strip()
+        if ":" in spec:
+            local_str, remote_str = spec.split(":", 1)
+            result.append((int(local_str), int(remote_str)))
+        else:
+            port = int(spec)
+            result.append((port, port))
+    return result
+
+
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     sandbox_parser = subparsers.add_parser(
         "sandbox", help="Manage GCE sandbox development environments"
@@ -102,7 +124,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     ssh_parser.add_argument(
         "--ports",
         default=None,
-        help="Comma-separated ports to forward (default: 8000)",
+        help="Comma-separated port specs: PORT or LOCAL:REMOTE (default: 8000)",
     )
     ssh_parser.add_argument(
         "--no-forward",
@@ -205,7 +227,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         "name", nargs="?", default=None, help="Sandbox name (default: most recent)"
     )
     pf_parser.add_argument(
-        "--ports", default=None, help="Comma-separated ports to forward (default: 8000)"
+        "--ports", default=None, help="Comma-separated port specs: PORT or LOCAL:REMOTE (default: 8000)"
     )
     pf_parser.add_argument(
         "--stop", action="store_true", default=False, help="Stop port forwarding"
@@ -392,15 +414,16 @@ def sandbox_ssh(args: Namespace) -> None:
     # Resolve ports for forwarding
     if args.no_forward:
         ports = None
-    elif args.ports:
-        ports = [int(p.strip()) for p in args.ports.split(",")]
     else:
-        ports = SANDBOX_DEFAULT_PORTS
+        ports = _parse_port_specs(args.ports)
 
     console.info(f"Connecting to sandbox '{name}'...")
     if ports:
-        port_str = ", ".join(str(p) for p in ports)
-        console.info(f"Forwarding ports: {port_str}")
+        for local_port, remote_port in ports:
+            if local_port == remote_port:
+                console.info(f"  Forwarding port {local_port}")
+            else:
+                console.info(f"  Forwarding localhost:{local_port} -> sandbox:{remote_port}")
     ssh_exec(name, project, zone, ports=ports)
 
 
@@ -685,11 +708,7 @@ def sandbox_port_forward(args: Namespace) -> None:
         state.update_port_forward_pid(name, None)
         return
 
-    ports = (
-        [int(p.strip()) for p in args.ports.split(",")]
-        if args.ports
-        else SANDBOX_DEFAULT_PORTS
-    )
+    ports = _parse_port_specs(args.ports)
 
     status = get_instance_status(name, project, zone)
     if status is None:
@@ -711,11 +730,12 @@ def sandbox_port_forward(args: Namespace) -> None:
     try:
         proc = start_port_forward(name, project, zone, ports)
         state.update_port_forward_pid(name, proc.pid)
-        port_str = ", ".join(str(p) for p in ports)
         console.success(f"Port forwarding active (PID {proc.pid})")
-        console.info(f"  Forwarding ports: {port_str}")
-        for port in ports:
-            console.info(f"  http://localhost:{port} -> sandbox:{port}")
+        for local_port, remote_port in ports:
+            if local_port == remote_port:
+                console.info(f"  http://localhost:{local_port} -> sandbox:{remote_port}")
+            else:
+                console.info(f"  http://localhost:{local_port} -> sandbox:{remote_port}")
         console.info(f"\nStop with: devservices sandbox port-forward {name} --stop")
     except SandboxError as e:
         capture_exception(e, level="info")

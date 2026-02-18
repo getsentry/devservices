@@ -537,7 +537,10 @@ def test_ssh_exec(mock_execvp: mock.Mock) -> None:
 @mock.patch("devservices.utils.sandbox.os.execvp")
 def test_ssh_exec_with_ports(mock_execvp: mock.Mock) -> None:
     ssh_exec(
-        name="sandbox-test", project="my-project", zone="us-central1-a", ports=[8000]
+        name="sandbox-test",
+        project="my-project",
+        zone="us-central1-a",
+        ports=[(8000, 8000)],
     )
     mock_execvp.assert_called_once_with(
         "gcloud",
@@ -561,7 +564,7 @@ def test_ssh_exec_with_multiple_ports(mock_execvp: mock.Mock) -> None:
         name="sandbox-test",
         project="my-project",
         zone="us-central1-a",
-        ports=[8000, 8010, 7999],
+        ports=[(8000, 8000), (8010, 8010), (7999, 7999)],
     )
     mock_execvp.assert_called_once_with(
         "gcloud",
@@ -615,6 +618,31 @@ def test_ssh_exec_with_empty_ports(mock_execvp: mock.Mock) -> None:
             "--zone=us-central1-a",
             "--tunnel-through-iap",
             "--ssh-flag=-A",
+        ],
+    )
+
+
+@mock.patch("devservices.utils.sandbox.os.execvp")
+def test_ssh_exec_with_custom_port_mapping(mock_execvp: mock.Mock) -> None:
+    ssh_exec(
+        name="sandbox-test",
+        project="my-project",
+        zone="us-central1-a",
+        ports=[(8000, 8000), (15432, 5432)],
+    )
+    mock_execvp.assert_called_once_with(
+        "gcloud",
+        [
+            "gcloud",
+            "compute",
+            "ssh",
+            "sandbox-test",
+            "--project=my-project",
+            "--zone=us-central1-a",
+            "--tunnel-through-iap",
+            "--ssh-flag=-A",
+            "--ssh-flag=-L 8000:localhost:8000",
+            "--ssh-flag=-L 15432:localhost:5432",
         ],
     )
 
@@ -832,7 +860,7 @@ def test_get_instance_details_empty_stdout(mock_run_gcloud: mock.Mock) -> None:
 def test_start_port_forward_success(mock_popen: mock.Mock) -> None:
     mock_proc = mock.Mock()
     mock_popen.return_value = mock_proc
-    result = start_port_forward("sandbox-test", "my-project", "us-central1-a", [8000])
+    result = start_port_forward("sandbox-test", "my-project", "us-central1-a", [(8000, 8000)])
     assert result is mock_proc
     mock_popen.assert_called_once_with(
         [
@@ -858,7 +886,7 @@ def test_start_port_forward_multiple_ports(mock_popen: mock.Mock) -> None:
     mock_proc = mock.Mock()
     mock_popen.return_value = mock_proc
     result = start_port_forward(
-        "sandbox-test", "my-project", "us-central1-a", [8000, 9000]
+        "sandbox-test", "my-project", "us-central1-a", [(8000, 8000), (9000, 9000)]
     )
     assert result is mock_proc
     call_args = mock_popen.call_args[0][0]
@@ -868,10 +896,23 @@ def test_start_port_forward_multiple_ports(mock_popen: mock.Mock) -> None:
 
 
 @mock.patch("subprocess.Popen")
+def test_start_port_forward_custom_mapping(mock_popen: mock.Mock) -> None:
+    mock_proc = mock.Mock()
+    mock_popen.return_value = mock_proc
+    result = start_port_forward(
+        "sandbox-test", "my-project", "us-central1-a", [(8000, 8000), (15432, 5432)]
+    )
+    assert result is mock_proc
+    call_args = mock_popen.call_args[0][0]
+    assert "8000:localhost:8000" in call_args
+    assert "15432:localhost:5432" in call_args
+
+
+@mock.patch("subprocess.Popen")
 def test_start_port_forward_gcloud_not_found(mock_popen: mock.Mock) -> None:
     mock_popen.side_effect = FileNotFoundError()
     with pytest.raises(GCloudNotFoundError):
-        start_port_forward("sandbox-test", "my-project", "us-central1-a", [8000])
+        start_port_forward("sandbox-test", "my-project", "us-central1-a", [(8000, 8000)])
 
 
 # --- stop_port_forward ---

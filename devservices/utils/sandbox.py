@@ -248,7 +248,10 @@ def list_instances(project: str, zone: str | None = None) -> list[dict[str, str]
 
 
 def ssh_exec(
-    name: str, project: str, zone: str, ports: list[int] | None = None
+    name: str,
+    project: str,
+    zone: str,
+    ports: list[tuple[int, int]] | None = None,
 ) -> None:
     """SSH into a sandbox instance via IAP tunnel. Replaces the current process."""
     cmd = [
@@ -262,8 +265,8 @@ def ssh_exec(
         "--ssh-flag=-A",
     ]
     if ports:
-        for port in ports:
-            cmd.append(f"--ssh-flag=-L {port}:localhost:{port}")
+        for local_port, remote_port in ports:
+            cmd.append(f"--ssh-flag=-L {local_port}:localhost:{remote_port}")
     os.execvp("gcloud", cmd)
 
 
@@ -379,12 +382,12 @@ def get_instance_details(name: str, project: str, zone: str) -> dict[str, str] |
 
 
 def start_port_forward(
-    name: str, project: str, zone: str, ports: list[int]
+    name: str, project: str, zone: str, ports: list[tuple[int, int]]
 ) -> subprocess.Popen[bytes]:
     """Start a background SSH tunnel for port forwarding."""
     tunnel_args = []
-    for port in ports:
-        tunnel_args.extend(["-L", f"{port}:localhost:{port}"])
+    for local_port, remote_port in ports:
+        tunnel_args.extend(["-L", f"{local_port}:localhost:{remote_port}"])
 
     cmd = [
         "gcloud",
