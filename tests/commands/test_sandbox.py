@@ -27,6 +27,7 @@ from devservices.commands.sandbox import sandbox_sync
 from devservices.constants import SANDBOX_DEFAULT_MACHINE_TYPE
 from devservices.constants import SANDBOX_DEFAULT_ZONE
 from devservices.constants import SANDBOX_MAINTENANCE_SYNC_PATH
+from devservices.constants import SANDBOX_PORT_PROFILES
 from devservices.exceptions import SandboxError
 from devservices.exceptions import SandboxOperationError
 from devservices.utils.console import Console
@@ -262,6 +263,38 @@ def test_parse_port_specs_mixed() -> None:
 def test_parse_port_specs_with_spaces() -> None:
     result = _parse_port_specs("8000, 15432:5432")
     assert result == [(8000, 8000), (15432, 5432)]
+
+
+def test_parse_port_specs_profile_devserver() -> None:
+    result = _parse_port_specs("devserver")
+    assert result == [(8000, 8000)]
+
+
+def test_parse_port_specs_profile_services() -> None:
+    result = _parse_port_specs("services")
+    assert result == SANDBOX_PORT_PROFILES["services"]
+    assert len(result) == 7
+
+
+def test_parse_port_specs_profile_all() -> None:
+    result = _parse_port_specs("all")
+    assert result == SANDBOX_PORT_PROFILES["all"]
+    assert len(result) == 8
+
+
+def test_parse_port_specs_numeric_ports_still_work() -> None:
+    result = _parse_port_specs("8000,5432")
+    assert result == [(8000, 8000), (5432, 5432)]
+
+
+def test_parse_port_specs_custom_mapping_still_works() -> None:
+    result = _parse_port_specs("15432:5432")
+    assert result == [(15432, 5432)]
+
+
+def test_parse_port_specs_invalid_profile_raises() -> None:
+    with pytest.raises(ValueError):
+        _parse_port_specs("nonexistent")
 
 
 # --- sandbox_create tests ---

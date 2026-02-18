@@ -10,6 +10,7 @@ from sentry_sdk import capture_exception
 from devservices.constants import SANDBOX_DEFAULT_MACHINE_TYPE
 from devservices.constants import SANDBOX_DEFAULT_LOG_LINES
 from devservices.constants import SANDBOX_DEFAULT_PORTS
+from devservices.constants import SANDBOX_PORT_PROFILES
 from devservices.constants import SANDBOX_DEFAULT_ZONE
 from devservices.constants import SANDBOX_MAINTENANCE_SYNC_PATH
 from devservices.exceptions import SandboxAlreadyExistsError
@@ -57,10 +58,12 @@ def _parse_port_specs(
     """Parse port specifications into (local_port, remote_port) tuples.
 
     Supports: '8000' (same local/remote), '15432:5432' (custom local port),
-    or comma-separated: '8000,15432:5432'.
+    comma-separated: '8000,15432:5432', or a profile name (devserver, services, all).
     """
     if not ports_arg:
         return [(p, p) for p in SANDBOX_DEFAULT_PORTS]
+    if ports_arg in SANDBOX_PORT_PROFILES:
+        return list(SANDBOX_PORT_PROFILES[ports_arg])
     result = []
     for spec in ports_arg.split(","):
         spec = spec.strip()
@@ -134,7 +137,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     ssh_parser.add_argument(
         "--ports",
         default=None,
-        help="Comma-separated port specs: PORT or LOCAL:REMOTE (default: 8000)",
+        help="Port specs: PORT, LOCAL:REMOTE, or profile name (devserver, services, all). Comma-separated.",
     )
     ssh_parser.add_argument(
         "--no-forward",
@@ -242,7 +245,7 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         "name", nargs="?", default=None, help="Sandbox name (default: most recent)"
     )
     pf_parser.add_argument(
-        "--ports", default=None, help="Comma-separated port specs: PORT or LOCAL:REMOTE (default: 8000)"
+        "--ports", default=None, help="Port specs: PORT, LOCAL:REMOTE, or profile name (devserver, services, all). Comma-separated."
     )
     pf_parser.add_argument(
         "--stop", action="store_true", default=False, help="Stop port forwarding"

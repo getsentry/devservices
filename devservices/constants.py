@@ -81,6 +81,28 @@ SANDBOX_NETWORK_TAG = "sentry-sandbox"
 SANDBOX_DISK_SIZE = 100
 SANDBOX_DISK_TYPE = "pd-ssd"
 SANDBOX_DEFAULT_PORTS = [8000]
+SANDBOX_PORT_PROFILES: dict[str, list[tuple[int, int]]] = {
+    "devserver": [(8000, 8000)],
+    "services": [
+        (5432, 5432),  # PostgreSQL
+        (6379, 6379),  # Redis
+        (9092, 9092),  # Kafka
+        (1218, 1218),  # Snuba
+        (9000, 9000),  # ClickHouse
+        (7899, 7899),  # Relay
+        (8969, 8969),  # Spotlight
+    ],
+    "all": [
+        (8000, 8000),  # Devserver
+        (5432, 5432),  # PostgreSQL
+        (6379, 6379),  # Redis
+        (9092, 9092),  # Kafka
+        (1218, 1218),  # Snuba
+        (9000, 9000),  # ClickHouse
+        (7899, 7899),  # Relay
+        (8969, 8969),  # Spotlight
+    ],
+}
 SANDBOX_MAINTENANCE_SYNC_PATH = "/opt/sandbox/scripts/maintenance-sync.sh"
 SANDBOX_REQUIRED_APIS = ["iap.googleapis.com", "compute.googleapis.com"]
 SANDBOX_DEFAULT_LOG_LINES = 100
