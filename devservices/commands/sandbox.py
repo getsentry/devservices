@@ -15,6 +15,7 @@ from devservices.constants import SANDBOX_MAINTENANCE_SYNC_PATH
 from devservices.exceptions import SandboxAlreadyExistsError
 from devservices.exceptions import SandboxError
 from devservices.exceptions import SandboxNotFoundError
+from devservices.exceptions import SandboxOperationError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
 from devservices.utils.sandbox import create_instance
@@ -321,6 +322,55 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
     )
     ssh_config_parser.set_defaults(func=sandbox_ssh_config)
+
+    # migrate
+    migrate_parser = sandbox_subparsers.add_parser(
+        "migrate", help="Run database migrations on the sandbox"
+    )
+    migrate_parser.add_argument(
+        "name", nargs="?", default=None, help="Sandbox name (default: most recent)"
+    )
+    migrate_parser.add_argument("--project", default=None, help="GCP project ID")
+    migrate_parser.add_argument(
+        "--zone",
+        default=SANDBOX_DEFAULT_ZONE,
+        help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
+    )
+    migrate_parser.set_defaults(func=sandbox_migrate)
+
+    # restart-devserver
+    restart_parser = sandbox_subparsers.add_parser(
+        "restart-devserver", help="Restart the devserver on the sandbox"
+    )
+    restart_parser.add_argument(
+        "name", nargs="?", default=None, help="Sandbox name (default: most recent)"
+    )
+    restart_parser.add_argument("--project", default=None, help="GCP project ID")
+    restart_parser.add_argument(
+        "--zone",
+        default=SANDBOX_DEFAULT_ZONE,
+        help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
+    )
+    restart_parser.set_defaults(func=sandbox_restart_devserver)
+
+    # exec
+    exec_parser = sandbox_subparsers.add_parser(
+        "exec", help="Run a command on the sandbox via SSH"
+    )
+    exec_parser.add_argument(
+        "command",
+        help="Command to execute on the sandbox (quote if it contains spaces)",
+    )
+    exec_parser.add_argument(
+        "--name", default=None, help="Sandbox name (default: most recent)"
+    )
+    exec_parser.add_argument("--project", default=None, help="GCP project ID")
+    exec_parser.add_argument(
+        "--zone",
+        default=SANDBOX_DEFAULT_ZONE,
+        help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
+    )
+    exec_parser.set_defaults(func=sandbox_exec)
 
     # Default: show help when no subcommand given
     sandbox_parser.set_defaults(
@@ -914,3 +964,123 @@ def sandbox_ssh_config(args: Namespace) -> None:
         console.info(f"  VS Code: code --remote ssh-remote+{name} /path/on/sandbox")
     else:
         console.info(config_block.rstrip())
+
+
+def sandbox_migrate(args: Namespace) -> None:
+    """Run database migrations on the sandbox."""
+    console = Console()
+    validate_sandbox_prerequisites(console)
+
+    try:
+        project = resolve_project(args.project)
+    except SandboxError as e:
+        console.failure(str(e))
+        exit(1)
+
+    state = State()
+    name = _resolve_sandbox_name(args, state, console)
+    zone = args.zone
+
+    status = get_instance_status(name, project, zone)
+    if status is None:
+        console.failure(str(SandboxNotFoundError(name)))
+        exit(1)
+    if status != "RUNNING":
+        console.failure(
+            f"Sandbox '{name}' is {status}. Start it first with: devservices sandbox start {name}"
+        )
+        exit(1)
+
+    console.info(f"Running migrations on sandbox '{name}'...")
+    try:
+        result = ssh_command(
+            name, project, zone, "cd /opt/getsentry && make apply-migrations"
+        )
+        if result.stdout:
+            for line in result.stdout.strip().split("\n"):
+                console.info(f"  {line}")
+        console.success(f"Migrations completed successfully on '{name}'")
+    except SandboxError as e:
+        capture_exception(e, level="info")
+        console.failure(f"Failed to run migrations: {e}")
+        exit(1)
+
+
+def sandbox_restart_devserver(args: Namespace) -> None:
+    """Restart the devserver on the sandbox."""
+    console = Console()
+    validate_sandbox_prerequisites(console)
+
+    try:
+        project = resolve_project(args.project)
+    except SandboxError as e:
+        console.failure(str(e))
+        exit(1)
+
+    state = State()
+    name = _resolve_sandbox_name(args, state, console)
+    zone = args.zone
+
+    status = get_instance_status(name, project, zone)
+    if status is None:
+        console.failure(str(SandboxNotFoundError(name)))
+        exit(1)
+    if status != "RUNNING":
+        console.failure(
+            f"Sandbox '{name}' is {status}. Start it first with: devservices sandbox start {name}"
+        )
+        exit(1)
+
+    try:
+        ssh_command(name, project, zone, "sudo systemctl restart sandbox-devserver")
+        console.success(f"Devserver restarted on '{name}'")
+
+        result = ssh_command(
+            name, project, zone, "sudo systemctl is-active sandbox-devserver"
+        )
+        if result.stdout:
+            console.info(f"  Service status: {result.stdout.strip()}")
+    except SandboxError as e:
+        capture_exception(e, level="info")
+        console.failure(f"Failed to restart devserver: {e}")
+        exit(1)
+
+
+def sandbox_exec(args: Namespace) -> None:
+    """Run a command on the sandbox via SSH."""
+    console = Console()
+    validate_sandbox_prerequisites(console)
+
+    try:
+        project = resolve_project(args.project)
+    except SandboxError as e:
+        console.failure(str(e))
+        exit(1)
+
+    state = State()
+    name = _resolve_sandbox_name(args, state, console)
+    zone = args.zone
+
+    status = get_instance_status(name, project, zone)
+    if status is None:
+        console.failure(str(SandboxNotFoundError(name)))
+        exit(1)
+    if status != "RUNNING":
+        console.failure(
+            f"Sandbox '{name}' is {status}. Start it first with: devservices sandbox start {name}"
+        )
+        exit(1)
+
+    try:
+        result = ssh_command(name, project, zone, args.command)
+        if result.stdout:
+            console.info(result.stdout.rstrip())
+        if result.stderr:
+            console.warning(result.stderr.rstrip())
+    except SandboxOperationError as e:
+        if e.stderr:
+            console.warning(e.stderr)
+        exit(e.returncode)
+    except SandboxError as e:
+        console.failure(f"Failed to execute command: {e}")
+        exit(1)
