@@ -39,6 +39,7 @@ from devservices.utils.sandbox import resolve_project
 from devservices.utils.sandbox import run_gcloud
 from devservices.utils.sandbox import ssh_command
 from devservices.utils.sandbox import ssh_exec
+from devservices.utils.sandbox import ssh_stream
 from devservices.utils.sandbox import start_instance
 from devservices.utils.sandbox import start_port_forward
 from devservices.utils.sandbox import stop_instance
@@ -728,6 +729,33 @@ def test_ssh_command_gcloud_not_found(mock_run_gcloud: mock.Mock) -> None:
     mock_run_gcloud.side_effect = GCloudNotFoundError()
     with pytest.raises(GCloudNotFoundError):
         ssh_command("sandbox-test", "my-project", "us-central1-a", "echo hello")
+
+
+# --- ssh_stream ---
+
+
+@mock.patch("subprocess.Popen")
+def test_ssh_stream_with_tty(mock_popen: mock.Mock) -> None:
+    """ssh_stream with tty=True adds --ssh-flag=-t to the command."""
+    mock_proc = mock.Mock()
+    mock_popen.return_value = mock_proc
+    result = ssh_stream(
+        "sandbox-test", "my-project", "us-central1-a", "echo hello", tty=True
+    )
+    assert result is mock_proc
+    call_args = mock_popen.call_args[0][0]
+    assert "--ssh-flag=-t" in call_args
+
+
+@mock.patch("subprocess.Popen")
+def test_ssh_stream_without_tty(mock_popen: mock.Mock) -> None:
+    """ssh_stream with tty=False (default) does NOT add --ssh-flag=-t."""
+    mock_proc = mock.Mock()
+    mock_popen.return_value = mock_proc
+    result = ssh_stream("sandbox-test", "my-project", "us-central1-a", "echo hello")
+    assert result is mock_proc
+    call_args = mock_popen.call_args[0][0]
+    assert "--ssh-flag=-t" not in call_args
 
 
 # --- check_api_enabled ---

@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+from devservices.commands.sandbox import ANSI_STRIP_PIPE
 from devservices.commands.sandbox import _parse_port_specs
 from devservices.commands.sandbox import _resolve_sandbox_name
 from devservices.commands.sandbox import _wait_for_status
@@ -14,6 +15,7 @@ from devservices.commands.sandbox import add_parser
 from devservices.commands.sandbox import sandbox_create
 from devservices.commands.sandbox import sandbox_destroy
 from devservices.commands.sandbox import sandbox_list
+from devservices.commands.sandbox import sandbox_logs
 from devservices.commands.sandbox import sandbox_port_forward
 from devservices.commands.sandbox import sandbox_ssh
 from devservices.commands.sandbox import sandbox_exec
@@ -127,6 +129,33 @@ def test_add_parser_list_defaults() -> None:
     assert args.sandbox_command == "list"
     assert args.project is None
     assert args.zone is None
+
+
+def test_add_parser_logs_color_default() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_parser(subparsers)
+
+    args = parser.parse_args(["sandbox", "logs"])
+    assert args.color is None
+
+
+def test_add_parser_logs_color_flag() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_parser(subparsers)
+
+    args = parser.parse_args(["sandbox", "logs", "--color"])
+    assert args.color is True
+
+
+def test_add_parser_logs_no_color_flag() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_parser(subparsers)
+
+    args = parser.parse_args(["sandbox", "logs", "--no-color"])
+    assert args.color is False
 
 
 # --- _resolve_sandbox_name tests ---
@@ -3055,3 +3084,379 @@ def test_sandbox_hybrid_port_conflict_cancelled(
         assert "cancelled" in captured.out.lower()
         # Verify devserver was NOT stopped (port check happens first)
         mock_ssh.assert_not_called()
+
+
+# --- sandbox_logs tests ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_stream")
+def test_sandbox_logs_follow_color(
+    mock_ssh_stream: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_proc = mock.MagicMock()
+    mock_ssh_stream.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=True,
+            lines=100,
+            color=True,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_logs(args)
+
+        mock_ssh_stream.assert_called_once()
+        call_kwargs = mock_ssh_stream.call_args[1]
+        assert call_kwargs["tty"] is True
+        remote_cmd = mock_ssh_stream.call_args[0][3]
+        assert ANSI_STRIP_PIPE not in remote_cmd
+        mock_proc.wait.assert_called()
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_stream")
+def test_sandbox_logs_follow_no_color(
+    mock_ssh_stream: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_proc = mock.MagicMock()
+    mock_ssh_stream.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=True,
+            lines=100,
+            color=False,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_logs(args)
+
+        mock_ssh_stream.assert_called_once()
+        call_kwargs = mock_ssh_stream.call_args[1]
+        assert call_kwargs["tty"] is False
+        remote_cmd = mock_ssh_stream.call_args[0][3]
+        assert ANSI_STRIP_PIPE in remote_cmd
+        mock_proc.wait.assert_called()
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_stream")
+def test_sandbox_logs_no_follow_color(
+    mock_ssh_stream: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_proc = mock.MagicMock()
+    mock_ssh_stream.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=False,
+            lines=100,
+            color=True,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_logs(args)
+
+        mock_ssh_stream.assert_called_once()
+        call_kwargs = mock_ssh_stream.call_args[1]
+        assert call_kwargs["tty"] is True
+        remote_cmd = mock_ssh_stream.call_args[0][3]
+        assert ANSI_STRIP_PIPE not in remote_cmd
+        mock_proc.wait.assert_called()
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_stream")
+def test_sandbox_logs_no_follow_no_color(
+    mock_ssh_stream: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_proc = mock.MagicMock()
+    mock_ssh_stream.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=False,
+            lines=100,
+            color=False,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_logs(args)
+
+        mock_ssh_stream.assert_called_once()
+        call_kwargs = mock_ssh_stream.call_args[1]
+        assert call_kwargs["tty"] is False
+        remote_cmd = mock_ssh_stream.call_args[0][3]
+        assert ANSI_STRIP_PIPE in remote_cmd
+        mock_proc.wait.assert_called()
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_stream")
+@mock.patch("devservices.commands.sandbox.sys")
+def test_sandbox_logs_auto_color_tty(
+    mock_sys: mock.Mock,
+    mock_ssh_stream: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_sys.stdout.isatty.return_value = True
+    mock_proc = mock.MagicMock()
+    mock_ssh_stream.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=True,
+            lines=100,
+            color=None,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_logs(args)
+
+        mock_ssh_stream.assert_called_once()
+        call_kwargs = mock_ssh_stream.call_args[1]
+        assert call_kwargs["tty"] is True
+        remote_cmd = mock_ssh_stream.call_args[0][3]
+        assert ANSI_STRIP_PIPE not in remote_cmd
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_stream")
+@mock.patch("devservices.commands.sandbox.sys")
+def test_sandbox_logs_auto_color_pipe(
+    mock_sys: mock.Mock,
+    mock_ssh_stream: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_sys.stdout.isatty.return_value = False
+    mock_proc = mock.MagicMock()
+    mock_ssh_stream.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=True,
+            lines=100,
+            color=None,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_logs(args)
+
+        mock_ssh_stream.assert_called_once()
+        call_kwargs = mock_ssh_stream.call_args[1]
+        assert call_kwargs["tty"] is False
+        remote_cmd = mock_ssh_stream.call_args[0][3]
+        assert ANSI_STRIP_PIPE in remote_cmd
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_stream")
+def test_sandbox_logs_docker_container_color(
+    mock_ssh_stream: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    tmp_path: Path,
+) -> None:
+    mock_proc = mock.MagicMock()
+    mock_ssh_stream.return_value = mock_proc
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="postgres",
+            follow=True,
+            lines=100,
+            color=True,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_logs(args)
+
+        mock_ssh_stream.assert_called_once()
+        call_kwargs = mock_ssh_stream.call_args[1]
+        assert call_kwargs["tty"] is True
+        remote_cmd = mock_ssh_stream.call_args[0][3]
+        assert "docker logs" in remote_cmd
+        assert "postgres" in remote_cmd
+        assert ANSI_STRIP_PIPE not in remote_cmd
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch(
+    "devservices.commands.sandbox.get_instance_status", return_value="TERMINATED"
+)
+def test_sandbox_logs_not_running(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=False,
+            lines=100,
+            color=None,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        with pytest.raises(SystemExit):
+            sandbox_logs(args)
+
+        captured = capsys.readouterr()
+        assert "TERMINATED" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value=None)
+def test_sandbox_logs_not_found(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            service="devserver",
+            follow=False,
+            lines=100,
+            color=None,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        with pytest.raises(SystemExit):
+            sandbox_logs(args)
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.out

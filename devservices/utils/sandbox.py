@@ -290,12 +290,15 @@ def ssh_command(
 
 
 def ssh_stream(
-    name: str, project: str, zone: str, command: str
+    name: str, project: str, zone: str, command: str, *, tty: bool = False
 ) -> subprocess.Popen[bytes]:
     """Run a command on a sandbox instance via SSH with output streamed to the terminal.
 
     Unlike ssh_command() which captures output, this passes stdout/stderr
     directly through to the caller's terminal, suitable for follow/tail mode.
+
+    When tty=True, allocates a PTY on the remote side (--ssh-flag=-t) so that
+    programs which detect a terminal (e.g. journalctl) emit colored output.
     """
     cmd = [
         "gcloud",
@@ -305,8 +308,10 @@ def ssh_stream(
         f"--project={project}",
         f"--zone={zone}",
         "--tunnel-through-iap",
-        f"--command={command}",
     ]
+    if tty:
+        cmd.append("--ssh-flag=-t")
+    cmd.append(f"--command={command}")
     try:
         return subprocess.Popen(cmd)
     except FileNotFoundError:

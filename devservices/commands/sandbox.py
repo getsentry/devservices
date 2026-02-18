@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+import sys
 import time
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
@@ -51,6 +52,8 @@ SANDBOX_SYSTEMD_SERVICES = {
     "devserver": "sandbox-devserver.service",
     "startup": "sandbox-startup.service",
 }
+
+ANSI_STRIP_PIPE = " | sed $'s/\\x1b\\[[0-9;]*[a-zA-Z]//g'"
 
 
 def _parse_port_specs(
@@ -285,6 +288,19 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         type=int,
         default=SANDBOX_DEFAULT_LOG_LINES,
         help=f"Number of recent lines to show (default: {SANDBOX_DEFAULT_LOG_LINES})",
+    )
+    logs_parser.add_argument(
+        "--color",
+        dest="color",
+        default=None,
+        action="store_true",
+        help="Force colored output",
+    )
+    logs_parser.add_argument(
+        "--no-color",
+        dest="color",
+        action="store_false",
+        help="Disable colored output",
     )
     logs_parser.add_argument("--project", default=None, help="GCP project ID")
     logs_parser.add_argument(
@@ -906,6 +922,9 @@ def sandbox_logs(args: Namespace) -> None:
     follow = args.follow
     lines = args.lines
 
+    # Resolve color mode: default to auto-detect based on terminal
+    use_color = sys.stdout.isatty() if args.color is None else args.color
+
     # Build the remote command
     if service in SANDBOX_SYSTEMD_SERVICES:
         unit = SANDBOX_SYSTEMD_SERVICES[service]
@@ -923,12 +942,15 @@ def sandbox_logs(args: Namespace) -> None:
             f"sudo docker ps --format '{{{{.Names}}}}'; }}"
         )
 
+    if not use_color:
+        remote_cmd = f"({remote_cmd}){ANSI_STRIP_PIPE}"
+
     if follow:
         console.info(
             f"Tailing logs for '{service}' on sandbox '{name}' (Ctrl+C to stop)..."
         )
         try:
-            proc = ssh_stream(name, project, zone, remote_cmd)
+            proc = ssh_stream(name, project, zone, remote_cmd, tty=use_color)
             proc.wait()
         except KeyboardInterrupt:
             proc.terminate()
@@ -939,11 +961,8 @@ def sandbox_logs(args: Namespace) -> None:
             exit(1)
     else:
         try:
-            result = ssh_command(name, project, zone, remote_cmd)
-            if result.stdout:
-                console.info(result.stdout.rstrip())
-            if result.stderr:
-                console.warning(result.stderr.rstrip())
+            proc = ssh_stream(name, project, zone, remote_cmd, tty=use_color)
+            proc.wait()
         except SandboxError as e:
             capture_exception(e, level="info")
             console.failure(f"Failed to get logs: {e}")
