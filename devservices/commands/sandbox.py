@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 import time
 from argparse import _SubParsersAction
 from argparse import ArgumentParser
@@ -1153,10 +1154,31 @@ def sandbox_hybrid(args: Namespace) -> None:
             exit(1)
         return
 
-    # Enter hybrid mode: stop devserver, forward service ports
+    # Enter hybrid mode: check ports, stop devserver, forward service ports
+    ports = list(SANDBOX_PORT_PROFILES["services"])
+
+    # 1. Check for local port conflicts before making any changes
+    conflicts = []
+    for local_port, _ in ports:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", local_port))
+            except OSError:
+                conflicts.append(local_port)
+    if conflicts:
+        console.warning(
+            f"Ports already in use locally: {', '.join(str(p) for p in conflicts)}"
+        )
+        console.warning(
+            "Local devservices may be running. Stop them first with: devservices down"
+        )
+        if not console.confirm("Continue anyway?"):
+            console.info("Hybrid mode cancelled.")
+            return
+
     console.info(f"Entering hybrid mode for '{name}'...")
 
-    # 1. Stop remote devserver
+    # 2. Stop remote devserver
     try:
         ssh_command(
             name, project, zone, "sudo systemctl stop sandbox-devserver"
@@ -1167,14 +1189,13 @@ def sandbox_hybrid(args: Namespace) -> None:
         console.failure(f"Failed to stop devserver: {e}")
         exit(1)
 
-    # 2. Stop any existing port forwarding
+    # 3. Stop any existing port forwarding
     existing_pid = state.get_port_forward_pid(name)
     if existing_pid and is_port_forward_running(existing_pid):
         stop_port_forward(existing_pid)
         state.update_port_forward_pid(name, None)
 
-    # 3. Forward service ports
-    ports = list(SANDBOX_PORT_PROFILES["services"])
+    # 4. Forward service ports
     try:
         proc = start_port_forward(name, project, zone, ports)
         state.update_port_forward_pid(name, proc.pid)

@@ -2844,6 +2844,7 @@ def test_sandbox_exec_not_found(
 # --- sandbox_hybrid ---
 
 
+@mock.patch("devservices.commands.sandbox.socket")
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
 @mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
 @mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
@@ -2855,10 +2856,18 @@ def test_sandbox_hybrid_start(
     mock_get_status: mock.Mock,
     mock_resolve: mock.Mock,
     mock_validate: mock.Mock,
+    mock_socket_mod: mock.Mock,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
     from devservices.commands.sandbox import sandbox_hybrid
+
+    # Mock socket so port check passes (no conflicts)
+    mock_sock = mock.MagicMock()
+    mock_socket_mod.socket.return_value.__enter__ = mock.MagicMock(return_value=mock_sock)
+    mock_socket_mod.socket.return_value.__exit__ = mock.MagicMock(return_value=False)
+    mock_socket_mod.AF_INET = 2
+    mock_socket_mod.SOCK_STREAM = 1
 
     mock_proc = mock.MagicMock()
     mock_proc.pid = 99999
@@ -2984,3 +2993,65 @@ def test_sandbox_hybrid_not_running(
 
         captured = capsys.readouterr()
         assert "TERMINATED" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_command")
+@mock.patch("devservices.commands.sandbox.start_port_forward")
+@mock.patch("devservices.commands.sandbox.socket")
+def test_sandbox_hybrid_port_conflict_cancelled(
+    mock_socket_mod: mock.Mock,
+    mock_start_pf: mock.Mock,
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from devservices.commands.sandbox import sandbox_hybrid
+
+    # Simulate port 5432 in use (bind raises OSError)
+    mock_sock = mock.MagicMock()
+    mock_socket_mod.socket.return_value.__enter__ = mock.MagicMock(
+        return_value=mock_sock
+    )
+    mock_socket_mod.socket.return_value.__exit__ = mock.MagicMock(return_value=False)
+    mock_socket_mod.AF_INET = 2
+    mock_socket_mod.SOCK_STREAM = 1
+
+    def bind_side_effect(addr: tuple[str, int]) -> None:
+        if addr[1] == 5432:
+            raise OSError("Address already in use")
+
+    mock_sock.bind = mock.MagicMock(side_effect=bind_side_effect)
+
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        # Simulate user declining to continue
+        with mock.patch(
+            "devservices.utils.console.Console.confirm", return_value=False
+        ):
+            args = Namespace(
+                name="sandbox-test",
+                stop=False,
+                project=None,
+                zone=SANDBOX_DEFAULT_ZONE,
+            )
+            sandbox_hybrid(args)
+
+        captured = capsys.readouterr()
+        assert "5432" in captured.out
+        assert "cancelled" in captured.out.lower()
+        # Verify devserver was NOT stopped (port check happens first)
+        mock_ssh.assert_not_called()
