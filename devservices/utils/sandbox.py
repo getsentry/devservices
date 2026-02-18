@@ -297,8 +297,9 @@ def ssh_stream(
     Unlike ssh_command() which captures output, this passes stdout/stderr
     directly through to the caller's terminal, suitable for follow/tail mode.
 
-    When tty=True, allocates a PTY on the remote side (--ssh-flag=-t) so that
-    programs which detect a terminal (e.g. journalctl) emit colored output.
+    When tty=True, forces PTY allocation on the remote side (--ssh-flag=-tt)
+    so that programs which detect a terminal (e.g. journalctl) emit colored
+    output. Uses -tt (double) to force allocation even without a local tty.
     """
     cmd = [
         "gcloud",
@@ -310,7 +311,7 @@ def ssh_stream(
         "--tunnel-through-iap",
     ]
     if tty:
-        cmd.append("--ssh-flag=-t")
+        cmd.append("--ssh-flag=-tt")
     cmd.append(f"--command={command}")
     try:
         return subprocess.Popen(cmd)

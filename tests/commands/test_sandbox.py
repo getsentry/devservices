@@ -3128,6 +3128,7 @@ def test_sandbox_logs_follow_color(
         assert call_kwargs["tty"] is True
         remote_cmd = mock_ssh_stream.call_args[0][3]
         assert ANSI_STRIP_PIPE not in remote_cmd
+        assert "-o cat" in remote_cmd
         mock_proc.wait.assert_called()
 
 
@@ -3170,6 +3171,7 @@ def test_sandbox_logs_follow_no_color(
         assert call_kwargs["tty"] is False
         remote_cmd = mock_ssh_stream.call_args[0][3]
         assert ANSI_STRIP_PIPE in remote_cmd
+        assert "-o cat" not in remote_cmd
         mock_proc.wait.assert_called()
 
 
@@ -3212,6 +3214,7 @@ def test_sandbox_logs_no_follow_color(
         assert call_kwargs["tty"] is True
         remote_cmd = mock_ssh_stream.call_args[0][3]
         assert ANSI_STRIP_PIPE not in remote_cmd
+        assert "-o cat" in remote_cmd
         mock_proc.wait.assert_called()
 
 
@@ -3254,6 +3257,7 @@ def test_sandbox_logs_no_follow_no_color(
         assert call_kwargs["tty"] is False
         remote_cmd = mock_ssh_stream.call_args[0][3]
         assert ANSI_STRIP_PIPE in remote_cmd
+        assert "-o cat" not in remote_cmd
         mock_proc.wait.assert_called()
 
 
@@ -3299,6 +3303,7 @@ def test_sandbox_logs_auto_color_tty(
         assert call_kwargs["tty"] is True
         remote_cmd = mock_ssh_stream.call_args[0][3]
         assert ANSI_STRIP_PIPE not in remote_cmd
+        assert "-o cat" in remote_cmd
 
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
@@ -3343,6 +3348,7 @@ def test_sandbox_logs_auto_color_pipe(
         assert call_kwargs["tty"] is False
         remote_cmd = mock_ssh_stream.call_args[0][3]
         assert ANSI_STRIP_PIPE in remote_cmd
+        assert "-o cat" not in remote_cmd
 
 
 @mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")

@@ -928,10 +928,14 @@ def sandbox_logs(args: Namespace) -> None:
     # Build the remote command
     if service in SANDBOX_SYSTEMD_SERVICES:
         unit = SANDBOX_SYSTEMD_SERVICES[service]
+        # Use -o cat when colors are enabled: journalctl's default --short format
+        # strips ANSI escape codes from stored messages, but -o cat outputs raw
+        # message content preserving any ANSI codes written by --pretty devserver.
+        output_fmt = " -o cat" if use_color else ""
         if follow:
-            remote_cmd = f"sudo journalctl -u {unit} -n {lines} -f"
+            remote_cmd = f"sudo journalctl -u {unit} -n {lines}{output_fmt} -f"
         else:
-            remote_cmd = f"sudo journalctl -u {unit} -n {lines} --no-pager"
+            remote_cmd = f"sudo journalctl -u {unit} -n {lines}{output_fmt} --no-pager"
     else:
         # Docker container — find by partial name match
         follow_flag = "-f " if follow else ""
