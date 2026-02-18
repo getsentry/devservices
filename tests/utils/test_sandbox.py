@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -23,12 +25,16 @@ from devservices.utils.sandbox import check_gcloud_installed
 from devservices.utils.sandbox import create_instance
 from devservices.utils.sandbox import delete_instance
 from devservices.utils.sandbox import generate_instance_name
+from devservices.utils.sandbox import generate_ssh_config
 from devservices.utils.sandbox import get_gcloud_account
 from devservices.utils.sandbox import get_gcloud_project
 from devservices.utils.sandbox import get_instance_details
 from devservices.utils.sandbox import get_instance_status
+from devservices.utils.sandbox import get_ssh_config_path
+from devservices.utils.sandbox import has_ssh_config_entry
 from devservices.utils.sandbox import is_port_forward_running
 from devservices.utils.sandbox import list_instances
+from devservices.utils.sandbox import remove_ssh_config_entry
 from devservices.utils.sandbox import resolve_project
 from devservices.utils.sandbox import run_gcloud
 from devservices.utils.sandbox import ssh_command
@@ -39,6 +45,7 @@ from devservices.utils.sandbox import stop_instance
 from devservices.utils.sandbox import stop_port_forward
 from devservices.utils.sandbox import validate_sandbox_apis
 from devservices.utils.sandbox import validate_sandbox_prerequisites
+from devservices.utils.sandbox import write_ssh_config_entry
 
 
 # --- run_gcloud ---
@@ -990,3 +997,145 @@ def test_is_port_forward_running_false(mock_kill: mock.Mock) -> None:
 def test_is_port_forward_running_permission_error(mock_kill: mock.Mock) -> None:
     mock_kill.side_effect = PermissionError()
     assert is_port_forward_running(12345) is False
+
+
+# --- generate_ssh_config ---
+
+
+def test_generate_ssh_config_basic() -> None:
+    config = generate_ssh_config("sandbox-test", "my-project", "us-central1-a")
+    assert "# BEGIN devservices-sandbox: sandbox-test" in config
+    assert "# END devservices-sandbox: sandbox-test" in config
+    assert "Host sandbox-test" in config
+    assert "my-project" in config
+    assert "us-central1-a" in config
+    assert "start-iap-tunnel" in config
+    assert "StrictHostKeyChecking no" in config
+    assert "ServerAliveInterval 30" in config
+    assert "LocalForward" not in config
+
+
+def test_generate_ssh_config_with_ports() -> None:
+    config = generate_ssh_config(
+        "sandbox-test",
+        "my-project",
+        "us-central1-a",
+        ports=[(8000, 8000), (15432, 5432)],
+    )
+    assert "LocalForward 8000 localhost:8000" in config
+    assert "LocalForward 15432 localhost:5432" in config
+
+
+def test_generate_ssh_config_no_ports() -> None:
+    config = generate_ssh_config(
+        "sandbox-test", "my-project", "us-central1-a", ports=[]
+    )
+    assert "LocalForward" not in config
+
+
+# --- get_ssh_config_path ---
+
+
+def test_get_ssh_config_path() -> None:
+    path = get_ssh_config_path()
+    assert path.endswith(".ssh/config")
+
+
+# --- write_ssh_config_entry ---
+
+
+def test_write_ssh_config_entry_creates_new_file(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "config")
+    config_block = "# BEGIN devservices-sandbox: test\nHost test\n# END devservices-sandbox: test\n"
+    write_ssh_config_entry(config_path, "test", config_block)
+    with open(config_path) as f:
+        content = f.read()
+    assert config_block in content
+
+
+def test_write_ssh_config_entry_appends_to_existing(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "config")
+    existing = "Host other-server\n    HostName example.com\n\n"
+    with open(config_path, "w") as f:
+        f.write(existing)
+    config_block = "# BEGIN devservices-sandbox: test\nHost test\n# END devservices-sandbox: test\n"
+    write_ssh_config_entry(config_path, "test", config_block)
+    with open(config_path) as f:
+        content = f.read()
+    assert "Host other-server" in content
+    assert config_block in content
+
+
+def test_write_ssh_config_entry_updates_existing(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "config")
+    old_block = "# BEGIN devservices-sandbox: test\nHost test-old\n# END devservices-sandbox: test\n"
+    write_ssh_config_entry(config_path, "test", old_block)
+    new_block = "# BEGIN devservices-sandbox: test\nHost test-new\n# END devservices-sandbox: test\n"
+    write_ssh_config_entry(config_path, "test", new_block)
+    with open(config_path) as f:
+        content = f.read()
+    assert "Host test-new" in content
+    assert "Host test-old" not in content
+    assert content.count("# BEGIN devservices-sandbox: test") == 1
+
+
+def test_write_ssh_config_entry_creates_directory(tmp_path: Path) -> None:
+    config_path = str(tmp_path / ".ssh" / "config")
+    config_block = "# BEGIN devservices-sandbox: test\nHost test\n# END devservices-sandbox: test\n"
+    write_ssh_config_entry(config_path, "test", config_block)
+    assert os.path.isfile(config_path)
+    with open(config_path) as f:
+        content = f.read()
+    assert config_block in content
+
+
+# --- remove_ssh_config_entry ---
+
+
+def test_remove_ssh_config_entry_exists(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "config")
+    existing = "Host other-server\n    HostName example.com\n\n"
+    block = "# BEGIN devservices-sandbox: test\nHost test\n# END devservices-sandbox: test\n"
+    with open(config_path, "w") as f:
+        f.write(existing + block)
+    result = remove_ssh_config_entry(config_path, "test")
+    assert result is True
+    with open(config_path) as f:
+        content = f.read()
+    assert "# BEGIN devservices-sandbox: test" not in content
+    assert "Host other-server" in content
+
+
+def test_remove_ssh_config_entry_not_found(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "config")
+    existing = "Host other-server\n    HostName example.com\n"
+    with open(config_path, "w") as f:
+        f.write(existing)
+    result = remove_ssh_config_entry(config_path, "nonexistent")
+    assert result is False
+    with open(config_path) as f:
+        content = f.read()
+    assert content == existing
+
+
+# --- has_ssh_config_entry ---
+
+
+def test_has_ssh_config_entry_true(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "config")
+    block = "# BEGIN devservices-sandbox: test\nHost test\n# END devservices-sandbox: test\n"
+    with open(config_path, "w") as f:
+        f.write(block)
+    assert has_ssh_config_entry(config_path, "test") is True
+
+
+def test_has_ssh_config_entry_false(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "config")
+    with open(config_path, "w") as f:
+        f.write("Host other-server\n    HostName example.com\n")
+    assert has_ssh_config_entry(config_path, "nonexistent") is False
+
+
+def test_has_ssh_config_entry_no_file(tmp_path: Path) -> None:
+    config_path = str(tmp_path / "nonexistent" / "config")
+    assert has_ssh_config_entry(config_path, "test") is False

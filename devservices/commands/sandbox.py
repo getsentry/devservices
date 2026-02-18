@@ -20,10 +20,13 @@ from devservices.utils.console import Status
 from devservices.utils.sandbox import create_instance
 from devservices.utils.sandbox import delete_instance
 from devservices.utils.sandbox import generate_instance_name
+from devservices.utils.sandbox import generate_ssh_config
 from devservices.utils.sandbox import get_instance_details
 from devservices.utils.sandbox import get_instance_status
+from devservices.utils.sandbox import get_ssh_config_path
 from devservices.utils.sandbox import is_port_forward_running
 from devservices.utils.sandbox import list_instances
+from devservices.utils.sandbox import remove_ssh_config_entry
 from devservices.utils.sandbox import resolve_project
 from devservices.utils.sandbox import ssh_command
 from devservices.utils.sandbox import ssh_exec
@@ -34,6 +37,7 @@ from devservices.utils.sandbox import stop_instance
 from devservices.utils.sandbox import stop_port_forward
 from devservices.utils.sandbox import validate_sandbox_apis
 from devservices.utils.sandbox import validate_sandbox_prerequisites
+from devservices.utils.sandbox import write_ssh_config_entry
 from devservices.utils.state import State
 
 
@@ -284,6 +288,39 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
     )
     logs_parser.set_defaults(func=sandbox_logs)
+
+    # ssh-config
+    ssh_config_parser = sandbox_subparsers.add_parser(
+        "ssh-config",
+        help="Generate SSH config for a sandbox (enables VS Code, JetBrains, Mutagen)",
+    )
+    ssh_config_parser.add_argument(
+        "name", nargs="?", default=None, help="Sandbox name (default: most recent)"
+    )
+    ssh_config_parser.add_argument(
+        "--ports",
+        default=None,
+        help="Port specs for LocalForward: PORT or LOCAL:REMOTE, comma-separated",
+    )
+    ssh_config_parser.add_argument(
+        "--append",
+        action="store_true",
+        default=False,
+        help="Write to ~/.ssh/config (default: print to stdout)",
+    )
+    ssh_config_parser.add_argument(
+        "--remove",
+        action="store_true",
+        default=False,
+        help="Remove sandbox entry from ~/.ssh/config",
+    )
+    ssh_config_parser.add_argument("--project", default=None, help="GCP project ID")
+    ssh_config_parser.add_argument(
+        "--zone",
+        default=SANDBOX_DEFAULT_ZONE,
+        help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
+    )
+    ssh_config_parser.set_defaults(func=sandbox_ssh_config)
 
     # Default: show help when no subcommand given
     sandbox_parser.set_defaults(
@@ -835,3 +872,45 @@ def sandbox_logs(args: Namespace) -> None:
             capture_exception(e, level="info")
             console.failure(f"Failed to get logs: {e}")
             exit(1)
+
+
+def sandbox_ssh_config(args: Namespace) -> None:
+    """Generate or manage SSH config for a sandbox instance."""
+    console = Console()
+    validate_sandbox_prerequisites(console)
+
+    try:
+        project = resolve_project(args.project)
+    except SandboxError as e:
+        console.failure(str(e))
+        exit(1)
+
+    state = State()
+    name = _resolve_sandbox_name(args, state, console)
+    zone = args.zone
+
+    if args.remove:
+        config_path = get_ssh_config_path()
+        if remove_ssh_config_entry(config_path, name):
+            console.success(f"Removed SSH config entry for '{name}'")
+        else:
+            console.info(f"No SSH config entry found for '{name}'")
+        return
+
+    status = get_instance_status(name, project, zone)
+    if status is None:
+        console.failure(str(SandboxNotFoundError(name)))
+        exit(1)
+
+    ports = _parse_port_specs(args.ports) if args.ports else None
+    config_block = generate_ssh_config(name, project, zone, ports)
+
+    if args.append:
+        config_path = get_ssh_config_path()
+        write_ssh_config_entry(config_path, name, config_block)
+        console.success(f"SSH config entry written to {config_path}")
+        console.info(f"\nYou can now connect with:")
+        console.info(f"  ssh {name}")
+        console.info(f"  VS Code: code --remote ssh-remote+{name} /path/on/sandbox")
+    else:
+        console.info(config_block.rstrip())

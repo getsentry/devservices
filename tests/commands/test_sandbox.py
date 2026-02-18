@@ -16,6 +16,7 @@ from devservices.commands.sandbox import sandbox_destroy
 from devservices.commands.sandbox import sandbox_list
 from devservices.commands.sandbox import sandbox_port_forward
 from devservices.commands.sandbox import sandbox_ssh
+from devservices.commands.sandbox import sandbox_ssh_config
 from devservices.commands.sandbox import sandbox_start
 from devservices.commands.sandbox import sandbox_status
 from devservices.commands.sandbox import sandbox_stop
@@ -2110,3 +2111,304 @@ def test_sandbox_create_apis_valid(
         mock_create.assert_called_once()
         captured = capsys.readouterr()
         assert "created successfully" in captured.out
+
+
+# --- sandbox_ssh_config parser tests ---
+
+
+def test_ssh_config_parser_registered() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_parser(subparsers)
+
+    args = parser.parse_args(["sandbox", "ssh-config"])
+    assert args.sandbox_command == "ssh-config"
+    assert args.name is None
+    assert args.ports is None
+    assert args.append is False
+    assert args.remove is False
+    assert args.project is None
+    assert args.zone == SANDBOX_DEFAULT_ZONE
+
+
+def test_ssh_config_parser_all_args() -> None:
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest="command")
+    add_parser(subparsers)
+
+    args = parser.parse_args(
+        [
+            "sandbox",
+            "ssh-config",
+            "my-sandbox",
+            "--ports",
+            "8000,15432:5432",
+            "--append",
+            "--project",
+            "my-project",
+            "--zone",
+            "us-east1-b",
+        ]
+    )
+    assert args.name == "my-sandbox"
+    assert args.ports == "8000,15432:5432"
+    assert args.append is True
+    assert args.project == "my-project"
+    assert args.zone == "us-east1-b"
+
+
+# --- sandbox_ssh_config handler tests ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch(
+    "devservices.commands.sandbox.generate_ssh_config",
+    return_value="# BEGIN devservices-sandbox: sandbox-test\nHost sandbox-test\n# END devservices-sandbox: sandbox-test\n",
+)
+def test_sandbox_ssh_config_print_to_stdout(
+    mock_gen_config: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            append=False,
+            remove=False,
+        )
+        sandbox_ssh_config(args)
+
+        mock_gen_config.assert_called_once_with(
+            "sandbox-test", "test-project", SANDBOX_DEFAULT_ZONE, None
+        )
+        captured = capsys.readouterr()
+        assert "Host sandbox-test" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch(
+    "devservices.commands.sandbox.generate_ssh_config",
+    return_value="# BEGIN devservices-sandbox: sandbox-test\nHost sandbox-test\n# END devservices-sandbox: sandbox-test\n",
+)
+@mock.patch("devservices.commands.sandbox.write_ssh_config_entry")
+@mock.patch(
+    "devservices.commands.sandbox.get_ssh_config_path",
+    return_value="/home/user/.ssh/config",
+)
+def test_sandbox_ssh_config_append(
+    mock_get_path: mock.Mock,
+    mock_write: mock.Mock,
+    mock_gen_config: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            append=True,
+            remove=False,
+        )
+        sandbox_ssh_config(args)
+
+        mock_write.assert_called_once_with(
+            "/home/user/.ssh/config",
+            "sandbox-test",
+            mock_gen_config.return_value,
+        )
+        captured = capsys.readouterr()
+        assert "SSH config entry written" in captured.out
+        assert "ssh sandbox-test" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch(
+    "devservices.commands.sandbox.remove_ssh_config_entry", return_value=True
+)
+@mock.patch(
+    "devservices.commands.sandbox.get_ssh_config_path",
+    return_value="/home/user/.ssh/config",
+)
+def test_sandbox_ssh_config_remove(
+    mock_get_path: mock.Mock,
+    mock_remove: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            append=False,
+            remove=True,
+        )
+        sandbox_ssh_config(args)
+
+        mock_remove.assert_called_once_with(
+            "/home/user/.ssh/config", "sandbox-test"
+        )
+        captured = capsys.readouterr()
+        assert "Removed SSH config entry" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch(
+    "devservices.commands.sandbox.remove_ssh_config_entry", return_value=False
+)
+@mock.patch(
+    "devservices.commands.sandbox.get_ssh_config_path",
+    return_value="/home/user/.ssh/config",
+)
+def test_sandbox_ssh_config_remove_not_found(
+    mock_get_path: mock.Mock,
+    mock_remove: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            append=False,
+            remove=True,
+        )
+        sandbox_ssh_config(args)
+
+        captured = capsys.readouterr()
+        assert "No SSH config entry found" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value=None)
+def test_sandbox_ssh_config_instance_not_found(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports=None,
+            append=False,
+            remove=False,
+        )
+        with pytest.raises(SystemExit):
+            sandbox_ssh_config(args)
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.generate_ssh_config", return_value="config block\n")
+def test_sandbox_ssh_config_with_ports(
+    mock_gen_config: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            ports="8000,15432:5432",
+            append=False,
+            remove=False,
+        )
+        sandbox_ssh_config(args)
+
+        mock_gen_config.assert_called_once_with(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            [(8000, 8000), (15432, 5432)],
+        )

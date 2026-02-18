@@ -433,3 +433,138 @@ def is_port_forward_running(pid: int) -> bool:
         return True
     except (ProcessLookupError, PermissionError):
         return False
+
+
+def generate_ssh_config(
+    name: str,
+    project: str,
+    zone: str,
+    ports: list[tuple[int, int]] | None = None,
+) -> str:
+    """Generate an SSH config block for a sandbox instance with IAP ProxyCommand."""
+    lines = [
+        f"# BEGIN devservices-sandbox: {name}",
+        f"Host {name}",
+        f"    HostName {name}",
+        "    StrictHostKeyChecking no",
+        "    UserKnownHostsFile /dev/null",
+        f"    ProxyCommand gcloud compute start-iap-tunnel %h %p --listen-on-stdin --project={project} --zone={zone} --verbosity=warning",
+        "    ServerAliveInterval 30",
+        "    ServerAliveCountMax 3",
+    ]
+    if ports:
+        for local_port, remote_port in ports:
+            lines.append(f"    LocalForward {local_port} localhost:{remote_port}")
+    lines.append(f"# END devservices-sandbox: {name}")
+    return "\n".join(lines) + "\n"
+
+
+def get_ssh_config_path() -> str:
+    """Return the path to the user's SSH config file."""
+    return os.path.expanduser("~/.ssh/config")
+
+
+def write_ssh_config_entry(config_path: str, name: str, config_block: str) -> None:
+    """Write or update an SSH config entry using BEGIN/END markers.
+
+    Creates the ~/.ssh directory and config file if they don't exist.
+    If an entry with matching markers exists, it is replaced in-place.
+    Otherwise the new block is appended.
+    """
+    ssh_dir = os.path.dirname(config_path)
+    if not os.path.isdir(ssh_dir):
+        os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
+
+    begin_marker = f"# BEGIN devservices-sandbox: {name}"
+    end_marker = f"# END devservices-sandbox: {name}"
+
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            content = f.read()
+    else:
+        content = ""
+
+    lines = content.splitlines(True)
+    begin_idx = None
+    end_idx = None
+    for i, line in enumerate(lines):
+        stripped = line.rstrip("\n")
+        if stripped == begin_marker:
+            begin_idx = i
+        elif stripped == end_marker:
+            end_idx = i
+
+    if begin_idx is not None and end_idx is not None and end_idx > begin_idx:
+        # Replace existing block
+        lines[begin_idx : end_idx + 1] = config_block.splitlines(True)
+        new_content = "".join(lines)
+    else:
+        # Append new block
+        if content and not content.endswith("\n"):
+            new_content = content + "\n\n" + config_block
+        elif content:
+            new_content = content + "\n" + config_block
+        else:
+            new_content = config_block
+
+    fd = os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, new_content.encode())
+    finally:
+        os.close(fd)
+
+
+def remove_ssh_config_entry(config_path: str, name: str) -> bool:
+    """Remove an SSH config entry identified by BEGIN/END markers.
+
+    Returns True if the entry was found and removed, False otherwise.
+    """
+    if not os.path.exists(config_path):
+        return False
+
+    begin_marker = f"# BEGIN devservices-sandbox: {name}"
+    end_marker = f"# END devservices-sandbox: {name}"
+
+    with open(config_path) as f:
+        lines = f.readlines()
+
+    begin_idx = None
+    end_idx = None
+    for i, line in enumerate(lines):
+        stripped = line.rstrip("\n")
+        if stripped == begin_marker:
+            begin_idx = i
+        elif stripped == end_marker:
+            end_idx = i
+
+    if begin_idx is None or end_idx is None or end_idx < begin_idx:
+        return False
+
+    # Also remove a blank line before the BEGIN marker if present
+    start = begin_idx
+    if start > 0 and lines[start - 1].strip() == "":
+        start -= 1
+
+    del lines[start : end_idx + 1]
+
+    new_content = "".join(lines).rstrip("\n")
+    if new_content:
+        new_content += "\n"
+
+    with open(config_path, "w") as f:
+        f.write(new_content)
+
+    return True
+
+
+def has_ssh_config_entry(config_path: str, name: str) -> bool:
+    """Check if an SSH config entry exists for the given sandbox name."""
+    if not os.path.exists(config_path):
+        return False
+
+    begin_marker = f"# BEGIN devservices-sandbox: {name}"
+    with open(config_path) as f:
+        for line in f:
+            if line.rstrip("\n") == begin_marker:
+                return True
+    return False
