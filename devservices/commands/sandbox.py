@@ -84,7 +84,12 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         "name", nargs="?", default=None, help="Name for the sandbox instance"
     )
     create_parser.add_argument(
-        "--branch", default="master", help="Git branch to use (default: master)"
+        "--branch", default="master", help="Getsentry branch (default: master)"
+    )
+    create_parser.add_argument(
+        "--sentry-ref",
+        default=None,
+        help="Sentry branch or SHA (default: pinned in getsentry/sentry-version)",
     )
     create_parser.add_argument(
         "--mode", default="default", help="Devservices mode (default: default)"
@@ -195,6 +200,11 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     )
     sync_parser.add_argument(
         "name", nargs="?", default=None, help="Sandbox name (default: most recent)"
+    )
+    sync_parser.add_argument(
+        "--sentry-ref",
+        default=None,
+        help="Sentry branch or SHA override (default: pinned in getsentry/sentry-version)",
     )
     sync_parser.add_argument("--project", default=None, help="GCP project ID")
     sync_parser.add_argument(
@@ -343,6 +353,7 @@ def sandbox_create(args: Namespace) -> None:
     zone = args.zone
     machine_type = args.machine_type
     branch = args.branch
+    sentry_ref = getattr(args, "sentry_ref", None)
     mode = args.mode
     spot = args.spot
 
@@ -353,9 +364,12 @@ def sandbox_create(args: Namespace) -> None:
         exit(1)
 
     state = State()
+    desc = f"branch: {branch}"
+    if sentry_ref:
+        desc += f", sentry: {sentry_ref}"
     with Status(
         lambda: console.warning(
-            f"Creating sandbox '{name}' (branch: {branch}, type: {machine_type})"
+            f"Creating sandbox '{name}' ({desc}, type: {machine_type})"
         ),
         lambda: console.success(f"Sandbox '{name}' created successfully"),
     ) as status_ctx:
@@ -368,6 +382,7 @@ def sandbox_create(args: Namespace) -> None:
                 branch=branch,
                 mode=mode,
                 spot=spot,
+                sentry_ref=sentry_ref,
             )
         except SandboxError as e:
             capture_exception(e, level="info")
@@ -613,13 +628,19 @@ def sandbox_sync(args: Namespace) -> None:
 
     instance = state.get_sandbox_instance(name)
     branch = instance["branch"] if instance else "master"
+    sentry_ref = getattr(args, "sentry_ref", None) or ""
 
-    console.info(f"Syncing sandbox '{name}' to latest '{branch}'...")
+    desc = f"branch '{branch}'"
+    if sentry_ref:
+        desc += f", sentry: {sentry_ref}"
+    console.info(f"Syncing sandbox '{name}' to {desc}...")
+
+    sync_cmd = f"{SANDBOX_MAINTENANCE_SYNC_PATH} {branch}"
+    if sentry_ref:
+        sync_cmd += f" {sentry_ref}"
 
     try:
-        result = ssh_command(
-            name, project, zone, f"{SANDBOX_MAINTENANCE_SYNC_PATH} {branch}"
-        )
+        result = ssh_command(name, project, zone, sync_cmd)
         if result.stdout:
             for line in result.stdout.strip().split("\n"):
                 console.info(f"  {line}")

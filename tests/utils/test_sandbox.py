@@ -357,6 +357,43 @@ def test_create_instance_spot(mock_run_gcloud: mock.Mock) -> None:
     assert "--instance-termination-action=STOP" in args
 
 
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_create_instance_with_sentry_ref(mock_run_gcloud: mock.Mock) -> None:
+    create_instance(
+        name="sandbox-test",
+        project="my-project",
+        zone=SANDBOX_DEFAULT_ZONE,
+        machine_type=SANDBOX_DEFAULT_MACHINE_TYPE,
+        branch="main",
+        mode="default",
+        spot=False,
+        sentry_ref="feat/my-sentry-branch",
+    )
+    mock_run_gcloud.assert_called_once()
+    args = mock_run_gcloud.call_args[0]
+    assert "--metadata=SANDBOX_BRANCH=main,SANDBOX_MODE=default,SANDBOX_SENTRY_REF=feat/my-sentry-branch" in args
+
+
+@mock.patch("devservices.utils.sandbox.run_gcloud")
+def test_create_instance_without_sentry_ref(mock_run_gcloud: mock.Mock) -> None:
+    create_instance(
+        name="sandbox-test",
+        project="my-project",
+        zone=SANDBOX_DEFAULT_ZONE,
+        machine_type=SANDBOX_DEFAULT_MACHINE_TYPE,
+        branch="main",
+        mode="default",
+        spot=False,
+        sentry_ref=None,
+    )
+    mock_run_gcloud.assert_called_once()
+    args = mock_run_gcloud.call_args[0]
+    assert "--metadata=SANDBOX_BRANCH=main,SANDBOX_MODE=default" in args
+    # Ensure SENTRY_REF is NOT in metadata when not provided
+    metadata_arg = [a for a in args if a.startswith("--metadata=")][0]
+    assert "SANDBOX_SENTRY_REF" not in metadata_arg
+
+
 # --- start_instance ---
 
 

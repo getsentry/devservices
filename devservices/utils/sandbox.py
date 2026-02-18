@@ -124,8 +124,12 @@ def create_instance(
     branch: str,
     mode: str,
     spot: bool,
+    sentry_ref: str | None = None,
 ) -> None:
     """Create a new GCE sandbox instance."""
+    metadata = f"SANDBOX_BRANCH={branch},SANDBOX_MODE={mode}"
+    if sentry_ref:
+        metadata += f",SANDBOX_SENTRY_REF={sentry_ref}"
     args = [
         "compute",
         "instances",
@@ -138,7 +142,7 @@ def create_instance(
         f"--image-project={SANDBOX_IMAGE_PROJECT}",
         f"--boot-disk-size={SANDBOX_DISK_SIZE}GB",
         f"--boot-disk-type={SANDBOX_DISK_TYPE}",
-        f"--metadata=SANDBOX_BRANCH={branch},SANDBOX_MODE={mode}",
+        f"--metadata={metadata}",
         f"--tags={SANDBOX_NETWORK_TAG}",
         f"--labels={SANDBOX_LABEL_KEY}={SANDBOX_LABEL_VALUE}",
         "--no-address",

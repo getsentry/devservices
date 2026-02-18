@@ -305,6 +305,7 @@ def test_sandbox_create_basic(
             branch="master",
             mode="default",
             spot=False,
+            sentry_ref=None,
         )
 
         state = State()
@@ -431,6 +432,7 @@ def test_sandbox_create_custom_branch_and_spot(
             branch="feature-x",
             mode="heavy",
             spot=True,
+            sentry_ref=None,
         )
 
 
@@ -1387,7 +1389,12 @@ def test_sandbox_sync_custom_branch(
             "feature-x",
             "default",
         )
-        args = Namespace(name="sandbox-test", project=None, zone=SANDBOX_DEFAULT_ZONE)
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            sentry_ref=None,
+        )
         sandbox_sync(args)
 
         mock_ssh.assert_called_once_with(
@@ -1398,6 +1405,48 @@ def test_sandbox_sync_custom_branch(
         )
         captured = capsys.readouterr()
         assert "feature-x" in captured.out
+        assert "synced successfully" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_command")
+def test_sandbox_sync_with_sentry_ref(
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    mock_ssh.return_value = mock.Mock(stdout="")
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+            sentry_ref="feat/my-sentry-branch",
+        )
+        sandbox_sync(args)
+
+        mock_ssh.assert_called_once_with(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            f"{SANDBOX_MAINTENANCE_SYNC_PATH} master feat/my-sentry-branch",
+        )
+        captured = capsys.readouterr()
+        assert "sentry: feat/my-sentry-branch" in captured.out
         assert "synced successfully" in captured.out
 
 
