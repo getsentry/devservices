@@ -375,6 +375,28 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     )
     exec_parser.set_defaults(func=sandbox_exec)
 
+    # hybrid
+    hybrid_parser = sandbox_subparsers.add_parser(
+        "hybrid",
+        help="Use sandbox services with a local devserver (stops remote devserver, forwards service ports)",
+    )
+    hybrid_parser.add_argument(
+        "name", nargs="?", default=None, help="Sandbox name (default: most recent)"
+    )
+    hybrid_parser.add_argument(
+        "--stop",
+        action="store_true",
+        default=False,
+        help="Exit hybrid mode (stops port forwarding, restarts sandbox devserver)",
+    )
+    hybrid_parser.add_argument("--project", default=None, help="GCP project ID")
+    hybrid_parser.add_argument(
+        "--zone",
+        default=SANDBOX_DEFAULT_ZONE,
+        help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
+    )
+    hybrid_parser.set_defaults(func=sandbox_hybrid)
+
     # Default: show help when no subcommand given
     sandbox_parser.set_defaults(
         func=lambda args: sandbox_parser.print_help(),
@@ -1087,3 +1109,92 @@ def sandbox_exec(args: Namespace) -> None:
     except SandboxError as e:
         console.failure(f"Failed to execute command: {e}")
         exit(1)
+
+
+def sandbox_hybrid(args: Namespace) -> None:
+    """Toggle hybrid mode: local devserver with remote sandbox services."""
+    console = Console()
+    validate_sandbox_prerequisites(console)
+
+    try:
+        project = resolve_project(args.project)
+    except SandboxError as e:
+        console.failure(str(e))
+        exit(1)
+
+    state = State()
+    name = _resolve_sandbox_name(args, state, console)
+    zone = args.zone
+
+    status = get_instance_status(name, project, zone)
+    if status is None:
+        console.failure(str(SandboxNotFoundError(name)))
+        exit(1)
+    if status != "RUNNING":
+        console.failure(
+            f"Sandbox '{name}' is {status}. Start it first with: devservices sandbox start {name}"
+        )
+        exit(1)
+
+    if args.stop:
+        # Exit hybrid mode: stop port forwarding, restart devserver
+        _stop_port_forward(name, state, console)
+
+        console.info("Starting sandbox devserver...")
+        try:
+            ssh_command(
+                name, project, zone, "sudo systemctl start sandbox-devserver"
+            )
+            console.success(f"Hybrid mode stopped for '{name}'")
+            console.info(f"Connect with: devservices sandbox ssh {name}")
+        except SandboxError as e:
+            capture_exception(e, level="info")
+            console.failure(f"Failed to restart devserver: {e}")
+            exit(1)
+        return
+
+    # Enter hybrid mode: stop devserver, forward service ports
+    console.info(f"Entering hybrid mode for '{name}'...")
+
+    # 1. Stop remote devserver
+    try:
+        ssh_command(
+            name, project, zone, "sudo systemctl stop sandbox-devserver"
+        )
+        console.info("Stopped sandbox devserver")
+    except SandboxError as e:
+        capture_exception(e, level="info")
+        console.failure(f"Failed to stop devserver: {e}")
+        exit(1)
+
+    # 2. Stop any existing port forwarding
+    existing_pid = state.get_port_forward_pid(name)
+    if existing_pid and is_port_forward_running(existing_pid):
+        stop_port_forward(existing_pid)
+        state.update_port_forward_pid(name, None)
+
+    # 3. Forward service ports
+    ports = list(SANDBOX_PORT_PROFILES["services"])
+    try:
+        proc = start_port_forward(name, project, zone, ports)
+        state.update_port_forward_pid(name, proc.pid)
+    except SandboxError as e:
+        capture_exception(e, level="info")
+        console.failure(f"Failed to start port forwarding: {e}")
+        # Try to restart devserver since we stopped it
+        try:
+            ssh_command(
+                name, project, zone, "sudo systemctl start sandbox-devserver"
+            )
+        except SandboxError:
+            pass
+        exit(1)
+
+    console.success(f"Hybrid mode active for '{name}'")
+    console.info("Forwarded service ports:")
+    for local_port, remote_port in ports:
+        console.info(f"  localhost:{local_port} -> sandbox:{remote_port}")
+    console.info(f"\nStart your local devserver:")
+    console.info(f"  devservices serve")
+    console.info(f"\nExit hybrid mode:")
+    console.info(f"  devservices sandbox hybrid {name} --stop")

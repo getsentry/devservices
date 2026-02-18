@@ -2839,3 +2839,148 @@ def test_sandbox_exec_not_found(
 
         captured = capsys.readouterr()
         assert "not found" in captured.out
+
+
+# --- sandbox_hybrid ---
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_command")
+@mock.patch("devservices.commands.sandbox.start_port_forward")
+def test_sandbox_hybrid_start(
+    mock_start_pf: mock.Mock,
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from devservices.commands.sandbox import sandbox_hybrid
+
+    mock_proc = mock.MagicMock()
+    mock_proc.pid = 99999
+    mock_start_pf.return_value = mock_proc
+
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            stop=False,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_hybrid(args)
+
+        # Verify devserver was stopped
+        mock_ssh.assert_called_once_with(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            "sudo systemctl stop sandbox-devserver",
+        )
+        # Verify port forwarding started with service ports
+        mock_start_pf.assert_called_once()
+        call_ports = mock_start_pf.call_args[0][3]
+        assert (5432, 5432) in call_ports
+        assert (6379, 6379) in call_ports
+
+        captured = capsys.readouterr()
+        assert "Hybrid mode active" in captured.out
+        assert "devservices serve" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="RUNNING")
+@mock.patch("devservices.commands.sandbox.ssh_command")
+@mock.patch("devservices.commands.sandbox.is_port_forward_running", return_value=True)
+@mock.patch("devservices.commands.sandbox.stop_port_forward")
+def test_sandbox_hybrid_stop(
+    mock_stop_pf: mock.Mock,
+    mock_is_running: mock.Mock,
+    mock_ssh: mock.Mock,
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from devservices.commands.sandbox import sandbox_hybrid
+
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        state.update_port_forward_pid("sandbox-test", 12345)
+        args = Namespace(
+            name="sandbox-test",
+            stop=True,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        sandbox_hybrid(args)
+
+        # Verify devserver was restarted
+        mock_ssh.assert_called_once_with(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            "sudo systemctl start sandbox-devserver",
+        )
+        # Verify port forwarding was stopped
+        mock_stop_pf.assert_called_once_with(12345)
+
+        captured = capsys.readouterr()
+        assert "Hybrid mode stopped" in captured.out
+
+
+@mock.patch("devservices.commands.sandbox.validate_sandbox_prerequisites")
+@mock.patch("devservices.commands.sandbox.resolve_project", return_value="test-project")
+@mock.patch("devservices.commands.sandbox.get_instance_status", return_value="TERMINATED")
+def test_sandbox_hybrid_not_running(
+    mock_get_status: mock.Mock,
+    mock_resolve: mock.Mock,
+    mock_validate: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from devservices.commands.sandbox import sandbox_hybrid
+
+    with mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")):
+        state = State()
+        state.add_sandbox_instance(
+            "sandbox-test",
+            "test-project",
+            SANDBOX_DEFAULT_ZONE,
+            SANDBOX_DEFAULT_MACHINE_TYPE,
+            "master",
+            "default",
+        )
+        args = Namespace(
+            name="sandbox-test",
+            stop=False,
+            project=None,
+            zone=SANDBOX_DEFAULT_ZONE,
+        )
+        with pytest.raises(SystemExit):
+            sandbox_hybrid(args)
+
+        captured = capsys.readouterr()
+        assert "TERMINATED" in captured.out
