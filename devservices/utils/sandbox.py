@@ -282,6 +282,30 @@ def ssh_command(
     )
 
 
+def ssh_stream(
+    name: str, project: str, zone: str, command: str
+) -> subprocess.Popen[bytes]:
+    """Run a command on a sandbox instance via SSH with output streamed to the terminal.
+
+    Unlike ssh_command() which captures output, this passes stdout/stderr
+    directly through to the caller's terminal, suitable for follow/tail mode.
+    """
+    cmd = [
+        "gcloud",
+        "compute",
+        "ssh",
+        name,
+        f"--project={project}",
+        f"--zone={zone}",
+        "--tunnel-through-iap",
+        f"--command={command}",
+    ]
+    try:
+        return subprocess.Popen(cmd)
+    except FileNotFoundError:
+        raise GCloudNotFoundError()
+
+
 def check_api_enabled(project: str, api_name: str) -> bool:
     """Check if a GCP API is enabled on the project."""
     try:

@@ -83,3 +83,4 @@ SANDBOX_DISK_TYPE = "pd-ssd"
 SANDBOX_DEFAULT_PORTS = [8000]
 SANDBOX_MAINTENANCE_SYNC_PATH = "/opt/sandbox/scripts/maintenance-sync.sh"
 SANDBOX_REQUIRED_APIS = ["iap.googleapis.com", "compute.googleapis.com"]
+SANDBOX_DEFAULT_LOG_LINES = 100

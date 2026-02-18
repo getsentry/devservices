@@ -8,6 +8,7 @@ from argparse import Namespace
 from sentry_sdk import capture_exception
 
 from devservices.constants import SANDBOX_DEFAULT_MACHINE_TYPE
+from devservices.constants import SANDBOX_DEFAULT_LOG_LINES
 from devservices.constants import SANDBOX_DEFAULT_PORTS
 from devservices.constants import SANDBOX_DEFAULT_ZONE
 from devservices.constants import SANDBOX_MAINTENANCE_SYNC_PATH
@@ -26,6 +27,7 @@ from devservices.utils.sandbox import list_instances
 from devservices.utils.sandbox import resolve_project
 from devservices.utils.sandbox import ssh_command
 from devservices.utils.sandbox import ssh_exec
+from devservices.utils.sandbox import ssh_stream
 from devservices.utils.sandbox import start_instance
 from devservices.utils.sandbox import start_port_forward
 from devservices.utils.sandbox import stop_instance
@@ -37,6 +39,11 @@ from devservices.utils.state import State
 
 SANDBOX_STATUS_POLL_INTERVAL = 5
 SANDBOX_STATUS_POLL_TIMEOUT = 120
+
+SANDBOX_SYSTEMD_SERVICES = {
+    "devserver": "sandbox-devserver.service",
+    "startup": "sandbox-startup.service",
+}
 
 
 def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
@@ -210,6 +217,41 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
         help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
     )
     pf_parser.set_defaults(func=sandbox_port_forward)
+
+    # logs
+    logs_parser = sandbox_subparsers.add_parser(
+        "logs", help="View logs from a sandbox service"
+    )
+    logs_parser.add_argument(
+        "service",
+        nargs="?",
+        default="devserver",
+        help="Service to view logs for: devserver (default), startup, or a Docker container name (e.g. postgres, redis, snuba)",
+    )
+    logs_parser.add_argument(
+        "--name", default=None, help="Sandbox name (default: most recent)"
+    )
+    logs_parser.add_argument(
+        "-f",
+        "--follow",
+        action="store_true",
+        default=False,
+        help="Follow log output (tail -f style)",
+    )
+    logs_parser.add_argument(
+        "-n",
+        "--lines",
+        type=int,
+        default=SANDBOX_DEFAULT_LOG_LINES,
+        help=f"Number of recent lines to show (default: {SANDBOX_DEFAULT_LOG_LINES})",
+    )
+    logs_parser.add_argument("--project", default=None, help="GCP project ID")
+    logs_parser.add_argument(
+        "--zone",
+        default=SANDBOX_DEFAULT_ZONE,
+        help=f"GCE zone (default: {SANDBOX_DEFAULT_ZONE})",
+    )
+    logs_parser.set_defaults(func=sandbox_logs)
 
     # Default: show help when no subcommand given
     sandbox_parser.set_defaults(
@@ -679,3 +721,76 @@ def sandbox_port_forward(args: Namespace) -> None:
         capture_exception(e, level="info")
         console.failure(f"Failed to start port forwarding: {e}")
         exit(1)
+
+
+def sandbox_logs(args: Namespace) -> None:
+    """View logs from a sandbox service."""
+    console = Console()
+    validate_sandbox_prerequisites(console)
+
+    try:
+        project = resolve_project(args.project)
+    except SandboxError as e:
+        console.failure(str(e))
+        exit(1)
+
+    state = State()
+    name = _resolve_sandbox_name(args, state, console)
+    zone = args.zone
+
+    status = get_instance_status(name, project, zone)
+    if status is None:
+        console.failure(str(SandboxNotFoundError(name)))
+        exit(1)
+    if status != "RUNNING":
+        console.failure(
+            f"Sandbox '{name}' is {status}. Start it first with: devservices sandbox start {name}"
+        )
+        exit(1)
+
+    service = args.service
+    follow = args.follow
+    lines = args.lines
+
+    # Build the remote command
+    if service in SANDBOX_SYSTEMD_SERVICES:
+        unit = SANDBOX_SYSTEMD_SERVICES[service]
+        if follow:
+            remote_cmd = f"sudo journalctl -u {unit} -n {lines} -f"
+        else:
+            remote_cmd = f"sudo journalctl -u {unit} -n {lines} --no-pager"
+    else:
+        # Docker container — find by partial name match
+        follow_flag = "-f " if follow else ""
+        remote_cmd = (
+            f"CONTAINER=$(sudo docker ps --format '{{{{.Names}}}}' | grep -i '{service}' | head -1) && "
+            f'[ -n "$CONTAINER" ] && sudo docker logs --tail {lines} {follow_flag}"$CONTAINER" || '
+            f"{{ echo 'No running container matching \"{service}\" found. Available containers:'; "
+            f"sudo docker ps --format '{{{{.Names}}}}'; }}"
+        )
+
+    if follow:
+        console.info(
+            f"Tailing logs for '{service}' on sandbox '{name}' (Ctrl+C to stop)..."
+        )
+        try:
+            proc = ssh_stream(name, project, zone, remote_cmd)
+            proc.wait()
+        except KeyboardInterrupt:
+            proc.terminate()
+            proc.wait()
+        except SandboxError as e:
+            capture_exception(e, level="info")
+            console.failure(f"Failed to stream logs: {e}")
+            exit(1)
+    else:
+        try:
+            result = ssh_command(name, project, zone, remote_cmd)
+            if result.stdout:
+                console.info(result.stdout.rstrip())
+            if result.stderr:
+                console.warning(result.stderr.rstrip())
+        except SandboxError as e:
+            capture_exception(e, level="info")
+            console.failure(f"Failed to get logs: {e}")
+            exit(1)
