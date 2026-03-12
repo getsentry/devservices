@@ -50,6 +50,7 @@ jobs:
         run: |
           uv sync
           uv pip install pyoxidizer==0.24.0
+          uv export --no-dev --no-hashes --no-emit-project -o requirements.txt
           uv run python -m build --sdist --no-isolation
 
       - name: Build binary
