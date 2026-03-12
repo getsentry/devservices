@@ -172,6 +172,6 @@ networks:
 
 ```sh
 uv sync
-denv allow
+direnv allow
 pytest
 ```
