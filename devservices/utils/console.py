@@ -9,7 +9,6 @@ from types import TracebackType
 
 from devservices.constants import Color
 
-
 ANIMATION_FRAMES = ("⠟", "⠯", "⠷", "⠾", "⠽", "⠻")
 
 

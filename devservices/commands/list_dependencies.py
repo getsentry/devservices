@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from argparse import _SubParsersAction
 
 from sentry_sdk import capture_exception
 

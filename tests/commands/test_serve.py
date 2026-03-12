@@ -9,9 +9,9 @@ from unittest.mock import patch
 import pytest
 
 from devservices.commands.serve import serve
-from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import Color
 from testing.utils import create_config_file
 
 

@@ -3,19 +3,19 @@ from __future__ import annotations
 import concurrent.futures
 import os
 import subprocess
-from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from argparse import _SubParsersAction
 
 from sentry_sdk import capture_exception
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import MAX_LOG_LINES
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import DependencyError
@@ -24,13 +24,13 @@ from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
-from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
+from devservices.utils.services import Service
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import get_active_service_names
-from devservices.utils.services import Service
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from devservices.utils.supervisor import SupervisorManager
@@ -142,9 +142,9 @@ def _logs(
     )
     # Set the environment variable for the local dependencies directory to be used by docker compose
     current_env = os.environ.copy()
-    current_env[
-        DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
-    ] = relative_local_dependency_directory
+    current_env[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY] = (
+        relative_local_dependency_directory
+    )
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=list(remote_dependencies),

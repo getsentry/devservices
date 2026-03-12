@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import os
 import shutil
-from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from argparse import _SubParsersAction
 
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import DEPENDENCY_CONFIG_VERSION

@@ -15,26 +15,26 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DependencyType
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import ServiceNotFoundError
-from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import GitConfigManager
+from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
-from devservices.utils.dependencies import GitConfigManager
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import install_dependencies
 from devservices.utils.dependencies import install_dependency
-from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import verify_local_dependencies
-from devservices.utils.services import get_active_service_names
 from devservices.utils.services import Service
+from devservices.utils.services import get_active_service_names
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
@@ -3417,7 +3417,9 @@ def test_construct_dependency_graph_complex(
             DependencyNode(
                 name="grandparent-service", dependency_type=DependencyType.SERVICE
             )
-        ), "Grandparent service should come before complex service in the starting order"
+        ), (
+            "Grandparent service should come before complex service in the starting order"
+        )
 
 
 @mock.patch(

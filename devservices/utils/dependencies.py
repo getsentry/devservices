@@ -7,8 +7,8 @@ import subprocess
 import tempfile
 import time
 from collections import deque
-from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
 from dataclasses import dataclass
 from typing import TextIO
 from typing import TypeGuard
@@ -18,16 +18,16 @@ from sentry_sdk import logger as sentry_logger
 from sentry_sdk import set_context
 
 from devservices.configs.service_config import Dependency
-from devservices.configs.service_config import load_service_config_from_file
 from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
+from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import LOGGER_NAME
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
@@ -38,9 +38,9 @@ from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
 from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
+from devservices.utils.services import Service
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import get_active_service_names
-from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
@@ -316,9 +316,9 @@ def get_non_shared_remote_dependencies(
         started_service_dependencies: dict[str, Dependency] = dict()
         for started_service_mode in started_service_modes:
             for dependency_name in started_service.config.modes[started_service_mode]:
-                started_service_dependencies[
-                    dependency_name
-                ] = started_service.config.dependencies[dependency_name]
+                started_service_dependencies[dependency_name] = (
+                    started_service.config.dependencies[dependency_name]
+                )
 
         installed_remote_dependencies = get_installed_remote_dependencies(
             list(started_service_dependencies.values())

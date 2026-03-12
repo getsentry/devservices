@@ -8,8 +8,8 @@ import re
 import shlex
 import subprocess
 import time
-from typing import cast
 from typing import NamedTuple
+from typing import cast
 
 from packaging import version
 from sentry_sdk import logger as sentry_logger
@@ -26,8 +26,8 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import InstalledRemoteDependency
-from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.docker import ContainerNames
+from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
 

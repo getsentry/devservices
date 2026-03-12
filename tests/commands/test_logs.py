@@ -11,9 +11,9 @@ import pytest
 from devservices.commands.logs import _supervisor_logs
 from devservices.commands.logs import logs
 from devservices.configs.service_config import load_service_config_from_file
-from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import Color
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import SupervisorError

@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from argparse import _SubParsersAction
 
 from sentry_sdk import capture_exception
 
 from devservices.commands.down import down
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
+from devservices.constants import DependencyType
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
 from devservices.utils.console import Console
 from devservices.utils.console import Status
-from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import DependencyNode
+from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.docker import get_matching_containers
 from devservices.utils.docker import get_volumes_for_containers
 from devservices.utils.docker import remove_docker_resources
