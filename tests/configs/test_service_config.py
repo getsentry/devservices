@@ -431,7 +431,7 @@ def test_load_service_config_from_file_invalid_yaml(tmp_path: Path) -> None:
         load_service_config_from_file(str(tmp_path))
     assert (
         str(e.value)
-        == f"Error parsing config file: mapping values are not allowed here\n  in \"{tmp_path / 'devservices' / 'config.yml'}\", line 2, column 12"
+        == f'Error parsing config file: mapping values are not allowed here\n  in "{tmp_path / "devservices" / "config.yml"}", line 2, column 12'
     )
 
 

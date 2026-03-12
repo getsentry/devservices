@@ -3,15 +3,15 @@ from __future__ import annotations
 import os
 import pty
 import shlex
-from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from argparse import _SubParsersAction
 
 from sentry_sdk import capture_exception
 
 from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ServiceNotFoundError

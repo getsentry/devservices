@@ -8,8 +8,8 @@ import yaml
 from supervisor.options import ServerOptions
 
 from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError

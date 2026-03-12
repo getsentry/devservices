@@ -8,9 +8,9 @@ from unittest import mock
 import pytest
 
 from devservices.commands.foreground import foreground
-from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import Color
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import SupervisorConfigError

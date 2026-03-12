@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from argparse import _SubParsersAction
 
 from sentry_sdk import capture_exception
 
@@ -19,9 +19,9 @@ from devservices.utils.console import Status
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
 from devservices.utils.dependencies import install_and_verify_dependencies
+from devservices.utils.services import Service
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import get_active_service_names
-from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables

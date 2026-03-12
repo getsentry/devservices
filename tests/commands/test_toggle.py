@@ -17,8 +17,8 @@ from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DependencyType
 from devservices.exceptions import CannotToggleNonRemoteServiceError
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
@@ -26,8 +26,8 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ServiceNotFoundError
-from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.dependencies import InstalledRemoteDependency
+from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime

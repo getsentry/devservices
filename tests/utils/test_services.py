@@ -9,9 +9,9 @@ import pytest
 from devservices.configs.service_config import ServiceConfig
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ServiceNotFoundError
+from devservices.utils.services import Service
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import get_local_services
-from devservices.utils.services import Service
 from testing.utils import create_mock_git_repo
 
 

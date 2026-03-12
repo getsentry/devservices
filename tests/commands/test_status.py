@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 
+from devservices.commands.status import ServiceStatusOutput
 from devservices.commands.status import format_uptime
 from devservices.commands.status import generate_service_status_details
 from devservices.commands.status import generate_service_status_tree
@@ -16,14 +17,13 @@ from devservices.commands.status import get_status_json_results
 from devservices.commands.status import handle_started_service
 from devservices.commands.status import parse_docker_compose_status
 from devservices.commands.status import process_service_with_local_runtime
-from devservices.commands.status import ServiceStatusOutput
 from devservices.commands.status import status
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
-from devservices.constants import Color
 from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import Color
+from devservices.constants import DependencyType
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
@@ -210,9 +210,7 @@ def test_generate_service_status_details_missing_status() -> None:
         dependency, process_statuses, docker_compose_service_to_status, ""
     )
     assert result == (
-        f"{Color.BOLD}test-service{Color.RESET}:\n"
-        "  Type: container\n"
-        "  Status: N/A"
+        f"{Color.BOLD}test-service{Color.RESET}:\n  Type: container\n  Status: N/A"
     )
 
 

@@ -167,3 +167,11 @@ networks:
     name: devservices
     external: true
 ```
+
+## Dev
+
+```sh
+uv sync
+direnv allow
+pytest
+```

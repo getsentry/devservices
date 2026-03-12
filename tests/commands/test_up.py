@@ -14,9 +14,9 @@ from devservices.commands.up import up
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import ServiceConfig
 from devservices.constants import CONFIG_FILE_NAME
-from devservices.constants import DependencyType
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import HEALTHCHECK_TIMEOUT
+from devservices.constants import DependencyType
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DependencyError
@@ -1005,7 +1005,9 @@ def test_up_mode_simple(
         assert "Retrieving dependencies" in captured.out.strip()
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
-        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        ), (
+            "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        )
         assert (
             "Starting 'example-service' dependencies in mode: 'test'"
             in captured.out.strip()
@@ -1094,7 +1096,9 @@ def test_up_mode_does_not_exist(
         assert "Retrieving dependencies" not in captured.out.strip()
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
-        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        ), (
+            "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        )
         assert (
             "Starting 'example-service' dependencies in mode: 'test'"
             not in captured.out.strip()
@@ -1209,7 +1213,9 @@ def test_up_multiple_modes(
         )
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
-        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        ), (
+            "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        )
         assert "Retrieving dependencies" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
 
@@ -1380,7 +1386,9 @@ def test_up_multiple_modes_overlapping_running_service(
         assert "Retrieving dependencies" in captured.out.strip()
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
-        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        ), (
+            "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        )
         assert "Starting clickhouse" in captured.out.strip()
 
 
@@ -1756,7 +1764,9 @@ def test_up_dependency_set_to_local(
             assert (
                 "Starting dependencies with local runtimes..."
                 not in captured.out.strip()
-            ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+            ), (
+                "This shouldn't be printed since we don't have any dependencies with local runtimes"
+            )
             assert (
                 captured.out.strip().count(
                     "Skipping 'local-runtime-service' as it is set to run locally"
@@ -2069,7 +2079,9 @@ def test_up_nested_dependency_set_to_local(
             assert (
                 "Starting dependencies with local runtimes..."
                 not in captured.out.strip()
-            ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+            ), (
+                "This shouldn't be printed since we don't have any dependencies with local runtimes"
+            )
             assert (
                 captured.out.strip().count(
                     "Skipping 'local-runtime-service' as it is set to run locally"
@@ -2083,7 +2095,9 @@ def test_up_nested_dependency_set_to_local(
             assert (
                 "Skipping 'local-runtime-service' as it is set to run locally"
                 not in captured.out.strip()
-            ), "This shouldn't be printed since local-runtime-service is being brought up"
+            ), (
+                "This shouldn't be printed since local-runtime-service is being brought up"
+            )
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
@@ -2267,7 +2281,9 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
         assert (
             "Skipping 'local-runtime-service' as it is set to run locally"
             not in captured.out.strip()
-        ), "This shouldn't be printed since local-runtime-service is not being brought up"
+        ), (
+            "This shouldn't be printed since local-runtime-service is not being brought up"
+        )
 
 
 @mock.patch("devservices.utils.state.State.update_service_entry")
@@ -2453,11 +2469,15 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
         captured = capsys.readouterr()
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
-        ), "This shouldn't be printed since other-service isn't being brought up in a mode that includes local-runtime-service"
+        ), (
+            "This shouldn't be printed since other-service isn't being brought up in a mode that includes local-runtime-service"
+        )
         assert (
             "Skipping 'local-runtime-service' as it is set to run locally"
             not in captured.out.strip()
-        ), "This shouldn't be printed since other-service isn't being brought up in a mode that includes local-runtime-service"
+        ), (
+            "This shouldn't be printed since other-service isn't being brought up in a mode that includes local-runtime-service"
+        )
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")
@@ -2546,7 +2566,9 @@ def test_up_supervisor_program(
         assert "Retrieving dependencies" in captured.out.strip()
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
-        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        ), (
+            "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        )
         assert (
             "Starting 'example-service' dependencies in mode: 'default'"
             in captured.out.strip()
@@ -2642,7 +2664,9 @@ def test_up_supervisor_program_error(
         assert "Retrieving dependencies" in captured.out.strip()
         assert (
             "Starting dependencies with local runtimes..." not in captured.out.strip()
-        ), "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        ), (
+            "This shouldn't be printed since we don't have any dependencies with local runtimes"
+        )
         assert (
             "Starting 'example-service' dependencies in mode: 'default'"
             in captured.out.strip()

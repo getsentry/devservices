@@ -7,17 +7,17 @@ from unittest import mock
 import pytest
 from freezegun import freeze_time
 
-from devservices.constants import Color
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.constants import DOCKER_NETWORK_NAME
 from devservices.constants import HEALTHCHECK_INTERVAL
 from devservices.constants import HEALTHCHECK_TIMEOUT
+from devservices.constants import Color
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
+from devservices.utils.docker import ContainerNames
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker import check_docker_daemon_running
-from devservices.utils.docker import ContainerNames
 from devservices.utils.docker import get_matching_containers
 from devservices.utils.docker import get_matching_networks
 from devservices.utils.docker import get_volumes_for_containers
@@ -390,7 +390,9 @@ def test_wait_for_healthy_initial_check_failed_then_success(
     mock_status = mock.Mock()
     mock_check_output.side_effect = ["unhealthy", "healthy"]
 
-    with (freeze_time("2024-05-14 00:00:00") as frozen_time,):
+    with (
+        freeze_time("2024-05-14 00:00:00") as frozen_time,
+    ):
         mock_sleep.side_effect = lambda _: frozen_time.tick(timedelta(seconds=1))
         wait_for_healthy(
             ContainerNames(name="devservices-container1", short_name="container1"),

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import platform
 import sys
-from argparse import _SubParsersAction
 from argparse import ArgumentParser
 from argparse import Namespace
+from argparse import _SubParsersAction
 from importlib import metadata
 
 from devservices.constants import DEVSERVICES_DOWNLOAD_URL
