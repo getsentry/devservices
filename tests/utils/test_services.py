@@ -86,6 +86,32 @@ def test_get_local_services_skips_non_devservices_repos(tmp_path: Path) -> None:
         assert local_services[0].repo_path == str(mock_basic_repo_path)
 
 
+def test_find_matching_service_with_config_path(tmp_path: Path) -> None:
+    """Test config_path loads from the specified file with repo_path as cwd."""
+    devservices_dir = tmp_path / "devservices"
+    devservices_dir.mkdir()
+    config_file = devservices_dir / "config.yml"
+    config_file.write_text(
+        "x-sentry-service-config:\n"
+        "    version: 0.1\n"
+        "    service_name: my-service\n"
+        "    dependencies: {}\n"
+        "    modes:\n"
+        "      default: []\n"
+    )
+    service = find_matching_service(config_path=str(config_file))
+    assert service.name == "my-service"
+    assert service.repo_path == os.getcwd()
+
+
+def test_find_matching_service_with_config_path_not_found() -> None:
+    """Test config_path with a nonexistent file."""
+    from devservices.exceptions import ConfigNotFoundError
+
+    with pytest.raises(ConfigNotFoundError):
+        find_matching_service(config_path="/nonexistent/path/config.yml")
+
+
 @mock.patch(
     "devservices.utils.services.get_local_services",
     return_value=[],

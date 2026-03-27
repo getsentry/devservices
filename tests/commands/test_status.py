@@ -729,7 +729,9 @@ def test_status_service_not_found(
 
     assert exc_info.value.code == 1
 
-    mock_find_matching_service.assert_called_once_with("nonexistent-service")
+    mock_find_matching_service.assert_called_once_with(
+        "nonexistent-service", config_path=None
+    )
     mock_install_and_verify_dependencies.assert_not_called()
     mock_get_status_for_service.assert_not_called()
 
@@ -860,7 +862,7 @@ def test_status_service_not_running(
 
     status(args)
 
-    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_find_matching_service.assert_called_once_with("test-service", config_path=None)
     mock_get_status_for_service.assert_not_called()
 
     captured = capsys.readouterr()

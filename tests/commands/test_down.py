@@ -391,7 +391,9 @@ def test_down_config_error(
     with pytest.raises(SystemExit):
         down(args)
 
-    find_matching_service_mock.assert_called_once_with("example-service")
+    find_matching_service_mock.assert_called_once_with(
+        "example-service", config_path=None
+    )
     captured = capsys.readouterr()
     assert "Config error" in captured.out.strip()
 
@@ -406,7 +408,9 @@ def test_down_service_not_found_error(
     with pytest.raises(SystemExit):
         down(args)
 
-    find_matching_service_mock.assert_called_once_with("example-service")
+    find_matching_service_mock.assert_called_once_with(
+        "example-service", config_path=None
+    )
     captured = capsys.readouterr()
     assert "Service not found" in captured.out.strip()
 

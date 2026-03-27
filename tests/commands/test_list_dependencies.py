@@ -51,7 +51,9 @@ def test_list_dependencies_service_not_found(
 
     assert exc_info.value.code == 1
 
-    mock_find_matching_service.assert_called_once_with("nonexistent-service")
+    mock_find_matching_service.assert_called_once_with(
+        "nonexistent-service", config_path=None
+    )
     captured = capsys.readouterr()
     assert "Service nonexistent-service not found" in captured.out
 
@@ -71,7 +73,7 @@ def test_list_dependencies_config_error(
 
     assert exc_info.value.code == 1
 
-    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_find_matching_service.assert_called_once_with("test-service", config_path=None)
     captured = capsys.readouterr()
     assert "Version is required in service config" in captured.out
 
@@ -97,7 +99,7 @@ def test_list_dependencies_no_dependencies(
 
     list_dependencies(args)
 
-    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_find_matching_service.assert_called_once_with("test-service", config_path=None)
     captured = capsys.readouterr()
     assert "No dependencies found for test-service" in captured.out
 
@@ -130,7 +132,7 @@ def test_list_dependencies_with_dependencies(
 
     list_dependencies(args)
 
-    mock_find_matching_service.assert_called_once_with("test-service")
+    mock_find_matching_service.assert_called_once_with("test-service", config_path=None)
     captured = capsys.readouterr()
     assert "Dependencies of test-service:" in captured.out
     assert "- redis: Redis" in captured.out

@@ -35,7 +35,7 @@ def serve(args: Namespace) -> None:
     console = Console()
 
     try:
-        service = find_matching_service()
+        service = find_matching_service(config_path=getattr(args, "config", None))
     except ConfigNotFoundError as e:
         console.failure(
             f"{str(e)}. Please run the command from a directory with a valid devservices configuration."

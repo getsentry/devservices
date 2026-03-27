@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from sentry_sdk import logger as sentry_logger
 
 from devservices.configs.service_config import ServiceConfig
+from devservices.configs.service_config import load_service_config_from_file
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
@@ -25,8 +26,6 @@ class Service:
 
 def get_local_services(coderoot: str) -> list[Service]:
     """Get a list of services in the coderoot."""
-    from devservices.configs.service_config import load_service_config_from_file
-
     console = Console()
 
     services = []
@@ -51,32 +50,40 @@ def get_local_services(coderoot: str) -> list[Service]:
     return services
 
 
-def find_matching_service(service_name: str | None = None) -> Service:
+def find_matching_service(
+    service_name: str | None = None, config_path: str | None = None
+) -> Service:
     """Find a service with the given name."""
-    if service_name is None:
-        from devservices.configs.service_config import load_service_config_from_file
-
+    if config_path is not None and service_name is not None:
+        raise ConfigValidationError(
+            "Cannot specify both a service name and a custom config path"
+        )
+    if config_path is not None:
+        config_path = os.path.abspath(config_path)
         repo_path = os.getcwd()
-        service_config = load_service_config_from_file(repo_path)
+    elif service_name is None:
+        repo_path = os.getcwd()
+    else:
+        coderoot = get_coderoot()
+        services = get_local_services(coderoot)
+        for service in services:
+            if service.name.lower() == service_name.lower():
+                return service
+        unique_service_names = sorted(set(service.name for service in services))
+        error_message = f"Service '{service_name}' not found."
+        if len(unique_service_names) > 0:
+            service_bullet_points = "\n".join(
+                [f"- {service_name}" for service_name in unique_service_names]
+            )
+            error_message += "\nSupported services:\n" + service_bullet_points
+        raise ServiceNotFoundError(error_message)
 
-        return Service(
-            name=service_config.service_name,
-            repo_path=repo_path,
-            config=service_config,
-        )
-    coderoot = get_coderoot()
-    services = get_local_services(coderoot)
-    for service in services:
-        if service.name.lower() == service_name.lower():
-            return service
-    unique_service_names = sorted(set(service.name for service in services))
-    error_message = f"Service '{service_name}' not found."
-    if len(unique_service_names) > 0:
-        service_bullet_points = "\n".join(
-            [f"- {service_name}" for service_name in unique_service_names]
-        )
-        error_message += "\nSupported services:\n" + service_bullet_points
-    raise ServiceNotFoundError(error_message)
+    service_config = load_service_config_from_file(repo_path, config_path=config_path)
+    return Service(
+        name=service_config.service_name,
+        repo_path=repo_path,
+        config=service_config,
+    )
 
 
 def get_active_service_names(clean_stale_entries: bool = False) -> set[str]:
