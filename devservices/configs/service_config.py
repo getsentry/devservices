@@ -69,8 +69,11 @@ class ServiceConfig:
                     )
 
 
-def load_service_config_from_file(repo_path: str) -> ServiceConfig:
-    config_path = os.path.join(repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME)
+def load_service_config_from_file(
+    repo_path: str, config_path: str | None = None
+) -> ServiceConfig:
+    if config_path is None:
+        config_path = os.path.join(repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME)
     if not os.path.exists(config_path):
         raise ConfigNotFoundError(
             f"No devservices configuration found in {config_path}"

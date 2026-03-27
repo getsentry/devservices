@@ -52,7 +52,7 @@ def test_toggle_config_not_found(
             )
         )
 
-    mock_find_matching_service.assert_called_once_with(None)
+    mock_find_matching_service.assert_called_once_with(None, config_path=None)
     captured = capsys.readouterr()
     assert "Config not found" in captured.out.strip()
 
@@ -74,7 +74,7 @@ def test_toggle_config_error(
             )
         )
 
-    mock_find_matching_service.assert_called_once_with(None)
+    mock_find_matching_service.assert_called_once_with(None, config_path=None)
     captured = capsys.readouterr()
     assert "Config parse error" in captured.out.strip()
 
@@ -93,7 +93,7 @@ def test_toggle_service_not_found(
             )
         )
 
-    mock_find_matching_service.assert_called_once_with(None)
+    mock_find_matching_service.assert_called_once_with(None, config_path=None)
     captured = capsys.readouterr()
     assert "Service not found" in captured.out.strip()
 

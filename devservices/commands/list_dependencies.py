@@ -32,7 +32,9 @@ def list_dependencies(args: Namespace) -> None:
     service_name = args.service_name
 
     try:
-        service = find_matching_service(service_name)
+        service = find_matching_service(
+            service_name, config_path=getattr(args, "config", None)
+        )
     except ConfigNotFoundError as e:
         capture_exception(e, level="info")
         console.failure(

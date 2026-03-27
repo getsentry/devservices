@@ -142,6 +142,12 @@ def main() -> None:
         usage="devservices [-h] [--version] COMMAND ...",
     )
     parser.add_argument("--version", action="version", version=current_version)
+    parser.add_argument(
+        "-c",
+        "--config",
+        help="Path to a custom devservices config file",
+        default=None,
+    )
 
     subparsers = parser.add_subparsers(dest="command", title="commands", metavar="")
 

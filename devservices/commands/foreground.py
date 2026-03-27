@@ -40,7 +40,7 @@ def foreground(args: Namespace) -> None:
     console = Console()
     program_name = args.program_name
     try:
-        service = find_matching_service()
+        service = find_matching_service(config_path=getattr(args, "config", None))
     except ConfigNotFoundError as e:
         capture_exception(e, level="info")
         console.failure(
