@@ -154,15 +154,17 @@ def test_load_service_config_from_file_null_healthcheck_timeout(
     assert service_config.healthcheck_timeout == 180
 
 
+@pytest.mark.parametrize("invalid_timeout", [-1, 0, "120", True, False])
 def test_load_service_config_from_file_invalid_healthcheck_timeout(
     tmp_path: Path,
+    invalid_timeout: object,
 ) -> None:
     config = {
         "x-sentry-service-config": {
             "version": 0.1,
             "service_name": "example-service",
             "modes": {"default": []},
-            "healthcheck_timeout": -1,
+            "healthcheck_timeout": invalid_timeout,
         },
         "services": {},
     }

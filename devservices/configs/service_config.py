@@ -61,7 +61,7 @@ class ServiceConfig:
         if "default" not in self.modes:
             raise ConfigValidationError("Default mode is required in service config")
 
-        if (
+        if isinstance(self.healthcheck_timeout, bool) or (
             not isinstance(self.healthcheck_timeout, int)
             or self.healthcheck_timeout <= 0
         ):
