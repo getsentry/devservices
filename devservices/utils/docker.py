@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import concurrent.futures
+import json
 import subprocess
 import time
+from dataclasses import dataclass
+from dataclasses import field
 from typing import NamedTuple
 
 from devservices.constants import HEALTHCHECK_INTERVAL
@@ -94,6 +97,49 @@ def wait_for_healthy(container: ContainerNames, status: Status) -> None:
         time.sleep(HEALTHCHECK_INTERVAL)
 
     raise ContainerHealthcheckFailedError(container.short_name, HEALTHCHECK_TIMEOUT)
+
+
+@dataclass
+class HealthCheckEntry:
+    exit_code: int
+    output: str
+
+
+@dataclass
+class ContainerHealth:
+    name: str
+    status: str  # "healthy", "unhealthy", "starting", or "none"
+    log: list[HealthCheckEntry] = field(default_factory=list)
+
+
+def get_container_health(container_names: list[str]) -> list[ContainerHealth]:
+    """Return health check status and last log entries for each container."""
+    if not container_names:
+        return []
+    try:
+        raw = subprocess.check_output(
+            ["docker", "inspect", *container_names],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return []
+
+    results = []
+    for c in json.loads(raw):
+        name = c["Name"].lstrip("/")
+        health = c["State"].get("Health")
+        if health is None:
+            results.append(ContainerHealth(name=name, status="none"))
+        else:
+            entries = [
+                HealthCheckEntry(exit_code=e["ExitCode"], output=e["Output"].strip())
+                for e in health.get("Log", [])
+            ]
+            results.append(
+                ContainerHealth(name=name, status=health["Status"], log=entries)
+            )
+    return results
 
 
 def get_matching_containers(labels: list[str]) -> list[str]:

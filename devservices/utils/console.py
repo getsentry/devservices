@@ -20,10 +20,13 @@ class Console:
             cls._instance = super(Console, cls).__new__(cls)
         return cls._instance
 
-    def print(self, message: str, color: str = "", bold: bool = False) -> None:
+    def print(
+        self, message: str, color: str = "", bold: bool = False, cr: bool = False
+    ) -> None:
         color = color + (Color.BOLD if bold else "")
         end = Color.RESET if color != "" or bold else ""
-        sys.stdout.write(color + message + end + "\n")
+        prefix = "\r" if cr else ""
+        sys.stdout.write(prefix + color + message + end + "\n")
         sys.stdout.flush()
 
     def success(self, message: str, bold: bool = False) -> None:
@@ -60,7 +63,7 @@ class Status:
         self.console = Console()
 
     def print(self, message: str, color: str = "", bold: bool = False) -> None:
-        self.console.print("\r" + message, color=color, bold=bold)
+        self.console.print(message, color=color, bold=bold, cr=True)
 
     def success(self, message: str, bold: bool = False) -> None:
         self.print(message=message, color=Color.GREEN, bold=bold)

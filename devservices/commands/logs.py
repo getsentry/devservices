@@ -26,6 +26,9 @@ from devservices.exceptions import SupervisorError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import install_and_verify_dependencies
+from devservices.utils.docker import get_container_health
+from devservices.utils.docker_compose import DockerComposeCommand
+from devservices.utils.docker_compose import get_container_names_for_project
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
 from devservices.utils.services import Service
@@ -103,7 +106,9 @@ def logs(args: Namespace) -> None:
         )
         exit(1)
     try:
-        logs_output = _logs(service, remote_dependencies, list(mode_dependencies))
+        logs_output, docker_compose_commands = _logs(
+            service, list(remote_dependencies), list(mode_dependencies)
+        )
     except DockerComposeError as dce:
         capture_exception(dce, level="info")
         console.failure(f"Failed to get logs for {service.name}: {dce.stderr}")
@@ -129,12 +134,14 @@ def logs(args: Namespace) -> None:
                 console.info(f"=== Logs for supervisor program: {program_name} ===")
                 console.info(log_content)
 
+    _print_health_logs(console, docker_compose_commands)
+
 
 def _logs(
     service: Service,
-    remote_dependencies: set[InstalledRemoteDependency],
+    remote_dependencies: list[InstalledRemoteDependency],
     mode_dependencies: list[str],
-) -> list[subprocess.CompletedProcess[str]]:
+) -> tuple[list[subprocess.CompletedProcess[str]], list[DockerComposeCommand]]:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
         service.repo_path,
@@ -142,23 +149,20 @@ def _logs(
     service_config_file_path = os.path.join(
         service.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
-    # Set the environment variable for the local dependencies directory to be used by docker compose
     current_env = os.environ.copy()
     current_env[DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY] = (
         relative_local_dependency_directory
     )
     docker_compose_commands = get_docker_compose_commands_to_run(
         service=service,
-        remote_dependencies=list(remote_dependencies),
+        remote_dependencies=remote_dependencies,
         current_env=current_env,
         command="logs",
-        options=["-n", MAX_LOG_LINES],
+        options=["--timestamps", "-n", MAX_LOG_LINES],
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
-
     cmd_outputs = []
-
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
             executor.submit(run_cmd, cmd.full_command, current_env)
@@ -166,8 +170,46 @@ def _logs(
         ]
         for future in concurrent.futures.as_completed(futures):
             cmd_outputs.append(future.result())
+    return cmd_outputs, docker_compose_commands
 
-    return cmd_outputs
+
+def _print_health_logs(
+    console: Console, docker_compose_commands: list[DockerComposeCommand]
+) -> None:
+    container_names: list[str] = []
+    for cmd in docker_compose_commands:
+        try:
+            container_names += [
+                c.name
+                for c in get_container_names_for_project(
+                    cmd.project_name, cmd.config_path, cmd.services
+                )
+            ]
+        except Exception:
+            continue
+
+    if not container_names:
+        return
+
+    health_results = get_container_health(container_names)
+    if not health_results:
+        return
+
+    console.info("=== Container health ===")
+    for h in health_results:
+        if h.status == "healthy":
+            console.success(f"  {h.name}: {h.status}")
+        elif h.status in ("unhealthy", "starting"):
+            console.warning(f"  {h.name}: {h.status}")
+        else:
+            console.info(f"  {h.name}: no healthcheck")
+
+    for h in health_results:
+        if not h.log or h.status == "healthy":
+            continue
+        console.info(f"\n--- {h.name} health check log ---")
+        for entry in h.log:
+            console.info(f"  exit={entry.exit_code}  {entry.output}")
 
 
 def _supervisor_logs(
