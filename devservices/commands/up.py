@@ -17,6 +17,7 @@ from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR_KEY
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import HEALTHCHECK_TIMEOUT
 from devservices.constants import DependencyType
 from devservices.exceptions import ConfigError
 from devservices.exceptions import ConfigNotFoundError
@@ -33,6 +34,7 @@ from devservices.utils.dependencies import DependencyNode
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import install_and_verify_dependencies
+from devservices.utils.docker import ContainerHealthcheckConfig
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import get_container_names_for_project
@@ -367,7 +369,7 @@ def bring_up_docker_compose_services(
         mode_dependencies=mode_dependencies,
     )
 
-    containers_to_check = []
+    containers_to_check: list[ContainerHealthcheckConfig] = []
     with concurrent.futures.ThreadPoolExecutor() as up_dependency_executor:
         futures = [
             up_dependency_executor.submit(
@@ -383,7 +385,14 @@ def bring_up_docker_compose_services(
             container_names = get_container_names_for_project(
                 cmd.project_name, cmd.config_path, cmd.services
             )
-            containers_to_check.extend(container_names)
+            for container in container_names:
+                dep = service.config.dependencies.get(container.short_name)
+                timeout = dep.healthcheck_timeout if dep else HEALTHCHECK_TIMEOUT
+                containers_to_check.append(
+                    ContainerHealthcheckConfig(
+                        container.name, container.short_name, timeout
+                    )
+                )
         except DockerComposeError as dce:
             status.failure(
                 f"Failed to get containers to healthcheck for {cmd.project_name}: {dce.stderr}"

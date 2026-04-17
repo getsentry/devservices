@@ -26,7 +26,7 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.utils.console import Console
 from devservices.utils.dependencies import InstalledRemoteDependency
-from devservices.utils.docker import ContainerNames
+from devservices.utils.docker import ContainerHealthcheckConfig
 from devservices.utils.docker import check_docker_daemon_running
 from devservices.utils.install_binary import install_binary
 from devservices.utils.services import Service
@@ -99,7 +99,7 @@ def install_docker_compose() -> None:
 
 def get_container_names_for_project(
     project_name: str, config_path: str, services: list[str]
-) -> list[ContainerNames]:
+) -> list[ContainerHealthcheckConfig]:
     try:
         output = subprocess.check_output(
             [
@@ -119,7 +119,9 @@ def get_container_names_for_project(
             text=True,
         ).splitlines()
         return [
-            ContainerNames(name=json_data["name"], short_name=json_data["short_name"])
+            ContainerHealthcheckConfig(
+                name=json_data["name"], short_name=json_data["short_name"]
+            )
             for line in output
             if (json_data := json.loads(line))
         ]

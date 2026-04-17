@@ -15,7 +15,7 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.utils.dependencies import InstalledRemoteDependency
-from devservices.utils.docker import ContainerNames
+from devservices.utils.docker import ContainerHealthcheckConfig
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.docker_compose import check_docker_compose_version
 from devservices.utils.docker_compose import get_container_names_for_project
@@ -781,8 +781,12 @@ def test_get_container_names_for_project_success(_mock_check_output: mock.Mock) 
     assert get_container_names_for_project(
         "project", "config_path", ["container1", "container2"]
     ) == [
-        ContainerNames(name="devservices-container1", short_name="container1"),
-        ContainerNames(name="devservices-container2", short_name="container2"),
+        ContainerHealthcheckConfig(
+            name="devservices-container1", short_name="container1"
+        ),
+        ContainerHealthcheckConfig(
+            name="devservices-container2", short_name="container2"
+        ),
     ]
 
 
