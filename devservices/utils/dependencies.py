@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
 import time
@@ -659,13 +660,28 @@ def _checkout_dependency(
             shutil.rmtree(dependency_repo_dir)
         # Copy the cloned repo to the dependency cache directory
         try:
-            shutil.copytree(temp_dir, dst=dependency_repo_dir)
+            shutil.copytree(
+                temp_dir,
+                dst=dependency_repo_dir,
+                ignore=_ignore_special_files,
+            )
         except FileExistsError as e:
             raise DependencyError(
                 repo_name=dependency.repo_name,
                 repo_link=dependency.repo_link,
                 branch=dependency.branch,
             ) from e
+
+
+def _ignore_special_files(src: str, names: list[str]) -> set[str]:
+    ignored = set()
+    for name in names:
+        try:
+            if stat.S_ISSOCK(os.stat(os.path.join(src, name)).st_mode):
+                ignored.add(name)
+        except OSError:
+            pass
+    return ignored
 
 
 def _is_valid_repo(path: str) -> bool:
