@@ -15,9 +15,12 @@ from devservices.constants import Color
 from devservices.exceptions import ContainerHealthcheckFailedError
 from devservices.exceptions import DockerDaemonNotRunningError
 from devservices.exceptions import DockerError
+from devservices.utils.docker import ContainerHealth
 from devservices.utils.docker import ContainerNames
+from devservices.utils.docker import HealthCheckEntry
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker import check_docker_daemon_running
+from devservices.utils.docker import get_container_health
 from devservices.utils.docker import get_matching_containers
 from devservices.utils.docker import get_matching_networks
 from devservices.utils.docker import get_volumes_for_containers
@@ -536,6 +539,113 @@ def test_check_all_containers_healthy_success(
                 mock_status,
             ),
         ]
+    )
+
+
+def test_get_container_health_empty() -> None:
+    assert get_container_health([]) == []
+
+
+@mock.patch("subprocess.check_output")
+def test_get_container_health_docker_error(mock_check_output: mock.Mock) -> None:
+    mock_check_output.side_effect = subprocess.CalledProcessError(1, "docker inspect")
+    assert get_container_health(["container1"]) == []
+
+
+@mock.patch("subprocess.check_output")
+def test_get_container_health_healthy(mock_check_output: mock.Mock) -> None:
+    mock_check_output.return_value = """[
+        {
+            "Name": "/my-container",
+            "State": {
+                "Health": {
+                    "Status": "healthy",
+                    "Log": [
+                        {"ExitCode": 0, "Output": "OK\\n"}
+                    ]
+                }
+            }
+        }
+    ]"""
+    result = get_container_health(["my-container"])
+    assert result == [
+        ContainerHealth(
+            name="my-container",
+            status="healthy",
+            log=[HealthCheckEntry(exit_code=0, output="OK")],
+        )
+    ]
+    mock_check_output.assert_called_once_with(
+        ["docker", "inspect", "my-container"],
+        text=True,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+@mock.patch("subprocess.check_output")
+def test_get_container_health_unhealthy(mock_check_output: mock.Mock) -> None:
+    mock_check_output.return_value = """[
+        {
+            "Name": "/bad-container",
+            "State": {
+                "Health": {
+                    "Status": "unhealthy",
+                    "Log": [
+                        {"ExitCode": 1, "Output": "connection refused\\n"},
+                        {"ExitCode": 1, "Output": "connection refused\\n"}
+                    ]
+                }
+            }
+        }
+    ]"""
+    result = get_container_health(["bad-container"])
+    assert result == [
+        ContainerHealth(
+            name="bad-container",
+            status="unhealthy",
+            log=[
+                HealthCheckEntry(exit_code=1, output="connection refused"),
+                HealthCheckEntry(exit_code=1, output="connection refused"),
+            ],
+        )
+    ]
+
+
+@mock.patch("subprocess.check_output")
+def test_get_container_health_no_healthcheck(mock_check_output: mock.Mock) -> None:
+    mock_check_output.return_value = """[
+        {
+            "Name": "/plain-container",
+            "State": {}
+        }
+    ]"""
+    result = get_container_health(["plain-container"])
+    assert result == [ContainerHealth(name="plain-container", status="none", log=[])]
+
+
+@mock.patch("subprocess.check_output")
+def test_get_container_health_multiple(mock_check_output: mock.Mock) -> None:
+    mock_check_output.return_value = """[
+        {
+            "Name": "/c1",
+            "State": {
+                "Health": {"Status": "healthy", "Log": []}
+            }
+        },
+        {
+            "Name": "/c2",
+            "State": {}
+        }
+    ]"""
+    result = get_container_health(["c1", "c2"])
+    assert result == [
+        ContainerHealth(name="c1", status="healthy", log=[]),
+        ContainerHealth(name="c2", status="none", log=[]),
+    ]
+    mock_check_output.assert_called_once_with(
+        ["docker", "inspect", "c1", "c2"],
+        text=True,
+        stderr=subprocess.DEVNULL,
     )
 
 

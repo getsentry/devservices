@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 
+from devservices.commands.logs import _print_health_logs
 from devservices.commands.logs import _supervisor_logs
 from devservices.commands.logs import logs
 from devservices.configs.service_config import load_service_config_from_file
@@ -17,6 +18,10 @@ from devservices.constants import Color
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import SupervisorError
+from devservices.utils.console import Console
+from devservices.utils.docker import ContainerHealth
+from devservices.utils.docker import HealthCheckEntry
+from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.services import Service
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
@@ -153,6 +158,7 @@ def test_logs_no_specified_service_success(
                 "logs",
                 "clickhouse",
                 "redis",
+                "--timestamps",
                 "-n",
                 "100",
             ],
@@ -184,6 +190,7 @@ def test_logs_no_specified_service_success(
                 "logs",
                 "clickhouse",
                 "redis",
+                "--timestamps",
                 "-n",
                 "100",
             ],
@@ -422,13 +429,16 @@ def test_logs_with_supervisor_dependencies(
         args = Namespace(service_name="test-service")
         mock_get_service_entries.return_value = ["test-service"]
         mock_install_and_verify_dependencies.return_value = set()
-        mock_logs.return_value = [
-            subprocess.CompletedProcess(
-                args=["docker", "compose", "logs"],
-                returncode=0,
-                stdout="docker logs output",
-            )
-        ]
+        mock_logs.return_value = (
+            [
+                subprocess.CompletedProcess(
+                    args=["docker", "compose", "logs"],
+                    returncode=0,
+                    stdout="docker logs output",
+                )
+            ],
+            [],
+        )
         mock_supervisor_logs.return_value = {"worker": "supervisor worker logs output"}
 
         logs(args)
@@ -610,7 +620,7 @@ def test_logs_with_active_modes(
             [],  # started modes
         ]
         mock_install_and_verify_dependencies.return_value = set()
-        mock_logs.return_value = []
+        mock_logs.return_value = ([], [])
 
         logs(args)
 
@@ -720,3 +730,100 @@ def test_supervisor_logs_supervisor_error(
         "test-service", str(config_file_path)
     )
     mock_manager.get_program_logs.assert_called_once_with("worker")
+
+
+@mock.patch("devservices.commands.logs.get_container_health")
+@mock.patch("devservices.commands.logs.get_container_names_for_project")
+def test_print_health_logs_no_containers(
+    mock_get_container_names: mock.Mock,
+    mock_get_container_health: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_container_names.return_value = []
+    console = Console()
+    _print_health_logs(console, [DockerComposeCommand([], "proj", "/path", [])])
+    mock_get_container_health.assert_not_called()
+    assert capsys.readouterr().out == ""
+
+
+@mock.patch("devservices.commands.logs.get_container_health")
+@mock.patch("devservices.commands.logs.get_container_names_for_project")
+def test_print_health_logs_all_healthy(
+    mock_get_container_names: mock.Mock,
+    mock_get_container_health: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from devservices.utils.docker import ContainerNames
+
+    mock_get_container_names.return_value = [
+        ContainerNames(name="proj-redis-1", short_name="redis")
+    ]
+    mock_get_container_health.return_value = [
+        ContainerHealth(name="proj-redis-1", status="healthy", log=[])
+    ]
+    console = Console()
+    _print_health_logs(console, [DockerComposeCommand([], "proj", "/path", ["redis"])])
+    out = capsys.readouterr().out
+    assert "=== Container health ===" in out
+    assert "proj-redis-1: healthy" in out
+
+
+@mock.patch("devservices.commands.logs.get_container_health")
+@mock.patch("devservices.commands.logs.get_container_names_for_project")
+def test_print_health_logs_unhealthy_with_log(
+    mock_get_container_names: mock.Mock,
+    mock_get_container_health: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from devservices.utils.docker import ContainerNames
+
+    mock_get_container_names.return_value = [
+        ContainerNames(name="proj-redis-1", short_name="redis")
+    ]
+    mock_get_container_health.return_value = [
+        ContainerHealth(
+            name="proj-redis-1",
+            status="unhealthy",
+            log=[HealthCheckEntry(exit_code=1, output="connection refused")],
+        )
+    ]
+    console = Console()
+    _print_health_logs(console, [DockerComposeCommand([], "proj", "/path", ["redis"])])
+    out = capsys.readouterr().out
+    assert "proj-redis-1: unhealthy" in out
+    assert "proj-redis-1 health check log" in out
+    assert "exit=1" in out
+    assert "connection refused" in out
+
+
+@mock.patch("devservices.commands.logs.get_container_health")
+@mock.patch("devservices.commands.logs.get_container_names_for_project")
+def test_print_health_logs_no_healthcheck(
+    mock_get_container_names: mock.Mock,
+    mock_get_container_health: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from devservices.utils.docker import ContainerNames
+
+    mock_get_container_names.return_value = [
+        ContainerNames(name="proj-redis-1", short_name="redis")
+    ]
+    mock_get_container_health.return_value = [
+        ContainerHealth(name="proj-redis-1", status="none", log=[])
+    ]
+    console = Console()
+    _print_health_logs(console, [DockerComposeCommand([], "proj", "/path", ["redis"])])
+    out = capsys.readouterr().out
+    assert "proj-redis-1: no healthcheck" in out
+    assert "health check log" not in out
+
+
+@mock.patch("devservices.commands.logs.get_container_names_for_project")
+def test_print_health_logs_inspect_exception_ignored(
+    mock_get_container_names: mock.Mock,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_container_names.side_effect = Exception("docker error")
+    console = Console()
+    _print_health_logs(console, [DockerComposeCommand([], "proj", "/path", ["redis"])])
+    assert capsys.readouterr().out == ""
