@@ -86,6 +86,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pytest-xdist" },
     { name = "ruff" },
     { name = "setuptools" },
     { name = "shellcheck-py" },
@@ -110,6 +111,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest", specifier = ">9" },
     { name = "pytest-cov" },
+    { name = "pytest-xdist", specifier = ">=3.5.0" },
     { name = "ruff" },
     { name = "setuptools", specifier = ">=70" },
     { name = "shellcheck-py" },
@@ -123,6 +125,14 @@ version = "0.4.0"
 source = { registry = "https://pypi.devinfra.sentry.io/simple" }
 wheels = [
     { url = "https://pypi.devinfra.sentry.io/wheels/distlib-0.4.0-py2.py3-none-any.whl", hash = "sha256:9659f7d87e46584a30b5780e43ac7a2143098441670ff0a49d5f9034c54a6c16" },
+]
+
+[[package]]
+name = "execnet"
+version = "2.0.2"
+source = { registry = "https://pypi.devinfra.sentry.io/simple" }
+wheels = [
+    { url = "https://pypi.devinfra.sentry.io/wheels/execnet-2.0.2-py3-none-any.whl", hash = "sha256:88256416ae766bc9e8895c76a87928c0012183da3cc4fc18016e6f050e025f41" },
 ]
 
 [[package]]
@@ -308,6 +318,18 @@ dependencies = [
 ]
 wheels = [
     { url = "https://pypi.devinfra.sentry.io/wheels/pytest_cov-4.1.0-py3-none-any.whl", hash = "sha256:6ba70b9e97e69fcc3fb45bfeab2d0a138fb65c4d0d6a41ef33983ad114be8c3a" },
+]
+
+[[package]]
+name = "pytest-xdist"
+version = "3.5.0"
+source = { registry = "https://pypi.devinfra.sentry.io/simple" }
+dependencies = [
+    { name = "execnet" },
+    { name = "pytest" },
+]
+wheels = [
+    { url = "https://pypi.devinfra.sentry.io/wheels/pytest_xdist-3.5.0-py3-none-any.whl", hash = "sha256:d075629c7e00b611df89f490a5063944bee7a4362a5ff11c7cc7824a03dfce24" },
 ]
 
 [[package]]

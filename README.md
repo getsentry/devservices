@@ -173,5 +173,5 @@ networks:
 ```sh
 uv sync
 direnv allow
-pytest
+pytest -n4
 ```

@@ -29,6 +29,7 @@ dev = [
     "shellcheck-py",
     "wheel",
     "types-PyYAML",
+    "pytest-xdist>=3.5.0",
 ]
 
 [project.scripts]
