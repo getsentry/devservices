@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-          python-version: ["3.11.14", "3.12.13"]
+          python-version: ["3.13.1"]
     steps:
       - name: Configure git
         run: |
@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --python ${{ matrix.python-version }}
       - name: Run tests
-        run: uv run pytest --cov --junitxml=junit.xml -o junit_family=legacy
+        run: uv run pytest -n4 --cov --junitxml=junit.xml -o junit_family=legacy
       - name: Upload results to Codecov
         uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673 # v4.5.0
         with:
