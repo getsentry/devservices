@@ -136,6 +136,43 @@ def test_load_service_config_from_file_no_dependencies(tmp_path: Path) -> None:
     }
 
 
+def test_load_service_config_from_file_null_healthcheck_timeout(
+    tmp_path: Path,
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "modes": {"default": []},
+            "healthcheck_timeout": None,
+        },
+        "services": {},
+    }
+    create_config_file(tmp_path, config)
+
+    service_config = load_service_config_from_file(str(tmp_path))
+    assert service_config.healthcheck_timeout == 180
+
+
+def test_load_service_config_from_file_invalid_healthcheck_timeout(
+    tmp_path: Path,
+) -> None:
+    config = {
+        "x-sentry-service-config": {
+            "version": 0.1,
+            "service_name": "example-service",
+            "modes": {"default": []},
+            "healthcheck_timeout": -1,
+        },
+        "services": {},
+    }
+    create_config_file(tmp_path, config)
+
+    with pytest.raises(ConfigValidationError) as e:
+        load_service_config_from_file(str(tmp_path))
+    assert str(e.value) == "healthcheck_timeout must be a positive integer"
+
+
 def test_load_service_config_from_file_missing_config(tmp_path: Path) -> None:
     with pytest.raises(ConfigNotFoundError) as e:
         load_service_config_from_file(str(tmp_path))
