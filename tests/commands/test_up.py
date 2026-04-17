@@ -24,6 +24,7 @@ from devservices.exceptions import DockerComposeError
 from devservices.exceptions import ServiceNotFoundError
 from devservices.exceptions import SupervisorConfigError
 from devservices.exceptions import SupervisorError
+from devservices.utils.docker import ContainerHealthcheckConfig
 from devservices.utils.docker_compose import DockerComposeCommand
 from devservices.utils.services import Service
 from devservices.utils.state import ServiceRuntime
@@ -98,7 +99,14 @@ def test_up_simple(
             ) as mock_run_cmd,
             mock.patch(
                 "devservices.commands.up.get_container_names_for_project",
-                return_value=["container1", "container2"],
+                return_value=[
+                    ContainerHealthcheckConfig(
+                        name="container1", short_name="container1"
+                    ),
+                    ContainerHealthcheckConfig(
+                        name="container2", short_name="container2"
+                    ),
+                ],
             ) as mock_get_container_names_for_project,
         ):
             up(args)
@@ -140,7 +148,7 @@ def test_up_simple(
             mock.ANY,
         )
 
-        mock_get_container_names_for_project.assert_called_once()
+        mock_get_container_names_for_project.assert_called()
 
         mock_create_devservices_network.assert_called_once()
 
@@ -472,7 +480,10 @@ def test_up_pull_error_timeout(
 )
 @mock.patch(
     "devservices.commands.up.get_container_names_for_project",
-    return_value=["x", "y"],
+    return_value=[
+        ContainerHealthcheckConfig(name="x", short_name="x"),
+        ContainerHealthcheckConfig(name="y", short_name="y"),
+    ],
 )
 def test_up_pull_error_eventual_success(
     mock_get_container_names_for_project: mock.Mock,
@@ -686,7 +697,7 @@ def test_up_docker_compose_container_lookup_error(
             mock.ANY,
         )
 
-        mock_get_container_names_for_project.assert_called_once()
+        mock_get_container_names_for_project.assert_called()
 
         mock_create_devservices_network.assert_called_once()
 
@@ -791,7 +802,14 @@ def test_up_docker_compose_container_healthcheck_failed(
             ) as mock_run_cmd,
             mock.patch(
                 "devservices.commands.up.get_container_names_for_project",
-                return_value=["container1", "container2"],
+                return_value=[
+                    ContainerHealthcheckConfig(
+                        name="container1", short_name="container1"
+                    ),
+                    ContainerHealthcheckConfig(
+                        name="container2", short_name="container2"
+                    ),
+                ],
             ) as mock_get_container_names_for_project,
         ):
             up(args)
@@ -833,7 +851,7 @@ def test_up_docker_compose_container_healthcheck_failed(
             mock.ANY,
         )
 
-        mock_get_container_names_for_project.assert_called_once()
+        mock_get_container_names_for_project.assert_called()
 
         mock_create_devservices_network.assert_called_once()
 
@@ -865,8 +883,105 @@ def test_up_docker_compose_container_healthcheck_failed(
         assert "Starting clickhouse" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
         assert (
-            "Container container1 did not become healthy within 120 seconds."
+            "Container container1 did not become healthy within 180 seconds."
             in captured.out.strip()
+        )
+
+
+@mock.patch("devservices.utils.state.State.remove_service_entry")
+@mock.patch("devservices.utils.state.State.update_service_entry")
+@mock.patch("devservices.commands.up._create_devservices_network")
+@mock.patch(
+    "devservices.utils.docker_compose.get_non_remote_services",
+    return_value={"clickhouse", "redis"},
+)
+def test_up_per_dependency_healthcheck_timeout(
+    mock_get_non_remote_services: mock.Mock,
+    mock_create_devservices_network: mock.Mock,
+    mock_update_service_entry: mock.Mock,
+    mock_remove_service_entry: mock.Mock,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Each dependency's healthcheck_timeout is passed to wait_for_healthy independently."""
+    with (
+        mock.patch(
+            "devservices.commands.up.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+            str(tmp_path / "dependency-dir"),
+        ),
+        mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
+    ):
+        config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "example-service",
+                "dependencies": {
+                    "redis": {"description": "Redis"},
+                    "clickhouse": {
+                        "description": "Clickhouse",
+                        "healthcheck_timeout": 300,
+                    },
+                },
+                "modes": {"default": ["redis", "clickhouse"]},
+            },
+            "services": {
+                "redis": {"image": "redis:6.2.14-alpine"},
+                "clickhouse": {
+                    "image": "altinity/clickhouse-server:23.8.11.29.altinitystable"
+                },
+            },
+        }
+
+        service_path = tmp_path / "example-service"
+        create_config_file(service_path, config)
+        os.chdir(service_path)
+
+        args = Namespace(
+            service_name=None, debug=False, mode="default", exclude_local=False
+        )
+
+        with (
+            mock.patch("devservices.commands.up._pull_dependency_images"),
+            mock.patch(
+                "devservices.commands.up.run_cmd",
+                return_value=subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout=""
+                ),
+            ),
+            mock.patch(
+                "devservices.commands.up.get_container_names_for_project",
+                return_value=[
+                    ContainerHealthcheckConfig(
+                        name="devservices-redis-1", short_name="redis"
+                    ),
+                    ContainerHealthcheckConfig(
+                        name="devservices-clickhouse-1", short_name="clickhouse"
+                    ),
+                ],
+            ),
+            mock.patch(
+                "devservices.utils.docker.wait_for_healthy"
+            ) as mock_wait_for_healthy,
+        ):
+            up(args)
+
+        mock_wait_for_healthy.assert_any_call(
+            ContainerHealthcheckConfig(
+                name="devservices-redis-1",
+                short_name="redis",
+                healthcheck_timeout=HEALTHCHECK_TIMEOUT,
+            ),
+            mock.ANY,
+            HEALTHCHECK_TIMEOUT,
+        )
+        mock_wait_for_healthy.assert_any_call(
+            ContainerHealthcheckConfig(
+                name="devservices-clickhouse-1",
+                short_name="clickhouse",
+                healthcheck_timeout=300,
+            ),
+            mock.ANY,
+            300,
         )
 
 
@@ -934,7 +1049,14 @@ def test_up_mode_simple(
             ) as mock_run_cmd,
             mock.patch(
                 "devservices.commands.up.get_container_names_for_project",
-                return_value=["container1", "container2"],
+                return_value=[
+                    ContainerHealthcheckConfig(
+                        name="container1", short_name="container1"
+                    ),
+                    ContainerHealthcheckConfig(
+                        name="container2", short_name="container2"
+                    ),
+                ],
             ) as mock_get_container_names_for_project,
         ):
             up(args)
@@ -974,7 +1096,7 @@ def test_up_mode_simple(
             mock.ANY,
         )
 
-        mock_get_container_names_for_project.assert_called_once()
+        mock_get_container_names_for_project.assert_called()
 
         mock_create_devservices_network.assert_called_once()
 
@@ -1164,7 +1286,14 @@ def test_up_multiple_modes(
             ) as mock_run_cmd,
             mock.patch(
                 "devservices.commands.up.get_container_names_for_project",
-                return_value=["container1", "container2"],
+                return_value=[
+                    ContainerHealthcheckConfig(
+                        name="container1", short_name="container1"
+                    ),
+                    ContainerHealthcheckConfig(
+                        name="container2", short_name="container2"
+                    ),
+                ],
             ),
         ):
             up(args)
@@ -1333,7 +1462,14 @@ def test_up_multiple_modes_overlapping_running_service(
             ) as mock_run_cmd,
             mock.patch(
                 "devservices.commands.up.get_container_names_for_project",
-                return_value=["container1", "container2"],
+                return_value=[
+                    ContainerHealthcheckConfig(
+                        name="container1", short_name="container1"
+                    ),
+                    ContainerHealthcheckConfig(
+                        name="container2", short_name="container2"
+                    ),
+                ],
             ),
         ):
             up(args)
@@ -1375,7 +1511,10 @@ def test_up_multiple_modes_overlapping_running_service(
 
         mock_check_all_containers_healthy.assert_called_once_with(
             mock.ANY,
-            ["container1", "container2"],
+            [
+                ContainerHealthcheckConfig(name="container1", short_name="container1"),
+                ContainerHealthcheckConfig(name="container2", short_name="container2"),
+            ],
         )
 
         captured = capsys.readouterr()

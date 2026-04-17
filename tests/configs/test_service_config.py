@@ -107,6 +107,7 @@ def test_load_service_config_from_file(
                 "description": value["description"],
                 "remote": value.get("remote"),
                 "dependency_type": dependency_types[key],
+                "healthcheck_timeout": 180,
             }
             for key, value in dependencies.items()
         },

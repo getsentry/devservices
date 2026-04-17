@@ -753,10 +753,10 @@ def test_print_health_logs_all_healthy(
     mock_get_container_health: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from devservices.utils.docker import ContainerNames
+    from devservices.utils.docker import ContainerHealthcheckConfig
 
     mock_get_container_names.return_value = [
-        ContainerNames(name="proj-redis-1", short_name="redis")
+        ContainerHealthcheckConfig(name="proj-redis-1", short_name="redis")
     ]
     mock_get_container_health.return_value = [
         ContainerHealth(name="proj-redis-1", status="healthy", log=[])
@@ -775,10 +775,10 @@ def test_print_health_logs_unhealthy_with_log(
     mock_get_container_health: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from devservices.utils.docker import ContainerNames
+    from devservices.utils.docker import ContainerHealthcheckConfig
 
     mock_get_container_names.return_value = [
-        ContainerNames(name="proj-redis-1", short_name="redis")
+        ContainerHealthcheckConfig(name="proj-redis-1", short_name="redis")
     ]
     mock_get_container_health.return_value = [
         ContainerHealth(
@@ -803,10 +803,10 @@ def test_print_health_logs_no_healthcheck(
     mock_get_container_health: mock.Mock,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from devservices.utils.docker import ContainerNames
+    from devservices.utils.docker import ContainerHealthcheckConfig
 
     mock_get_container_names.return_value = [
-        ContainerNames(name="proj-redis-1", short_name="redis")
+        ContainerHealthcheckConfig(name="proj-redis-1", short_name="redis")
     ]
     mock_get_container_health.return_value = [
         ContainerHealth(name="proj-redis-1", status="none", log=[])

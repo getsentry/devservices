@@ -49,6 +49,8 @@ The configuration file is a yaml file that looks like this:
 # - dependencies: A list of dependencies for the service. Each dependency is a yaml block that holds the dependency configuration. There are two types of dependencies:
 #   - local: A dependency that is defined in the config file. These dependencies do not have a remote field and must correspond to either a service defined in the 'services' section or a program defined in the 'x-programs' section.
 #   - remote: A dependency that is defined in the devservices directory in a remote repository. These configs are automatically fetched from the remote repository and installed. Any dependency with a remote field will be treated as a remote dependency. Example: https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L8
+#   Each dependency also supports the following optional fields:
+#   - healthcheck_timeout: The number of seconds to wait for this dependency's container(s) to become healthy. Defaults to 180.
 # - modes: A list of modes for the service. Each mode includes a list of dependencies that are used in that mode.
 x-sentry-service-config:
   version: 0.1

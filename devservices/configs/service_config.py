@@ -9,6 +9,7 @@ from supervisor.options import ServerOptions
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import HEALTHCHECK_TIMEOUT
 from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
@@ -32,6 +33,7 @@ class Dependency:
     description: str
     dependency_type: DependencyType
     remote: RemoteConfig | None = None
+    healthcheck_timeout: int = HEALTHCHECK_TIMEOUT
 
 
 @dataclass
@@ -131,6 +133,9 @@ def load_service_config_from_file(
                         else None
                     ),
                     dependency_type=dependency_type,
+                    healthcheck_timeout=value.get(
+                        "healthcheck_timeout", HEALTHCHECK_TIMEOUT
+                    ),
                 )
         except TypeError as type_error:
             raise ConfigParseError(
