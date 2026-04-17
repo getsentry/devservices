@@ -111,6 +111,7 @@ def test_load_service_config_from_file(
             for key, value in dependencies.items()
         },
         "modes": modes,
+        "healthcheck_timeout": 180,
     }
 
 
@@ -131,6 +132,7 @@ def test_load_service_config_from_file_no_dependencies(tmp_path: Path) -> None:
         "service_name": "example-service",
         "dependencies": {},
         "modes": {"default": []},
+        "healthcheck_timeout": 180,
     }
 
 

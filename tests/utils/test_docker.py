@@ -533,10 +533,12 @@ def test_check_all_containers_healthy_success(
             mock.call(
                 ContainerNames(name="devservices-container1", short_name="container1"),
                 mock_status,
+                180,
             ),
             mock.call(
                 ContainerNames(name="devservices-container2", short_name="container2"),
                 mock_status,
+                180,
             ),
         ]
     )
@@ -671,10 +673,12 @@ def test_check_all_containers_healthy_failure(
             mock.call(
                 ContainerNames(name="devservices-container1", short_name="container1"),
                 mock_status,
+                180,
             ),
             mock.call(
                 ContainerNames(name="devservices-container2", short_name="container2"),
                 mock_status,
+                180,
             ),
         ]
     )

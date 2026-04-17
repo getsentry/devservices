@@ -865,7 +865,7 @@ def test_up_docker_compose_container_healthcheck_failed(
         assert "Starting clickhouse" in captured.out.strip()
         assert "Starting redis" in captured.out.strip()
         assert (
-            "Container container1 did not become healthy within 120 seconds."
+            "Container container1 did not become healthy within 180 seconds."
             in captured.out.strip()
         )
 
@@ -1376,6 +1376,7 @@ def test_up_multiple_modes_overlapping_running_service(
         mock_check_all_containers_healthy.assert_called_once_with(
             mock.ANY,
             ["container1", "container2"],
+            timeout=mock.ANY,
         )
 
         captured = capsys.readouterr()
