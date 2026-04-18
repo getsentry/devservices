@@ -9,6 +9,7 @@ from supervisor.options import ServerOptions
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import HEALTHCHECK_TIMEOUT
 from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
@@ -40,6 +41,7 @@ class ServiceConfig:
     service_name: str
     dependencies: dict[str, Dependency]
     modes: dict[str, list[str]]
+    healthcheck_timeout: int = HEALTHCHECK_TIMEOUT
 
     def __post_init__(self) -> None:
         self._validate()
@@ -58,6 +60,14 @@ class ServiceConfig:
 
         if "default" not in self.modes:
             raise ConfigValidationError("Default mode is required in service config")
+
+        if isinstance(self.healthcheck_timeout, bool) or (
+            not isinstance(self.healthcheck_timeout, int)
+            or self.healthcheck_timeout <= 0
+        ):
+            raise ConfigValidationError(
+                "healthcheck_timeout must be a positive integer"
+            )
 
         for mode, services in self.modes.items():
             if not isinstance(services, list):
@@ -142,6 +152,9 @@ def load_service_config_from_file(
             service_name=service_config_data.get("service_name"),
             dependencies=dependencies,
             modes=service_config_data.get("modes", {}),
+            healthcheck_timeout=service_config_data.get("healthcheck_timeout")
+            if service_config_data.get("healthcheck_timeout") is not None
+            else HEALTHCHECK_TIMEOUT,
         )
 
         return service_config

@@ -65,7 +65,7 @@ DEVSERVICES_LATEST_VERSION_CACHE_FILE = os.path.join(
     DEVSERVICES_CACHE_DIR, "latest_version.txt"
 )
 DEVSERVICES_LATEST_VERSION_CACHE_TTL = timedelta(minutes=15)
-# Healthcheck timeout set to 2 minutes to account for slow healthchecks
-HEALTHCHECK_TIMEOUT = 120
+# Healthcheck timeout set to 3 minutes to account for slow healthchecks
+HEALTHCHECK_TIMEOUT = 180
 HEALTHCHECK_INTERVAL = 5
 SUPERVISOR_TIMEOUT = 10

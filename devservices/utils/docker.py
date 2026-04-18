@@ -43,25 +43,34 @@ def check_docker_daemon_running() -> None:
 
 
 def check_all_containers_healthy(
-    status: Status, containers: list[ContainerNames]
+    status: Status,
+    containers: list[ContainerNames],
+    timeout: int = HEALTHCHECK_TIMEOUT,
 ) -> None:
     """Ensures all containers are healthy."""
     status.info("Waiting for all containers to be healthy")
     with concurrent.futures.ThreadPoolExecutor() as healthcheck_executor:
         futures = [
-            healthcheck_executor.submit(wait_for_healthy, container, status)
+            healthcheck_executor.submit(wait_for_healthy, container, status, timeout)
             for container in containers
         ]
         for future in concurrent.futures.as_completed(futures):
             future.result()
 
 
-def wait_for_healthy(container: ContainerNames, status: Status) -> None:
+def wait_for_healthy(
+    container: ContainerNames,
+    status: Status,
+    timeout: int = HEALTHCHECK_TIMEOUT,
+) -> None:
     """
     Polls a Docker container's health status until it becomes healthy or a timeout is reached.
     """
+    status.info(
+        f"Waiting for {container.short_name} to be healthy (timeout: {timeout}s)"
+    )
     start = time.time()
-    while time.time() - start < HEALTHCHECK_TIMEOUT:
+    while time.time() - start < timeout:
         # Run docker inspect to get the container's health status
         try:
             # For containers with no healthchecks, the output will be "unknown"
@@ -96,7 +105,7 @@ def wait_for_healthy(container: ContainerNames, status: Status) -> None:
         # If not healthy, wait and try again
         time.sleep(HEALTHCHECK_INTERVAL)
 
-    raise ContainerHealthcheckFailedError(container.short_name, HEALTHCHECK_TIMEOUT)
+    raise ContainerHealthcheckFailedError(container.short_name, timeout)
 
 
 @dataclass

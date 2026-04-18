@@ -390,7 +390,9 @@ def bring_up_docker_compose_services(
             )
             exit(1)
     try:
-        check_all_containers_healthy(status, containers_to_check)
+        check_all_containers_healthy(
+            status, containers_to_check, timeout=service.config.healthcheck_timeout
+        )
     except ContainerHealthcheckFailedError as e:
         status.failure(str(e))
         exit(1)
