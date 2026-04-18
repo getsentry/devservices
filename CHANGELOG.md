@@ -1,3 +1,29 @@
+## 1.3.1
+
+### New Features ✨
+
+- (cli) Add --config option for custom config file path by @hubertdeng123 in [#307](https://github.com/getsentry/devservices/pull/307)
+- Pytest 9, xdist, python 3.13.1 by @joshuarli in [#309](https://github.com/getsentry/devservices/pull/309)
+- Timestamps and health logs by @joshuarli in [#308](https://github.com/getsentry/devservices/pull/308)
+- Uv by @joshuarli in [#305](https://github.com/getsentry/devservices/pull/305)
+
+### Bug Fixes 🐛
+
+- (state) Gracefully handle stale service entries in state database by @vaind in [#302](https://github.com/getsentry/devservices/pull/302)
+
+### Internal Changes 🔧
+
+#### Release
+
+- Fix changelog-preview permissions by @BYK in [#300](https://github.com/getsentry/devservices/pull/300)
+- Switch from action-prepare-release to Craft by @BYK in [#299](https://github.com/getsentry/devservices/pull/299)
+
+#### Other
+
+- (deps-dev) Bump setuptools from 70.0.0 to 78.1.1 by @dependabot in [#294](https://github.com/getsentry/devservices/pull/294)
+- Make health timeout configurable and default to 180 by @joshuarli in [#311](https://github.com/getsentry/devservices/pull/311)
+- Pin GitHub Actions to full-length commit SHAs by @joshuarli in [#306](https://github.com/getsentry/devservices/pull/306)
+
 ## 1.2.4
 
 ### Bug Fixes 🐛
