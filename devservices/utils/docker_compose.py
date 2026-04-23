@@ -264,9 +264,26 @@ def get_docker_compose_commands_to_run(
         non_remote_services = get_non_remote_services(
             dependency_config_path, current_env
         )
+        # The mode recorded in state may no longer exist in the dependency's
+        # current config (e.g. the dependency was updated and the mode was
+        # removed or renamed). Fall back to no services for that mode rather
+        # than raising a KeyError, which would crash `down`/`up` for users.
+        dependency_mode_services = dependency_service_config.modes.get(dependency.mode)
+        if dependency_mode_services is None:
+            sentry_logger.warning(
+                "Dependency mode no longer exists in service config; skipping",
+                extra={
+                    "dependency_service": dependency_service_config.service_name,
+                    "dependency_mode": dependency.mode,
+                    "available_modes": list(dependency_service_config.modes.keys()),
+                },
+            )
+            dependency_mode_services = []
         services_to_use = non_remote_services.intersection(
-            set(dependency_service_config.modes[dependency.mode])
+            set(dependency_mode_services)
         )
+        if len(services_to_use) == 0:
+            continue
         docker_compose_commands.append(
             create_docker_compose_command(
                 dependency_service_config.service_name,

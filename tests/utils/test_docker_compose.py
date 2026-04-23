@@ -775,6 +775,65 @@ def test_get_all_commands_to_run_complex_shared_dependency(
     ]
 
 
+@mock.patch("devservices.utils.docker_compose.subprocess.run")
+def test_get_all_commands_to_run_remote_dependency_missing_mode(
+    mock_run: mock.Mock, tmp_path: Path
+) -> None:
+    """If a remote dependency's recorded mode no longer exists in its config,
+    we should skip it rather than raising a KeyError."""
+    child_service_repo_path = tmp_path / "child-service-repo"
+    parent_service_repo_path = tmp_path / "parent-service-repo"
+    create_mock_git_repo("child-service-repo", child_service_repo_path)
+    create_mock_git_repo("parent-service-repo", parent_service_repo_path)
+    child_service_repo_path_str = str(child_service_repo_path)
+    parent_service_repo_path_str = str(parent_service_repo_path)
+    service_config = load_service_config_from_file(parent_service_repo_path_str)
+    service = Service(
+        name="parent-service",
+        repo_path=parent_service_repo_path_str,
+        config=service_config,
+    )
+    remote_dependencies = [
+        InstalledRemoteDependency(
+            service_name="child-service",
+            repo_path=child_service_repo_path_str,
+            mode="mode-that-no-longer-exists",
+        )
+    ]
+    current_env = os.environ.copy()
+    command = "stop"
+    options: list[str] = []
+    service_config_file_path = os.path.join(
+        parent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
+    )
+    mode_dependencies = service_config.modes["default"]
+    mock_run.side_effect = [
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="child-service\n",
+        ),
+        subprocess.CompletedProcess(
+            args=["docker", "compose", "config", "--services"],
+            returncode=0,
+            stdout="parent-service\n",
+        ),
+    ]
+    commands = get_docker_compose_commands_to_run(
+        service=service,
+        remote_dependencies=remote_dependencies,
+        current_env=current_env,
+        command=command,
+        options=options,
+        service_config_file_path=service_config_file_path,
+        mode_dependencies=mode_dependencies,
+    )
+    # Only the top-level service command should remain; the remote dependency
+    # with a missing mode should have been skipped instead of crashing.
+    assert len(commands) == 1
+    assert commands[0].project_name == "parent-service"
+
+
 @mock.patch("devservices.utils.docker_compose.subprocess.check_output")
 def test_get_container_names_for_project_success(_mock_check_output: mock.Mock) -> None:
     _mock_check_output.return_value = '{"name": "devservices-container1", "short_name": "container1"}\n{"name": "devservices-container2", "short_name": "container2"}'
