@@ -264,9 +264,24 @@ def get_docker_compose_commands_to_run(
         non_remote_services = get_non_remote_services(
             dependency_config_path, current_env
         )
-        services_to_use = non_remote_services.intersection(
-            set(dependency_service_config.modes[dependency.mode])
-        )
+        mode_services = dependency_service_config.modes.get(dependency.mode)
+        if mode_services is None:
+            sentry_logger.warning(
+                "Dependency mode missing while generating docker compose commands",
+                extra={
+                    "dependency_service_name": dependency_service_config.service_name,
+                    "dependency_repo_path": dependency.repo_path,
+                    "missing_mode": dependency.mode,
+                    "available_modes": sorted(
+                        list(dependency_service_config.modes.keys())
+                    ),
+                },
+            )
+            # The dependency may have been started with an older mode that no longer exists.
+            # Fall back to all compose services so `down` can still clean up safely.
+            services_to_use = non_remote_services
+        else:
+            services_to_use = non_remote_services.intersection(set(mode_services))
         docker_compose_commands.append(
             create_docker_compose_command(
                 dependency_service_config.service_name,

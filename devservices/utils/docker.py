@@ -33,10 +33,18 @@ def check_docker_daemon_running() -> None:
             check=True,
         )
         return
+    except FileNotFoundError as e:
+        raise DockerDaemonNotRunningError(
+            "Could not find the docker binary in PATH. Please install Docker and ensure `docker` is available."
+        ) from e
     except subprocess.CalledProcessError:
         console.info("Docker daemon is not running. Checking if colima is available")
     try:
         subprocess.run(["devenv", "colima", "start"], check=True)
+    except FileNotFoundError as e:
+        raise DockerDaemonNotRunningError(
+            "Could not find the `devenv` binary needed to start Colima. Please start Docker manually."
+        ) from e
     except subprocess.CalledProcessError as e:
         console.failure("Failed to start colima")
         raise DockerDaemonNotRunningError from e

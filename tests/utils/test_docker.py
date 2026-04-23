@@ -66,6 +66,55 @@ def test_check_docker_daemon_running(mock_run: mock.Mock) -> None:
     )
 
 
+@mock.patch("subprocess.run", side_effect=FileNotFoundError("docker"))
+def test_check_docker_daemon_running_missing_docker_binary(
+    mock_run: mock.Mock,
+) -> None:
+    with pytest.raises(
+        DockerDaemonNotRunningError,
+        match="Could not find the docker binary in PATH",
+    ):
+        check_docker_daemon_running()
+    mock_run.assert_called_once_with(
+        ["docker", "info"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
+@mock.patch(
+    "subprocess.run",
+    side_effect=[
+        subprocess.CalledProcessError(1, "docker info"),
+        FileNotFoundError("devenv"),
+    ],
+)
+def test_check_docker_daemon_running_missing_devenv_binary(
+    mock_run: mock.Mock, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(
+        DockerDaemonNotRunningError,
+        match="Could not find the `devenv` binary needed to start Colima",
+    ):
+        check_docker_daemon_running()
+    mock_run.assert_has_calls(
+        [
+            mock.call(
+                ["docker", "info"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ),
+            mock.call(["devenv", "colima", "start"], check=True),
+        ]
+    )
+    assert (
+        capsys.readouterr().out
+        == "Docker daemon is not running. Checking if colima is available\n"
+    )
+
+
 @mock.patch("subprocess.check_output")
 @mock.patch("devservices.utils.docker.check_docker_daemon_running")
 def test_get_matching_containers(

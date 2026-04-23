@@ -46,7 +46,12 @@ class DevservicesUpdateError(BinaryInstallError):
 class DockerDaemonNotRunningError(Exception):
     """Raised when the Docker daemon is not running."""
 
+    def __init__(self, message: str | None = None):
+        self.message = message
+
     def __str__(self) -> str:
+        if self.message is not None:
+            return self.message
         # TODO: Provide explicit instructions on what to do
         return "Unable to connect to the docker daemon. Is the docker daemon running?"
 
