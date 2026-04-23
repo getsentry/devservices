@@ -15,6 +15,16 @@ from devservices.utils.services import get_local_services
 from testing.utils import create_mock_git_repo
 
 
+def test_get_local_services_empty_coderoot() -> None:
+    """Return no services when coderoot is an empty string (not configured)."""
+    assert get_local_services("") == []
+
+
+def test_get_local_services_nonexistent_coderoot(tmp_path: Path) -> None:
+    """Return no services when coderoot points to a nonexistent path."""
+    assert get_local_services(str(tmp_path / "does-not-exist")) == []
+
+
 def test_get_local_services_with_invalid_config(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

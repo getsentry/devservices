@@ -28,7 +28,16 @@ def get_local_services(coderoot: str) -> list[Service]:
     """Get a list of services in the coderoot."""
     console = Console()
 
-    services = []
+    services: list[Service] = []
+    if not coderoot or not os.path.isdir(coderoot):
+        # No (valid) coderoot configured. This is most commonly reached when
+        # devenv has not been set up. Treat it as "no local services" rather
+        # than raising, so commands like `down` can still look up services.
+        sentry_logger.warning(
+            "Coderoot is not set or does not exist; skipping local service discovery",
+            extra={"coderoot": coderoot},
+        )
+        return services
     for repo in os.listdir(coderoot):
         repo_path = os.path.join(coderoot, repo)
         try:
