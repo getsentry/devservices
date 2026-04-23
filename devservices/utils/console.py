@@ -26,8 +26,14 @@ class Console:
         color = color + (Color.BOLD if bold else "")
         end = Color.RESET if color != "" or bold else ""
         prefix = "\r" if cr else ""
-        sys.stdout.write(prefix + color + message + end + "\n")
-        sys.stdout.flush()
+        try:
+            sys.stdout.write(prefix + color + message + end + "\n")
+            sys.stdout.flush()
+        except BrokenPipeError:
+            # The downstream consumer (e.g. a pager or piped command) closed
+            # its end of the pipe. There is nothing useful we can do here, so
+            # swallow the error rather than crashing the CLI.
+            pass
 
     def success(self, message: str, bold: bool = False) -> None:
         self.print(message=message, color=Color.GREEN, bold=bold)
@@ -85,8 +91,11 @@ class Status:
     def stop(self) -> None:
         self._stop_loading.set()
         self._loading_thread.join()
-        sys.stdout.write("\r")
-        sys.stdout.flush()
+        try:
+            sys.stdout.write("\r")
+            sys.stdout.flush()
+        except BrokenPipeError:
+            pass
         if self.on_success and not self._exception_occurred:
             self.on_success()
 
@@ -95,8 +104,13 @@ class Status:
             return
         idx = 0
         while not self._stop_loading.is_set():
-            sys.stdout.write("\r" + ANIMATION_FRAMES[idx % len(ANIMATION_FRAMES)] + " ")
-            sys.stdout.flush()
+            try:
+                sys.stdout.write(
+                    "\r" + ANIMATION_FRAMES[idx % len(ANIMATION_FRAMES)] + " "
+                )
+                sys.stdout.flush()
+            except BrokenPipeError:
+                return
             idx += 1
             time.sleep(0.1)
 
