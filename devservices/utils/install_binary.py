@@ -18,7 +18,7 @@ def install_binary(
     url: str,
 ) -> None:
     console = Console()
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
         temp_file = os.path.join(temp_dir, binary_name)
 
         # Download the binary with retries
