@@ -605,7 +605,7 @@ def _checkout_dependency(
             "branch": dependency.branch,
         },
     )
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
         try:
             _run_command(
                 [
