@@ -142,18 +142,6 @@ class GitError(Exception):
         self.stderr = stderr
 
 
-class GitConfigError(Exception):
-    """Base class for git config related errors."""
-
-    pass
-
-
-class FailedToSetGitConfigError(GitConfigError):
-    """Raised when a git config cannot be set."""
-
-    pass
-
-
 class ContainerHealthcheckFailedError(Exception):
     """Raised when a container is not healthy."""
 

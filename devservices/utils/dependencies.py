@@ -1,21 +1,18 @@
 from __future__ import annotations
 
-import logging
+import io
 import os
 import shutil
-import subprocess
-import tempfile
-import time
+import urllib.error
+import urllib.request
+import zipfile
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from dataclasses import dataclass
-from typing import TextIO
 from typing import TypeGuard
 
-from sentry_sdk import capture_message
 from sentry_sdk import logger as sentry_logger
-from sentry_sdk import set_context
 
 from devservices.configs.service_config import Dependency
 from devservices.configs.service_config import RemoteConfig
@@ -23,38 +20,24 @@ from devservices.configs.service_config import ServiceConfig
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
-from devservices.constants import DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
-from devservices.constants import LOGGER_NAME
 from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
 from devservices.exceptions import ConfigValidationError
 from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
-from devservices.exceptions import FailedToSetGitConfigError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
-from devservices.exceptions import UnableToCloneDependencyError
 from devservices.utils.file_lock import lock
+from devservices.utils.retry import retry
 from devservices.utils.services import Service
 from devservices.utils.services import find_matching_service
 from devservices.utils.services import get_active_service_names
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
-
-RELEVANT_GIT_CONFIG_KEYS = [
-    "init.defaultbranch",
-    "core.sparsecheckout",
-    "remote.origin.url",
-    "remote.origin.fetch",
-    "remote.origin.promisor",
-    "remote.origin.partialclonefilter",
-    "protocol.version",
-    "extensions.partialclone",
-]
 
 
 @dataclass(frozen=True, eq=True)
@@ -127,87 +110,6 @@ class InstalledRemoteDependency:
     service_name: str
     repo_path: str
     mode: str = "default"
-
-
-class SparseCheckoutManager:
-    """
-    Manages sparse checkout for a repo
-    """
-
-    def __init__(self, repo_dir: str):
-        self.repo_dir = repo_dir
-
-    def init_sparse_checkout(self) -> None:
-        """
-        Initialize sparse checkout for the repo
-        """
-        _run_command(["git", "sparse-checkout", "init"], cwd=self.repo_dir)
-
-    def set_sparse_checkout(self, pattern: str) -> None:
-        """
-        Set sparse checkout patterns for the repo
-        """
-        self.init_sparse_checkout()
-        _run_command(["git", "sparse-checkout", "set", pattern], cwd=self.repo_dir)
-
-
-class GitConfigManager:
-    """
-    Manages git config for a repo
-    """
-
-    def __init__(
-        self,
-        repo_dir: str,
-        config_options: dict[str, str],
-        sparse_pattern: str | None = None,
-    ) -> None:
-        self.repo_dir = repo_dir
-        self.config_options = config_options
-        self.sparse_pattern = sparse_pattern
-        self.sparse_checkout_manager = SparseCheckoutManager(repo_dir)
-
-    def ensure_config(self) -> None:
-        """
-        Ensure that the git config is set correctly for the repo
-        """
-        # Otherwise, set the config options
-        for key, value in self.config_options.items():
-            self._set_config(key, value)
-
-        if self.sparse_pattern:
-            self.sparse_checkout_manager.set_sparse_checkout(self.sparse_pattern)
-
-    def get_relevant_config(self) -> dict[str, str]:
-        """
-        Get the relevant git config entries (to avoid logging sensitive information)
-        """
-        git_config = (
-            subprocess.check_output(
-                ["git", "config", "--list"],
-                cwd=self.repo_dir,
-                stderr=subprocess.PIPE,
-            )
-            .decode()
-            .strip()
-        )
-        git_config_dict = dict()
-        for line in git_config.split("\n"):
-            if not line:
-                continue
-            key, value = line.split("=")
-            if key in RELEVANT_GIT_CONFIG_KEYS:
-                git_config_dict[key] = value
-        return git_config_dict
-
-    def _set_config(self, key: str, value: str) -> None:
-        """
-        Set a git config option for the repo
-        """
-        try:
-            _run_command(["git", "config", key, value], cwd=self.repo_dir)
-        except subprocess.CalledProcessError as e:
-            raise FailedToSetGitConfigError from e
 
 
 def install_and_verify_dependencies(
@@ -435,14 +337,7 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
         DEVSERVICES_DEPENDENCIES_CACHE_DIR, f"{dependency.repo_name}.lock"
     )
     with lock(lock_path):
-        if (
-            os.path.exists(dependency_repo_dir)
-            and _is_valid_repo(dependency_repo_dir)
-            and _has_valid_config_file(dependency_repo_dir)
-        ):
-            _update_dependency(dependency, dependency_repo_dir)
-        else:
-            _checkout_dependency(dependency, dependency_repo_dir)
+        _fetch_dependency(dependency, dependency_repo_dir)
 
         if not verify_local_dependency(dependency):
             # TODO: what should we do if the local dependency isn't installed correctly?
@@ -503,179 +398,93 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
     return installed_dependencies
 
 
-def _update_dependency(
+def _parse_github_repo_path(repo_link: str) -> str:
+    url = repo_link.rstrip("/").removesuffix(".git")
+    if "github.com/" not in url:
+        raise ValueError(f"Not a GitHub URL: {repo_link}")
+    return url.split("github.com/", 1)[1]
+
+
+def _fetch_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
 ) -> None:
     sentry_logger.info(
-        "Updating dependency",
+        "Fetching dependency",
         extra={
             "repo_name": dependency.repo_name,
             "repo_link": dependency.repo_link,
             "branch": dependency.branch,
         },
     )
-    git_config_manager = GitConfigManager(
-        dependency_repo_dir,
-        DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS,
-        f"{DEVSERVICES_DIR_NAME}/",
-    )
     try:
-        git_config_manager.ensure_config()
-    except FailedToSetGitConfigError as e:
+        repo_path = _parse_github_repo_path(dependency.repo_link)
+    except ValueError as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
         ) from e
 
-    try:
-        _run_command_with_retries(
-            [
-                "git",
-                "fetch",
-                "origin",
-                dependency.branch,
-                "--filter=blob:none",
-                "--no-recurse-submodules",  # Avoid fetching submodules
-            ],
-            cwd=dependency_repo_dir,
+    zip_url = f"https://api.github.com/repos/{repo_path}/zipball/{dependency.branch}"
+
+    def _download() -> bytes:
+        req = urllib.request.Request(
+            zip_url,
+            headers={"Accept": "application/vnd.github+json"},
         )
-    except subprocess.CalledProcessError as e:
-        # Try to set the git config context to help with debugging
-        _try_set_git_config_context(git_config_manager)
+        with urllib.request.urlopen(req) as response:
+            return bytes(response.read())
+
+    try:
+        zip_data = io.BytesIO(retry(_download, exceptions=(urllib.error.URLError,)))
+    except urllib.error.URLError as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
-            stderr=e.stderr,
         ) from e
 
-    # Check if the local repo is up-to-date
     try:
-        local_commit = _rev_parse(dependency_repo_dir, "HEAD")
-    except subprocess.CalledProcessError as e:
+        with zipfile.ZipFile(zip_data) as zf:
+            names = zf.namelist()
+            if not names:
+                raise DependencyError(
+                    repo_name=dependency.repo_name,
+                    repo_link=dependency.repo_link,
+                    branch=dependency.branch,
+                )
+            # GitHub zips always have a single top-level directory: "owner-repo-sha/"
+            prefix = names[0].split("/")[0] + "/"
+            devservices_prefix = f"{prefix}{DEVSERVICES_DIR_NAME}/"
+            to_extract = [
+                name
+                for name in names
+                if name.startswith(devservices_prefix) and not name.endswith("/")
+            ]
+            if not to_extract:
+                raise DependencyError(
+                    repo_name=dependency.repo_name,
+                    repo_link=dependency.repo_link,
+                    branch=dependency.branch,
+                )
+
+            if os.path.exists(dependency_repo_dir):
+                shutil.rmtree(dependency_repo_dir)
+            os.makedirs(dependency_repo_dir)
+
+            for name in to_extract:
+                relative_path = name[len(prefix) :]
+                target = os.path.join(dependency_repo_dir, relative_path)
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with zf.open(name) as src, open(target, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+    except zipfile.BadZipFile as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
-            stderr=e.stderr,
         ) from e
-
-    try:
-        remote_commit = _rev_parse(dependency_repo_dir, "FETCH_HEAD")
-    except subprocess.CalledProcessError as e:
-        raise DependencyError(
-            repo_name=dependency.repo_name,
-            repo_link=dependency.repo_link,
-            branch=dependency.branch,
-            stderr=e.stderr,
-        ) from e
-
-    if local_commit == remote_commit:
-        # Already up-to-date, don't pull anything
-        logger = logging.getLogger(LOGGER_NAME)
-        logger.debug(
-            "Dependency %s is already up-to-date, not pulling anything",
-            dependency.repo_name,
-        )
-        return
-
-    # If it's not up-to-date, checkout the latest changes (forcibly)
-    try:
-        _run_command(["git", "checkout", "-f", "FETCH_HEAD"], cwd=dependency_repo_dir)
-    except subprocess.CalledProcessError as e:
-        raise DependencyError(
-            repo_name=dependency.repo_name,
-            repo_link=dependency.repo_link,
-            branch=dependency.branch,
-            stderr=e.stderr,
-        ) from e
-
-
-def _checkout_dependency(
-    dependency: RemoteConfig,
-    dependency_repo_dir: str,
-) -> None:
-    sentry_logger.info(
-        "Checking out dependency",
-        extra={
-            "repo_name": dependency.repo_name,
-            "repo_link": dependency.repo_link,
-            "branch": dependency.branch,
-        },
-    )
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
-        try:
-            _run_command(
-                [
-                    "git",
-                    "clone",
-                    "--filter=blob:none",
-                    "--no-checkout",
-                    dependency.repo_link,
-                    temp_dir,
-                ],
-                cwd=temp_dir,
-            )
-        except subprocess.CalledProcessError as e:
-            raise UnableToCloneDependencyError(
-                repo_name=dependency.repo_name,
-                repo_link=dependency.repo_link,
-                branch=dependency.branch,
-                stderr=e.stderr,
-            ) from e
-
-        # Setup config for partial clone and sparse checkout
-        git_config_manager = GitConfigManager(
-            temp_dir,
-            DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS,
-            f"{DEVSERVICES_DIR_NAME}/",
-        )
-        try:
-            git_config_manager.ensure_config()
-        except FailedToSetGitConfigError as e:
-            raise DependencyError(
-                repo_name=dependency.repo_name,
-                repo_link=dependency.repo_link,
-                branch=dependency.branch,
-            ) from e
-
-        try:
-            _run_command(
-                ["git", "checkout", dependency.branch],
-                cwd=temp_dir,
-            )
-        except subprocess.CalledProcessError as e:
-            raise DependencyError(
-                repo_name=dependency.repo_name,
-                repo_link=dependency.repo_link,
-                branch=dependency.branch,
-                stderr=e.stderr,
-            ) from e
-
-        # Clean up the existing directory if it exists
-        if os.path.exists(dependency_repo_dir):
-            shutil.rmtree(dependency_repo_dir)
-        # Copy the cloned repo to the dependency cache directory
-        try:
-            shutil.copytree(temp_dir, dst=dependency_repo_dir)
-        except FileExistsError as e:
-            raise DependencyError(
-                repo_name=dependency.repo_name,
-                repo_link=dependency.repo_link,
-                branch=dependency.branch,
-            ) from e
-
-
-def _is_valid_repo(path: str) -> bool:
-    if not os.path.exists(os.path.join(path, ".git")):
-        return False
-    try:
-        _run_command(["git", "rev-parse", "--is-inside-work-tree"], cwd=path)
-        return True
-    except subprocess.CalledProcessError:
-        return False
 
 
 def _has_valid_config_file(path: str) -> bool:
@@ -692,64 +501,6 @@ def _get_remote_configs(dependencies: list[Dependency]) -> list[RemoteConfig]:
 
 def _has_remote_config(remote_config: RemoteConfig | None) -> TypeGuard[RemoteConfig]:
     return remote_config is not None
-
-
-def _rev_parse(repo_dir: str, ref: str) -> str:
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.debug("Parsing revision for %s (%s)", ref, repo_dir)
-    rev = (
-        subprocess.check_output(
-            ["git", "rev-parse", ref], cwd=repo_dir, stderr=subprocess.PIPE
-        )
-        .strip()
-        .decode()
-    )
-    logger.debug("Parsed revision %s for %s (%s)", rev, ref, repo_dir)
-    return rev
-
-
-def _run_command(
-    cmd: list[str], cwd: str, stdout: int | TextIO | None = subprocess.DEVNULL
-) -> None:
-    logger = logging.getLogger(LOGGER_NAME)
-    logger.debug("Running command: %s in %s", " ".join(cmd), cwd)
-    subprocess.run(cmd, cwd=cwd, check=True, stdout=stdout, stderr=subprocess.PIPE)
-
-
-def _run_command_with_retries(
-    cmd: list[str],
-    cwd: str,
-    stdout: int | TextIO | None = subprocess.DEVNULL,
-    retries: int = 3,
-    backoff: int = 2,
-) -> None:
-    for i in range(retries):
-        try:
-            _run_command(cmd, cwd=cwd, stdout=stdout)
-            break
-        except subprocess.CalledProcessError as e:
-            logger = logging.getLogger(LOGGER_NAME)
-            logger.debug(
-                "Attempt %s of %s for %s failed: %s", i + 1, retries, cmd, e.stderr
-            )
-            capture_message(
-                f"Attempt {i + 1} of {retries} for {cmd} failed: {e.stderr}",
-                level="warning",
-            )
-            if i == retries - 1:
-                raise e
-            time.sleep(backoff**i)
-
-
-def _try_set_git_config_context(
-    git_config_manager: GitConfigManager,
-) -> None:
-    try:
-        git_config = git_config_manager.get_relevant_config()
-        set_context("git_config", git_config)
-    except subprocess.CalledProcessError as e:
-        logger = logging.getLogger(LOGGER_NAME)
-        logger.exception(e)
 
 
 def get_remote_dependency_config(remote_config: RemoteConfig) -> ServiceConfig:

@@ -30,8 +30,8 @@ from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
-from testing.utils import create_mock_git_repo
-from testing.utils import run_git_command
+from testing.utils import make_zip_bytes
+from testing.utils import url_dispatch
 
 
 @mock.patch("devservices.utils.state.State.remove_service_entry")
@@ -1241,8 +1241,6 @@ def test_up_multiple_modes_overlapping_running_service(
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        redis_repo_path = tmp_path / "redis"
-        create_mock_git_repo("blank_repo", redis_repo_path)
         mock_redis_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -1254,9 +1252,6 @@ def test_up_multiple_modes_overlapping_running_service(
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(redis_repo_path, mock_redis_config)
-        run_git_command(["add", "."], cwd=redis_repo_path)
-        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -1267,7 +1262,7 @@ def test_up_multiple_modes_overlapping_running_service(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "clickhouse": {"description": "Clickhouse"},
@@ -1290,7 +1285,7 @@ def test_up_multiple_modes_overlapping_running_service(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                 },
@@ -1320,6 +1315,10 @@ def test_up_multiple_modes_overlapping_running_service(
         )
 
         with (
+            mock.patch(
+                "devservices.utils.dependencies.urllib.request.urlopen",
+                side_effect=url_dispatch({"redis": make_zip_bytes(mock_redis_config)}),
+            ),
             mock.patch(
                 "devservices.commands.up._pull_dependency_images",
             ) as mock_pull_dependency_images,
@@ -1465,7 +1464,6 @@ def test_up_dependency_set_to_local(
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        redis_repo_path = create_mock_git_repo("blank_repo", tmp_path / "redis")
         redis_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -1479,13 +1477,7 @@ def test_up_dependency_set_to_local(
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(redis_repo_path, redis_config)
-        run_git_command(["add", "."], cwd=redis_repo_path)
-        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
 
-        local_runtime_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "local-runtime-service"
-        )
         local_runtime_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -1496,7 +1488,7 @@ def test_up_dependency_set_to_local(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "clickhouse": {"description": "Clickhouse"},
@@ -1509,11 +1501,6 @@ def test_up_dependency_set_to_local(
                 },
             },
         }
-        create_config_file(local_runtime_repo_path, local_runtime_config)
-        run_git_command(["add", "."], cwd=local_runtime_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
-        )
 
         local_runtime_service_path = tmp_path / "code" / "local-runtime-service"
         create_config_file(local_runtime_service_path, local_runtime_config)
@@ -1528,7 +1515,7 @@ def test_up_dependency_set_to_local(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "local-runtime-service": {
@@ -1536,7 +1523,7 @@ def test_up_dependency_set_to_local(
                         "remote": {
                             "repo_name": "local-runtime-service",
                             "branch": "main",
-                            "repo_link": f"file://{local_runtime_repo_path}",
+                            "repo_link": "https://github.com/getsentry/local-runtime-service",
                         },
                     },
                 },
@@ -1560,11 +1547,24 @@ def test_up_dependency_set_to_local(
 
         with (
             mock.patch(
+                "devservices.utils.dependencies.urllib.request.urlopen",
+                side_effect=url_dispatch(
+                    {
+                        "redis": make_zip_bytes(redis_config),
+                        "local-runtime-service": make_zip_bytes(local_runtime_config),
+                    }
+                ),
+            ),
+            mock.patch(
                 "devservices.commands.up._pull_dependency_images",
             ) as mock_pull_dependency_images,
             mock.patch(
                 "devservices.commands.up._bring_up_dependency",
             ) as mock_bring_up_dependency,
+            mock.patch(
+                "devservices.commands.up.get_container_names_for_project",
+                return_value=[],
+            ),
         ):
             up(args)
 
@@ -1819,9 +1819,6 @@ def test_up_nested_dependency_set_to_local(
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        local_runtime_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "local-runtime-service"
-        )
         local_runtime_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -1835,18 +1832,10 @@ def test_up_nested_dependency_set_to_local(
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(local_runtime_repo_path, local_runtime_config)
-        run_git_command(["add", "."], cwd=local_runtime_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
-        )
 
         local_runtime_service_path = tmp_path / "code" / "local-runtime-service"
         create_config_file(local_runtime_service_path, local_runtime_config)
 
-        child_service_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "child-service"
-        )
         child_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -1857,7 +1846,7 @@ def test_up_nested_dependency_set_to_local(
                         "remote": {
                             "repo_name": "local-runtime-service",
                             "branch": "main",
-                            "repo_link": f"file://{local_runtime_repo_path}",
+                            "repo_link": "https://github.com/getsentry/local-runtime-service",
                         },
                     },
                     "child-service": {"description": "child-service"},
@@ -1868,11 +1857,6 @@ def test_up_nested_dependency_set_to_local(
                 "child-service": {"image": "child-service:latest"},
             },
         }
-        create_config_file(child_service_repo_path, child_config)
-        run_git_command(["add", "."], cwd=child_service_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=child_service_repo_path
-        )
 
         child_service_path = tmp_path / "code" / "child-service"
         create_config_file(child_service_path, child_config)
@@ -1887,7 +1871,7 @@ def test_up_nested_dependency_set_to_local(
                         "remote": {
                             "repo_name": "child-service",
                             "branch": "main",
-                            "repo_link": f"file://{child_service_repo_path}",
+                            "repo_link": "https://github.com/getsentry/child-service",
                         },
                     },
                 },
@@ -1911,11 +1895,24 @@ def test_up_nested_dependency_set_to_local(
 
         with (
             mock.patch(
+                "devservices.utils.dependencies.urllib.request.urlopen",
+                side_effect=url_dispatch(
+                    {
+                        "local-runtime-service": make_zip_bytes(local_runtime_config),
+                        "child-service": make_zip_bytes(child_config),
+                    }
+                ),
+            ),
+            mock.patch(
                 "devservices.commands.up._pull_dependency_images",
             ) as mock_pull_dependency_images,
             mock.patch(
                 "devservices.commands.up._bring_up_dependency",
             ) as mock_bring_up_dependency,
+            mock.patch(
+                "devservices.commands.up.get_container_names_for_project",
+                return_value=[],
+            ),
         ):
             up(args)
 
@@ -2132,9 +2129,6 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        local_runtime_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "local-runtime-service"
-        )
         local_runtime_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -2148,15 +2142,7 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(local_runtime_repo_path, local_runtime_config)
-        run_git_command(["add", "."], cwd=local_runtime_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
-        )
 
-        child_service_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "child-service"
-        )
         child_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -2167,7 +2153,7 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
                         "remote": {
                             "repo_name": "local-runtime-service",
                             "branch": "main",
-                            "repo_link": f"file://{local_runtime_repo_path}",
+                            "repo_link": "https://github.com/getsentry/local-runtime-service",
                         },
                     },
                     "child-service": {"description": "child-service"},
@@ -2181,11 +2167,6 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
                 "child-service": {"image": "child-service:latest"},
             },
         }
-        create_config_file(child_service_repo_path, child_config)
-        run_git_command(["add", "."], cwd=child_service_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=child_service_repo_path
-        )
 
         child_service_path = tmp_path / "code" / "child-service"
         create_config_file(child_service_path, child_config)
@@ -2200,7 +2181,7 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
                         "remote": {
                             "repo_name": "child-service",
                             "branch": "main",
-                            "repo_link": f"file://{child_service_repo_path}",
+                            "repo_link": "https://github.com/getsentry/child-service",
                         },
                     },
                 },
@@ -2224,11 +2205,24 @@ def test_up_does_not_bring_up_nested_dependency_if_set_to_local_and_mode_does_no
 
         with (
             mock.patch(
+                "devservices.utils.dependencies.urllib.request.urlopen",
+                side_effect=url_dispatch(
+                    {
+                        "local-runtime-service": make_zip_bytes(local_runtime_config),
+                        "child-service": make_zip_bytes(child_config),
+                    }
+                ),
+            ),
+            mock.patch(
                 "devservices.commands.up._pull_dependency_images",
             ) as mock_pull_dependency_images,
             mock.patch(
                 "devservices.commands.up._bring_up_dependency",
             ) as mock_bring_up_dependency,
+            mock.patch(
+                "devservices.commands.up.get_container_names_for_project",
+                return_value=[],
+            ),
         ):
             up(args)
 
@@ -2318,7 +2312,6 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        redis_repo_path = create_mock_git_repo("blank_repo", tmp_path / "redis")
         redis_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -2332,13 +2325,7 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(redis_repo_path, redis_config)
-        run_git_command(["add", "."], cwd=redis_repo_path)
-        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
 
-        local_runtime_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "local-runtime-service"
-        )
         local_runtime_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -2349,7 +2336,7 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "clickhouse": {"description": "Clickhouse"},
@@ -2362,11 +2349,6 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
                 },
             },
         }
-        create_config_file(local_runtime_repo_path, local_runtime_config)
-        run_git_command(["add", "."], cwd=local_runtime_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=local_runtime_repo_path
-        )
 
         local_runtime_service_path = tmp_path / "code" / "local-runtime-service"
         create_config_file(local_runtime_service_path, local_runtime_config)
@@ -2381,7 +2363,7 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "local-runtime-service": {
@@ -2389,7 +2371,7 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
                         "remote": {
                             "repo_name": "local-runtime-service",
                             "branch": "main",
-                            "repo_link": f"file://{local_runtime_repo_path}",
+                            "repo_link": "https://github.com/getsentry/local-runtime-service",
                         },
                     },
                 },
@@ -2413,11 +2395,24 @@ def test_up_does_not_bring_up_dependency_if_set_to_local_and_mode_does_not_conta
 
         with (
             mock.patch(
+                "devservices.utils.dependencies.urllib.request.urlopen",
+                side_effect=url_dispatch(
+                    {
+                        "redis": make_zip_bytes(redis_config),
+                        "local-runtime-service": make_zip_bytes(local_runtime_config),
+                    }
+                ),
+            ),
+            mock.patch(
                 "devservices.commands.up._pull_dependency_images",
             ) as mock_pull_dependency_images,
             mock.patch(
                 "devservices.commands.up._bring_up_dependency",
             ) as mock_bring_up_dependency,
+            mock.patch(
+                "devservices.commands.up.get_container_names_for_project",
+                return_value=[],
+            ),
         ):
             up(args)
 

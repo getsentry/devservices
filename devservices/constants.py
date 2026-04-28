@@ -37,11 +37,6 @@ STATE_DB_FILE = os.path.join(DEVSERVICES_LOCAL_DIR, "state")
 DEVSERVICES_ORCHESTRATOR_LABEL = "orchestrator=devservices"
 
 DEPENDENCY_CONFIG_VERSION = "v1"
-DEPENDENCY_GIT_PARTIAL_CLONE_CONFIG_OPTIONS = {
-    "protocol.version": "2",
-    "extensions.partialClone": "true",
-    "core.sparseCheckout": "true",
-}
 
 DEVSERVICES_RELEASES_URL = (
     "https://api.github.com/repos/getsentry/devservices/releases/latest"
