@@ -389,6 +389,12 @@ def test_install_dependency_git_clone_failure(
         mock_run_command.assert_called_once_with(
             [
                 "git",
+                "-c",
+                "gc.auto=0",
+                "-c",
+                "maintenance.auto=false",
+                "-c",
+                "fetch.writeCommitGraph=false",
                 "clone",
                 "--filter=blob:none",
                 "--no-checkout",
@@ -449,6 +455,12 @@ def test_install_dependency_git_checkout_failure(
                 mock.call(
                     [
                         "git",
+                        "-c",
+                        "gc.auto=0",
+                        "-c",
+                        "maintenance.auto=false",
+                        "-c",
+                        "fetch.writeCommitGraph=false",
                         "clone",
                         "--filter=blob:none",
                         "--no-checkout",
@@ -460,6 +472,12 @@ def test_install_dependency_git_checkout_failure(
                 mock.call(
                     [
                         "git",
+                        "-c",
+                        "gc.auto=0",
+                        "-c",
+                        "maintenance.auto=false",
+                        "-c",
+                        "fetch.writeCommitGraph=false",
                         "checkout",
                         "main",
                     ],

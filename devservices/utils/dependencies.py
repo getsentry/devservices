@@ -610,6 +610,12 @@ def _checkout_dependency(
             _run_command(
                 [
                     "git",
+                    "-c",
+                    "gc.auto=0",
+                    "-c",
+                    "maintenance.auto=false",
+                    "-c",
+                    "fetch.writeCommitGraph=false",
                     "clone",
                     "--filter=blob:none",
                     "--no-checkout",
@@ -643,7 +649,17 @@ def _checkout_dependency(
 
         try:
             _run_command(
-                ["git", "checkout", dependency.branch],
+                [
+                    "git",
+                    "-c",
+                    "gc.auto=0",
+                    "-c",
+                    "maintenance.auto=false",
+                    "-c",
+                    "fetch.writeCommitGraph=false",
+                    "checkout",
+                    dependency.branch,
+                ],
                 cwd=temp_dir,
             )
         except subprocess.CalledProcessError as e:
