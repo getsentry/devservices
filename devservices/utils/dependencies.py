@@ -438,7 +438,7 @@ def _fetch_dependency(
 
     try:
         zip_data = io.BytesIO(retry(_download, exceptions=(urllib.error.URLError,)))
-    except urllib.error.URLError as e:
+    except (urllib.error.URLError, ValueError) as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
@@ -479,16 +479,12 @@ def _fetch_dependency(
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 with zf.open(name) as src, open(target, "wb") as dst:
                     shutil.copyfileobj(src, dst)
-    except zipfile.BadZipFile as e:
+    except (zipfile.BadZipFile, OSError) as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,
             branch=dependency.branch,
         ) from e
-
-
-def _has_valid_config_file(path: str) -> bool:
-    return os.path.exists(os.path.join(path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME))
 
 
 def _get_remote_configs(dependencies: list[Dependency]) -> list[RemoteConfig]:

@@ -102,13 +102,6 @@ class DependencyError(Exception):
         return f"DependencyError: {self.repo_name} ({self.repo_link}) on {self.branch}"
 
 
-class UnableToCloneDependencyError(DependencyError):
-    """Raised when a dependency is unable to be cloned."""
-
-    def __str__(self) -> str:
-        return f"Unable to clone dependency: {self.repo_name} ({self.repo_link}) on {self.branch}"
-
-
 class InvalidDependencyConfigError(DependencyError):
     """Raised when a dependency's config is invalid."""
 
