@@ -148,6 +148,12 @@ def main() -> None:
         help="Path to a custom devservices config file",
         default=None,
     )
+    parser.add_argument(
+        "--offline",
+        help="Use cached dependencies and images without network access",
+        action="store_true",
+        default=False,
+    )
 
     subparsers = parser.add_subparsers(dest="command", title="commands", metavar="")
 

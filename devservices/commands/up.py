@@ -162,7 +162,10 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
             },
         )
 
-        remote_dependencies = _install_service_dependencies(service, mode, status)
+        offline = getattr(args, "offline", False)
+        remote_dependencies = _install_service_dependencies(
+            service, mode, status, offline=offline
+        )
         _create_devservices_network()
         # Add the service to the starting services table
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
@@ -204,6 +207,7 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                         service_name=local_runtime_dependency_name,
                         mode="default",  # We intentionally don't use the mode from the parent command here
                         exclude_local=True,  # TODO: This should be False (or maybe whatever the parent command is set to)
+                        offline=offline,
                     ),
                     status,
                 )
@@ -216,7 +220,12 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
             span.set_data("exclude_local", exclude_local)
             try:
                 bring_up_docker_compose_services(
-                    service, [mode], remote_dependencies, mode_dependencies, status
+                    service,
+                    [mode],
+                    remote_dependencies,
+                    mode_dependencies,
+                    status,
+                    skip_pull=offline,
                 )
             except DockerComposeError as dce:
                 capture_exception(dce, level="info")
@@ -239,17 +248,23 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
 
 
 def _install_service_dependencies(
-    service: Service, mode: str, status: Status
+    service: Service, mode: str, status: Status, offline: bool = False
 ) -> set[InstalledRemoteDependency]:
     with start_span(
         op="service.dependencies.install", name="Install dependencies"
     ) as span:
-        status.info("Retrieving dependencies")
+        status.info(
+            "Using cached dependencies" if offline else "Retrieving dependencies"
+        )
         span.set_data("service_name", service.name)
         span.set_data("mode", mode)
+        span.set_data("offline", offline)
         try:
             remote_dependencies = install_and_verify_dependencies(
-                service, force_update_dependencies=True, modes=[mode]
+                service,
+                force_update_dependencies=not offline,
+                modes=[mode],
+                offline=offline,
             )
             span.set_data("remote_dependency_count", len(remote_dependencies))
             return remote_dependencies
@@ -310,6 +325,7 @@ def bring_up_docker_compose_services(
     remote_dependencies: set[InstalledRemoteDependency],
     mode_dependencies: list[str],
     status: Status,
+    skip_pull: bool = False,
 ) -> None:
     relative_local_dependency_directory = os.path.relpath(
         os.path.join(DEVSERVICES_DEPENDENCIES_CACHE_DIR, DEPENDENCY_CONFIG_VERSION),
@@ -334,27 +350,30 @@ def bring_up_docker_compose_services(
         ),
     )
 
-    # Pull all images in parallel
-    status.info("Pulling images")
-    pull_commands = get_docker_compose_commands_to_run(
-        service=service,
-        remote_dependencies=sorted_remote_dependencies,
-        current_env=current_env,
-        command="pull",
-        options=[],
-        service_config_file_path=service_config_file_path,
-        mode_dependencies=mode_dependencies,
-    )
 
-    with concurrent.futures.ThreadPoolExecutor() as pull_dependency_executor:
-        futures = [
-            pull_dependency_executor.submit(
-                _pull_dependency_images, cmd, current_env, status
-            )
-            for cmd in pull_commands
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            _ = future.result()
+    if not skip_pull:
+        status.info("Pulling images")
+        pull_commands = get_docker_compose_commands_to_run(
+            service=service,
+            remote_dependencies=sorted_remote_dependencies,
+            current_env=current_env,
+            command="pull",
+            options=[],
+            service_config_file_path=service_config_file_path,
+            mode_dependencies=mode_dependencies,
+        )
+
+        with concurrent.futures.ThreadPoolExecutor() as pull_dependency_executor:
+            futures = [
+                pull_dependency_executor.submit(
+                    _pull_dependency_images, cmd, current_env, status
+                )
+                for cmd in pull_commands
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                _ = future.result()
+    else:
+        status.info("Skipping image pull (offline mode)")
 
     # Bring up all necessary containers
     up_commands = get_docker_compose_commands_to_run(
