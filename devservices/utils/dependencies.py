@@ -214,6 +214,7 @@ def install_and_verify_dependencies(
     service: Service,
     force_update_dependencies: bool = False,
     modes: list[str] | None = None,
+    offline: bool = False,
 ) -> set[InstalledRemoteDependency]:
     """
     Install and verify dependencies for a service
@@ -234,6 +235,17 @@ def install_and_verify_dependencies(
         for dependency_key, dependency in list(service.config.dependencies.items())
         if dependency_key in mode_dependencies
     ]
+
+    if offline:
+        are_dependencies_valid = verify_local_dependencies(matching_dependencies)
+        if not are_dependencies_valid:
+            raise DependencyError(
+                repo_name="",
+                repo_link="",
+                branch="",
+                stderr="Cannot use --offline: some dependencies are not cached locally. Run 'devservices up' without --offline first to cache dependencies",
+            )
+        return get_installed_remote_dependencies(matching_dependencies)
 
     if force_update_dependencies:
         remote_dependencies = install_dependencies(matching_dependencies)

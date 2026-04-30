@@ -3448,3 +3448,75 @@ def test_get_active_service_names_removes_stale_entries(
         remaining = state.get_service_entries(StateTables.STARTED_SERVICES)
         assert "stale-service" not in remaining
         assert "service-1" not in remaining
+
+
+@mock.patch(
+    "devservices.utils.dependencies.verify_local_dependencies", return_value=True
+)
+@mock.patch(
+    "devservices.utils.dependencies.get_installed_remote_dependencies",
+    return_value=set(),
+)
+@mock.patch("devservices.utils.dependencies.install_dependencies", return_value=set())
+def test_install_and_verify_dependencies_offline_cached(
+    mock_install_dependencies: mock.Mock,
+    mock_get_installed: mock.Mock,
+    mock_verify: mock.Mock,
+) -> None:
+    service = Service(
+        name="test-service",
+        repo_path="/path/to/test-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="test-service",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                    dependency_type=DependencyType.SERVICE,
+                ),
+            },
+            modes={"default": ["dependency-1"]},
+        ),
+    )
+    install_and_verify_dependencies(service, offline=True)
+
+    # Should NOT call install_dependencies (no network)
+    mock_install_dependencies.assert_not_called()
+    # Should verify local dependencies and use cached versions
+    mock_verify.assert_called_once()
+    mock_get_installed.assert_called_once()
+
+
+@mock.patch(
+    "devservices.utils.dependencies.verify_local_dependencies", return_value=False
+)
+def test_install_and_verify_dependencies_offline_not_cached(
+    mock_verify: mock.Mock,
+) -> None:
+    service = Service(
+        name="test-service",
+        repo_path="/path/to/test-service",
+        config=ServiceConfig(
+            version=0.1,
+            service_name="test-service",
+            dependencies={
+                "dependency-1": Dependency(
+                    description="dependency-1",
+                    remote=RemoteConfig(
+                        repo_name="dependency-1",
+                        repo_link="file://path/to/dependency-1",
+                        branch="main",
+                    ),
+                    dependency_type=DependencyType.SERVICE,
+                ),
+            },
+            modes={"default": ["dependency-1"]},
+        ),
+    )
+    with pytest.raises(DependencyError):
+        install_and_verify_dependencies(service, offline=True)
