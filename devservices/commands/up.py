@@ -350,7 +350,6 @@ def bring_up_docker_compose_services(
         ),
     )
 
-
     if not skip_pull:
         status.info("Pulling images")
         pull_commands = get_docker_compose_commands_to_run(
