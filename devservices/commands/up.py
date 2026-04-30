@@ -270,9 +270,10 @@ def _install_service_dependencies(
             return remote_dependencies
         except DependencyError as de:
             capture_exception(de)
-            status.failure(
-                f"{str(de)}. If this error persists, try running `devservices purge`"
-            )
+            msg = de.stderr if de.stderr else str(de)
+            if not offline:
+                msg = f"{msg}. If this error persists, try running `devservices purge`"
+            status.failure(msg)
             exit(1)
         except ModeDoesNotExistError as mde:
             status.failure(str(mde))
@@ -372,7 +373,7 @@ def bring_up_docker_compose_services(
             for future in concurrent.futures.as_completed(futures):
                 _ = future.result()
     else:
-        status.info("Skipping image pull (offline mode)")
+        status.info("Skipping image pull (using cached images)")
 
     # Bring up all necessary containers
     up_commands = get_docker_compose_commands_to_run(
