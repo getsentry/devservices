@@ -367,16 +367,10 @@ def bring_up_docker_compose_services(
         mode_dependencies=mode_dependencies,
     )
 
+    # Serial: concurrent `up` can deadlock attaching to the shared network.
     containers_to_check = []
-    with concurrent.futures.ThreadPoolExecutor() as up_dependency_executor:
-        futures = [
-            up_dependency_executor.submit(
-                _bring_up_dependency, cmd, current_env, status
-            )
-            for cmd in up_commands
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            _ = future.result()
+    for cmd in up_commands:
+        _bring_up_dependency(cmd, current_env, status)
 
     for cmd in up_commands:
         try:
