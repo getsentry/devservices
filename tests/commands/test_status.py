@@ -53,8 +53,6 @@ def test_get_status_json_results(
         ),
         mock.patch("devservices.utils.state.STATE_DB_FILE", str(tmp_path / "state")),
     ):
-        test_service_repo_path = tmp_path / "test-service"
-        create_mock_git_repo("blank_repo", test_service_repo_path)
         config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -72,10 +70,8 @@ def test_get_status_json_results(
                 },
             },
         }
-        service_path = tmp_path / "test-service"
-        create_config_file(service_path, config)
-        run_git_command(["add", "."], cwd=test_service_repo_path)
-        run_git_command(["commit", "-m", "Initial commit"], cwd=test_service_repo_path)
+        test_service_repo_path = tmp_path / "test-service"
+        create_config_file(test_service_repo_path, config)
         service = Service(
             name="test-service",
             repo_path=str(test_service_repo_path),
@@ -96,7 +92,13 @@ def test_get_status_json_results(
             ),
         )
 
-        results = get_status_json_results(service, set(), ["redis", "clickhouse"])
+        with mock.patch(
+            "devservices.commands.status.run_cmd",
+            side_effect=lambda cmd, env: subprocess.CompletedProcess(
+                args=cmd, returncode=0, stdout="", stderr=""
+            ),
+        ):
+            results = get_status_json_results(service, set(), ["redis", "clickhouse"])
         assert len(results) == 1
         assert results[0].args == [
             "docker",

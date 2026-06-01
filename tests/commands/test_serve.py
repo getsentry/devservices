@@ -48,7 +48,11 @@ def test_serve_success(
 
     args = Namespace(extra=[])
 
-    serve(args)
+    with patch(
+        "devservices.utils.supervisor.DEVSERVICES_SUPERVISOR_CONFIG_DIR",
+        str(tmp_path / "supervisor"),
+    ):
+        serve(args)
 
     mock_pty_spawn.assert_called_once_with(["run", "devserver"])
 

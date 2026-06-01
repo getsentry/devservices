@@ -102,13 +102,6 @@ class DependencyError(Exception):
         return f"DependencyError: {self.repo_name} ({self.repo_link}) on {self.branch}"
 
 
-class UnableToCloneDependencyError(DependencyError):
-    """Raised when a dependency is unable to be cloned."""
-
-    def __str__(self) -> str:
-        return f"Unable to clone dependency: {self.repo_name} ({self.repo_link}) on {self.branch}"
-
-
 class InvalidDependencyConfigError(DependencyError):
     """Raised when a dependency's config is invalid."""
 
@@ -140,18 +133,6 @@ class GitError(Exception):
         self.command = command
         self.returncode = returncode
         self.stderr = stderr
-
-
-class GitConfigError(Exception):
-    """Base class for git config related errors."""
-
-    pass
-
-
-class FailedToSetGitConfigError(GitConfigError):
-    """Raised when a git config cannot be set."""
-
-    pass
 
 
 class ContainerHealthcheckFailedError(Exception):

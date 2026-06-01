@@ -35,7 +35,9 @@ from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
 from testing.utils import create_mock_git_repo
+from testing.utils import make_zip_bytes
 from testing.utils import run_git_command
+from testing.utils import url_dispatch
 
 
 @mock.patch("devservices.commands.toggle.find_matching_service")
@@ -237,7 +239,6 @@ def test_toggle_dependent_service_running(
             return_value=str(tmp_path / "code"),
         ),
     ):
-        redis_repo_path = create_mock_git_repo("blank_repo", tmp_path / "redis")
         redis_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -251,13 +252,6 @@ def test_toggle_dependent_service_running(
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(redis_repo_path, redis_config)
-        run_git_command(["add", "."], cwd=redis_repo_path)
-        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
-
-        example_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "example-service"
-        )
         example_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -268,7 +262,7 @@ def test_toggle_dependent_service_running(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "clickhouse": {"description": "Clickhouse"},
@@ -281,11 +275,6 @@ def test_toggle_dependent_service_running(
                 },
             },
         }
-        create_config_file(example_repo_path, example_config)
-        run_git_command(["add", "."], cwd=example_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=example_repo_path
-        )
 
         example_service_path = tmp_path / "code" / "example-service"
         create_config_file(example_service_path, example_config)
@@ -300,7 +289,7 @@ def test_toggle_dependent_service_running(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "example-service": {
@@ -308,7 +297,7 @@ def test_toggle_dependent_service_running(
                         "remote": {
                             "repo_name": "example-service",
                             "branch": "main",
-                            "repo_link": f"file://{example_repo_path}",
+                            "repo_link": "https://github.com/getsentry/example-service",
                         },
                     },
                 },
@@ -318,39 +307,48 @@ def test_toggle_dependent_service_running(
         other_service_path = tmp_path / "code" / "other-service"
         create_config_file(other_service_path, other_config)
 
-        install_and_verify_dependencies(
-            Service(
-                name="other-service",
-                repo_path=str(other_service_path),
-                config=ServiceConfig(
-                    version=0.1,
-                    service_name="other-service",
-                    dependencies={
-                        "redis": Dependency(
-                            description="Redis",
-                            remote=RemoteConfig(
-                                repo_name="redis",
-                                repo_link=f"file://{redis_repo_path}",
-                                branch="main",
-                                mode="default",
+        with mock.patch(
+            "devservices.utils.dependencies.urllib.request.urlopen",
+            side_effect=url_dispatch(
+                {
+                    "redis": make_zip_bytes(redis_config),
+                    "example-service": make_zip_bytes(example_config),
+                }
+            ),
+        ):
+            install_and_verify_dependencies(
+                Service(
+                    name="other-service",
+                    repo_path=str(other_service_path),
+                    config=ServiceConfig(
+                        version=0.1,
+                        service_name="other-service",
+                        dependencies={
+                            "redis": Dependency(
+                                description="Redis",
+                                remote=RemoteConfig(
+                                    repo_name="redis",
+                                    repo_link="https://github.com/getsentry/redis",
+                                    branch="main",
+                                    mode="default",
+                                ),
+                                dependency_type=DependencyType.SERVICE,
                             ),
-                            dependency_type=DependencyType.SERVICE,
-                        ),
-                        "example-service": Dependency(
-                            description="Example service",
-                            remote=RemoteConfig(
-                                repo_name="example-service",
-                                repo_link=f"file://{example_repo_path}",
-                                branch="main",
-                                mode="default",
+                            "example-service": Dependency(
+                                description="Example service",
+                                remote=RemoteConfig(
+                                    repo_name="example-service",
+                                    repo_link="https://github.com/getsentry/example-service",
+                                    branch="main",
+                                    mode="default",
+                                ),
+                                dependency_type=DependencyType.SERVICE,
                             ),
-                            dependency_type=DependencyType.SERVICE,
-                        ),
-                    },
-                    modes={"default": ["redis", "example-service"]},
-                ),
+                        },
+                        modes={"default": ["redis", "example-service"]},
+                    ),
+                )
             )
-        )
 
         os.chdir(example_service_path)
 
@@ -798,7 +796,6 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
             return_value=str(tmp_path / "code"),
         ),
     ):
-        redis_repo_path = create_mock_git_repo("blank_repo", tmp_path / "redis")
         redis_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -812,13 +809,6 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                 "redis": {"image": "redis:6.2.14-alpine"},
             },
         }
-        create_config_file(redis_repo_path, redis_config)
-        run_git_command(["add", "."], cwd=redis_repo_path)
-        run_git_command(["commit", "-m", "Add devservices config"], cwd=redis_repo_path)
-
-        example_repo_path = create_mock_git_repo(
-            "blank_repo", tmp_path / "example-service"
-        )
         example_config = {
             "x-sentry-service-config": {
                 "version": 0.1,
@@ -829,7 +819,7 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "clickhouse": {"description": "Clickhouse"},
@@ -842,11 +832,6 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                 },
             },
         }
-        create_config_file(example_repo_path, example_config)
-        run_git_command(["add", "."], cwd=example_repo_path)
-        run_git_command(
-            ["commit", "-m", "Add devservices config"], cwd=example_repo_path
-        )
 
         example_service_path = tmp_path / "code" / "example-service"
         create_config_file(example_service_path, example_config)
@@ -861,7 +846,7 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                         "remote": {
                             "repo_name": "redis",
                             "branch": "main",
-                            "repo_link": f"file://{redis_repo_path}",
+                            "repo_link": "https://github.com/getsentry/redis",
                         },
                     },
                     "example-service": {
@@ -869,7 +854,7 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                         "remote": {
                             "repo_name": "example-service",
                             "branch": "main",
-                            "repo_link": f"file://{example_repo_path}",
+                            "repo_link": "https://github.com/getsentry/example-service",
                         },
                     },
                 },
@@ -879,39 +864,48 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
         other_service_path = tmp_path / "code" / "other-service"
         create_config_file(other_service_path, other_config)
 
-        install_and_verify_dependencies(
-            Service(
-                name="other-service",
-                repo_path=str(other_service_path),
-                config=ServiceConfig(
-                    version=0.1,
-                    service_name="other-service",
-                    dependencies={
-                        "redis": Dependency(
-                            description="Redis",
-                            remote=RemoteConfig(
-                                repo_name="redis",
-                                repo_link=f"file://{redis_repo_path}",
-                                branch="main",
-                                mode="default",
+        with mock.patch(
+            "devservices.utils.dependencies.urllib.request.urlopen",
+            side_effect=url_dispatch(
+                {
+                    "redis": make_zip_bytes(redis_config),
+                    "example-service": make_zip_bytes(example_config),
+                }
+            ),
+        ):
+            install_and_verify_dependencies(
+                Service(
+                    name="other-service",
+                    repo_path=str(other_service_path),
+                    config=ServiceConfig(
+                        version=0.1,
+                        service_name="other-service",
+                        dependencies={
+                            "redis": Dependency(
+                                description="Redis",
+                                remote=RemoteConfig(
+                                    repo_name="redis",
+                                    repo_link="https://github.com/getsentry/redis",
+                                    branch="main",
+                                    mode="default",
+                                ),
+                                dependency_type=DependencyType.SERVICE,
                             ),
-                            dependency_type=DependencyType.SERVICE,
-                        ),
-                        "example-service": Dependency(
-                            description="Example service",
-                            remote=RemoteConfig(
-                                repo_name="example-service",
-                                repo_link=f"file://{example_repo_path}",
-                                branch="main",
-                                mode="default",
+                            "example-service": Dependency(
+                                description="Example service",
+                                remote=RemoteConfig(
+                                    repo_name="example-service",
+                                    repo_link="https://github.com/getsentry/example-service",
+                                    branch="main",
+                                    mode="default",
+                                ),
+                                dependency_type=DependencyType.SERVICE,
                             ),
-                            dependency_type=DependencyType.SERVICE,
-                        ),
-                    },
-                    modes={"default": ["redis", "example-service"]},
-                ),
+                        },
+                        modes={"default": ["redis", "example-service"]},
+                    ),
+                )
             )
-        )
 
         os.chdir(example_service_path)
 
@@ -932,7 +926,7 @@ def test_handle_transition_to_containerized_runtime_with_dependent_services(
                             description="Redis",
                             remote=RemoteConfig(
                                 repo_name="redis",
-                                repo_link=f"file://{redis_repo_path}",
+                                repo_link="https://github.com/getsentry/redis",
                                 branch="main",
                                 mode="default",
                             ),

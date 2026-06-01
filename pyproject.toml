@@ -22,7 +22,7 @@ dev = [
     "freezegun",
     "mypy",
     "pre-commit",
-    "pytest>9",
+    "pytest>=9.0.3",
     "pytest-cov",
     "ruff",
     "setuptools>=70",
