@@ -437,8 +437,14 @@ def _fetch_dependency(
             return bytes(response.read())
 
     try:
-        zip_data = io.BytesIO(retry(_download, exceptions=(urllib.error.URLError,)))
-    except (urllib.error.URLError, ValueError) as e:
+        zip_data = io.BytesIO(
+            retry(
+                _download,
+                exceptions=(OSError,),
+                should_retry=lambda e: not isinstance(e, urllib.error.HTTPError),
+            )
+        )
+    except (OSError, ValueError) as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
             repo_link=dependency.repo_link,

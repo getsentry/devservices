@@ -111,6 +111,50 @@ def test_fetch_dependency_network_error(tmp_path: Path) -> None:
         _fetch_dependency(dep, str(tmp_path / "dest"))
 
 
+def test_fetch_dependency_http_error_not_retried(tmp_path: Path) -> None:
+    dep = RemoteConfig(
+        repo_name="test-repo",
+        branch="main",
+        repo_link="https://github.com/getsentry/test-repo",
+    )
+    http_error = urllib.error.HTTPError(
+        url="https://api.github.com/repos/getsentry/test-repo/zipball/main",
+        code=404,
+        msg="Not Found",
+        hdrs=None,  # type: ignore[arg-type]
+        fp=None,
+    )
+    sleep_mock = mock.patch("devservices.utils.retry.time.sleep")
+    urlopen_mock = mock.patch(
+        "devservices.utils.dependencies.urllib.request.urlopen",
+        side_effect=http_error,
+    )
+    with sleep_mock as mock_sleep, urlopen_mock, pytest.raises(DependencyError):
+        _fetch_dependency(dep, str(tmp_path / "dest"))
+    mock_sleep.assert_not_called()
+
+
+def test_fetch_dependency_read_error(tmp_path: Path) -> None:
+    dep = RemoteConfig(
+        repo_name="test-repo",
+        branch="main",
+        repo_link="https://github.com/getsentry/test-repo",
+    )
+    resp = mock.MagicMock()
+    resp.read.side_effect = ConnectionResetError("connection reset")
+    resp.__enter__ = mock.Mock(return_value=resp)
+    resp.__exit__ = mock.Mock(return_value=False)
+    with (
+        mock.patch("devservices.utils.retry.time.sleep"),
+        mock.patch(
+            "devservices.utils.dependencies.urllib.request.urlopen",
+            return_value=resp,
+        ),
+        pytest.raises(DependencyError),
+    ):
+        _fetch_dependency(dep, str(tmp_path / "dest"))
+
+
 def test_fetch_dependency_bad_zip(tmp_path: Path) -> None:
     dep = RemoteConfig(
         repo_name="test-repo",

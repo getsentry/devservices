@@ -14,6 +14,7 @@ def retry(
     delay: float = 1.0,
     exceptions: tuple[type[BaseException], ...] = (Exception,),
     on_retry: Callable[[BaseException, int], None] | None = None,
+    should_retry: Callable[[BaseException], bool] | None = None,
 ) -> T:
     """
     Call fn() up to `retries` times, sleeping `delay` seconds between attempts.
@@ -25,6 +26,8 @@ def retry(
         delay: Seconds to sleep between attempts.
         exceptions: Exception types that trigger a retry.
         on_retry: Optional callback(exc, attempts_remaining) invoked before each sleep.
+        should_retry: Optional predicate; if it returns False the exception is re-raised
+            immediately without further attempts.
     """
     if retries < 1:
         raise ValueError("retries must be >= 1")
@@ -32,7 +35,9 @@ def retry(
         try:
             return fn()
         except exceptions as e:
-            if attempt == retries - 1:
+            if attempt == retries - 1 or (
+                should_retry is not None and not should_retry(e)
+            ):
                 raise
             if on_retry is not None:
                 on_retry(e, retries - attempt - 1)
