@@ -3,8 +3,6 @@ from __future__ import annotations
 import io
 import urllib.error
 import zipfile
-from collections.abc import Callable
-from collections.abc import Mapping
 from pathlib import Path
 from unittest import mock
 
@@ -39,6 +37,9 @@ from devservices.utils.services import get_active_service_names
 from devservices.utils.state import ServiceRuntime
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
+from testing.utils import make_urlopen_response as _make_urlopen_response
+from testing.utils import make_zip_bytes as _make_zip_bytes
+from testing.utils import url_dispatch as _url_dispatch
 
 BASIC_SERVICE_CONFIG = {
     "x-sentry-service-config": {
@@ -50,42 +51,6 @@ BASIC_SERVICE_CONFIG = {
 }
 
 INVALID_SERVICE_CONFIG_YAML = "not_a_service_config: true\n"
-
-
-def _make_zip_bytes(
-    config: Mapping[str, object] | str | None = None,
-    prefix: str = "owner-repo-abc123",
-) -> bytes:
-    """Build an in-memory GitHub-style zipball with only a devservices/ tree."""
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        if config is not None:
-            content = config if isinstance(config, str) else yaml.dump(config)
-            zf.writestr(f"{prefix}/devservices/config.yml", content)
-    return buf.getvalue()
-
-
-def _make_urlopen_response(zip_bytes: bytes) -> mock.MagicMock:
-    resp = mock.MagicMock()
-    resp.read.return_value = zip_bytes
-    resp.__enter__ = mock.Mock(return_value=resp)
-    resp.__exit__ = mock.Mock(return_value=False)
-    return resp
-
-
-def _url_dispatch(
-    zip_bytes_by_repo_name: dict[str, bytes],
-) -> Callable[[mock.MagicMock], mock.MagicMock]:
-    """Build a urlopen side_effect that routes requests by repo name in the URL."""
-
-    def _side_effect(request: mock.MagicMock) -> mock.MagicMock:
-        url = request.full_url
-        for repo_name, zip_bytes in zip_bytes_by_repo_name.items():
-            if f"/{repo_name}/" in url:
-                return _make_urlopen_response(zip_bytes)
-        raise AssertionError(f"No mock zip configured for URL: {url}")
-
-    return _side_effect
 
 
 def test_parse_github_repo_path_valid() -> None:
