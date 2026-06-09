@@ -30,6 +30,7 @@ from devservices.exceptions import DependencyError
 from devservices.exceptions import DependencyNotInstalledError
 from devservices.exceptions import InvalidDependencyConfigError
 from devservices.exceptions import ModeDoesNotExistError
+from devservices.utils import github
 from devservices.utils.file_lock import lock
 from devservices.utils.retry import retry
 from devservices.utils.services import Service
@@ -398,13 +399,6 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
     return installed_dependencies
 
 
-def _parse_github_repo_path(repo_link: str) -> str:
-    url = repo_link.rstrip("/").removesuffix(".git")
-    if "github.com/" not in url:
-        raise ValueError(f"Not a GitHub URL: {repo_link}")
-    return url.split("github.com/", 1)[1]
-
-
 def _fetch_dependency(
     dependency: RemoteConfig,
     dependency_repo_dir: str,
@@ -418,7 +412,7 @@ def _fetch_dependency(
         },
     )
     try:
-        repo_path = _parse_github_repo_path(dependency.repo_link)
+        repo_path = github.parse_repo_path(dependency.repo_link)
     except ValueError as e:
         raise DependencyError(
             repo_name=dependency.repo_name,
@@ -426,15 +420,8 @@ def _fetch_dependency(
             branch=dependency.branch,
         ) from e
 
-    zip_url = f"https://api.github.com/repos/{repo_path}/zipball/{dependency.branch}"
-
-    headers = {"Accept": "application/vnd.github+json"}
-    # Authenticate when a token is available so we get the 5000 req/hr limit
-    # instead of the 60 req/hr unauthenticated limit (which CI runners, sharing
-    # egress IPs, exhaust quickly and then receive HTTP 403s).
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
+    zip_url = github.zipball_url(repo_path, dependency.branch)
+    headers = github.api_headers()
 
     def _download() -> bytes:
         req = urllib.request.Request(zip_url, headers=headers)

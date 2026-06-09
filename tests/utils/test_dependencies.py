@@ -24,7 +24,6 @@ from devservices.exceptions import ServiceNotFoundError
 from devservices.utils.dependencies import DependencyNode
 from devservices.utils.dependencies import InstalledRemoteDependency
 from devservices.utils.dependencies import _fetch_dependency
-from devservices.utils.dependencies import _parse_github_repo_path
 from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import get_installed_remote_dependencies
 from devservices.utils.dependencies import get_non_shared_remote_dependencies
@@ -53,31 +52,6 @@ BASIC_SERVICE_CONFIG = {
 INVALID_SERVICE_CONFIG_YAML = "not_a_service_config: true\n"
 
 
-def test_parse_github_repo_path_valid() -> None:
-    assert (
-        _parse_github_repo_path("https://github.com/getsentry/test-repo")
-        == "getsentry/test-repo"
-    )
-    assert (
-        _parse_github_repo_path("https://github.com/getsentry/test-repo.git")
-        == "getsentry/test-repo"
-    )
-    assert (
-        _parse_github_repo_path("https://github.com/getsentry/test-repo/")
-        == "getsentry/test-repo"
-    )
-    assert _parse_github_repo_path("http://github.com/org/repo") == "org/repo"
-
-
-def test_parse_github_repo_path_non_github() -> None:
-    with pytest.raises(ValueError):
-        _parse_github_repo_path("file:///path/to/repo")
-    with pytest.raises(ValueError):
-        _parse_github_repo_path("invalid-link")
-    with pytest.raises(ValueError):
-        _parse_github_repo_path("https://gitlab.com/org/repo")
-
-
 def test_fetch_dependency_success(tmp_path: Path) -> None:
     dep = RemoteConfig(
         repo_name="test-repo",
@@ -94,44 +68,31 @@ def test_fetch_dependency_success(tmp_path: Path) -> None:
     assert (Path(dest) / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME).exists()
 
 
-def test_fetch_dependency_authenticates_with_token(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_fetch_dependency_uses_authenticated_headers(
+    tmp_path: Path,
 ) -> None:
-    monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
-    monkeypatch.delenv("GH_TOKEN", raising=False)
     dep = RemoteConfig(
         repo_name="test-repo",
         branch="main",
         repo_link="https://github.com/getsentry/test-repo",
     )
     zip_bytes = _make_zip_bytes(BASIC_SERVICE_CONFIG)
-    with mock.patch(
-        "devservices.utils.dependencies.urllib.request.urlopen",
-        return_value=_make_urlopen_response(zip_bytes),
-    ) as urlopen_mock:
+    with (
+        mock.patch(
+            "devservices.utils.dependencies.github.api_headers",
+            return_value={
+                "Accept": "application/vnd.github+json",
+                "Authorization": "Bearer tok",
+            },
+        ),
+        mock.patch(
+            "devservices.utils.dependencies.urllib.request.urlopen",
+            return_value=_make_urlopen_response(zip_bytes),
+        ) as urlopen_mock,
+    ):
         _fetch_dependency(dep, str(tmp_path / "dest"))
     req = urlopen_mock.call_args.args[0]
-    assert req.get_header("Authorization") == "Bearer secret-token"
-
-
-def test_fetch_dependency_no_auth_header_without_token(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    monkeypatch.delenv("GH_TOKEN", raising=False)
-    dep = RemoteConfig(
-        repo_name="test-repo",
-        branch="main",
-        repo_link="https://github.com/getsentry/test-repo",
-    )
-    zip_bytes = _make_zip_bytes(BASIC_SERVICE_CONFIG)
-    with mock.patch(
-        "devservices.utils.dependencies.urllib.request.urlopen",
-        return_value=_make_urlopen_response(zip_bytes),
-    ) as urlopen_mock:
-        _fetch_dependency(dep, str(tmp_path / "dest"))
-    req = urlopen_mock.call_args.args[0]
-    assert req.get_header("Authorization") is None
+    assert req.get_header("Authorization") == "Bearer tok"
 
 
 def test_fetch_dependency_network_error(tmp_path: Path) -> None:
