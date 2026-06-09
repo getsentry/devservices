@@ -421,10 +421,9 @@ def _fetch_dependency(
         ) from e
 
     zip_url = github.zipball_url(repo_path, dependency.branch)
-    headers = github.api_headers()
 
     def _download() -> bytes:
-        req = urllib.request.Request(zip_url, headers=headers)
+        req = github.build_api_request(zip_url)
         with urllib.request.urlopen(req) as response:
             return bytes(response.read())
 

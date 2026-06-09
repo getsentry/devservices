@@ -40,22 +40,26 @@ def test_zipball_url() -> None:
     )
 
 
-def test_api_headers_with_env_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_api_request_with_env_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
     monkeypatch.delenv("GH_TOKEN", raising=False)
-    headers = github.api_headers()
-    assert headers["Accept"] == github.GITHUB_API_ACCEPT
-    assert headers["Authorization"] == "Bearer secret-token"
+    req = github.build_api_request("https://api.github.com/x")
+    assert req.get_header("Accept") == github.GITHUB_API_ACCEPT
+    # Token must be an unredirected header so it isn't forwarded on redirect.
+    assert req.unredirected_hdrs.get("Authorization") == "Bearer secret-token"
+    assert "Authorization" not in req.headers
 
 
-def test_api_headers_falls_back_to_gh_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_api_request_falls_back_to_gh_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.setenv("GH_TOKEN", "gh-env-token")
-    headers = github.api_headers()
-    assert headers["Authorization"] == "Bearer gh-env-token"
+    req = github.build_api_request("https://api.github.com/x")
+    assert req.unredirected_hdrs.get("Authorization") == "Bearer gh-env-token"
 
 
-def test_api_headers_with_gh_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_api_request_with_gh_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("GH_TOKEN", raising=False)
     with (
@@ -67,11 +71,13 @@ def test_api_headers_with_gh_cli(monkeypatch: pytest.MonkeyPatch) -> None:
             ),
         ),
     ):
-        headers = github.api_headers()
-    assert headers["Authorization"] == "Bearer gh-token"
+        req = github.build_api_request("https://api.github.com/x")
+    assert req.unredirected_hdrs.get("Authorization") == "Bearer gh-token"
 
 
-def test_api_headers_unauthenticated_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_api_request_unauthenticated_warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("GH_TOKEN", raising=False)
     monkeypatch.setattr("devservices.utils.github._auth_warned", False)
@@ -79,12 +85,12 @@ def test_api_headers_unauthenticated_warns(monkeypatch: pytest.MonkeyPatch) -> N
         mock.patch("devservices.utils.github.shutil.which", return_value=None),
         mock.patch("devservices.utils.github.Console.warning") as warning_mock,
     ):
-        headers = github.api_headers()
-    assert "Authorization" not in headers
+        req = github.build_api_request("https://api.github.com/x")
+    assert req.get_header("Authorization") is None
     warning_mock.assert_called_once()
 
 
-def test_api_headers_gh_cli_not_authenticated(
+def test_build_api_request_gh_cli_not_authenticated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
@@ -100,8 +106,8 @@ def test_api_headers_gh_cli_not_authenticated(
         ),
         mock.patch("devservices.utils.github.Console.warning") as warning_mock,
     ):
-        headers = github.api_headers()
-    assert "Authorization" not in headers
+        req = github.build_api_request("https://api.github.com/x")
+    assert req.get_header("Authorization") is None
     warning_mock.assert_called_once()
 
 

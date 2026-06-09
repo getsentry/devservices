@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import urllib.request
 
 from devservices.utils.console import Console
 
@@ -26,18 +27,22 @@ def zipball_url(repo_path: str, ref: str) -> str:
     return f"https://api.github.com/repos/{repo_path}/zipball/{ref}"
 
 
-def api_headers() -> dict[str, str]:
-    """Build request headers for the GitHub API, authenticating when possible.
+def build_api_request(url: str) -> urllib.request.Request:
+    """Build an authenticated GitHub API request, authenticating when possible.
 
     Authenticated requests get the 5000 req/hr rate limit instead of the 60
     req/hr unauthenticated limit (which CI runners, sharing egress IPs, exhaust
     quickly and then receive HTTP 403s).
     """
-    headers = {"Accept": GITHUB_API_ACCEPT}
+    req = urllib.request.Request(url, headers={"Accept": GITHUB_API_ACCEPT})
     token = _get_token()
     if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return headers
+        # Use an unredirected header so the token is only sent to api.github.com
+        # and is NOT forwarded when the API 302-redirects the download to
+        # codeload.github.com (and S3-backed hosts for other endpoints), which
+        # reject or mishandle requests that carry an Authorization header.
+        req.add_unredirected_header("Authorization", f"Bearer {token}")
+    return req
 
 
 def _get_token() -> str | None:

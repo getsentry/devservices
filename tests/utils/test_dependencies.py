@@ -68,31 +68,25 @@ def test_fetch_dependency_success(tmp_path: Path) -> None:
     assert (Path(dest) / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME).exists()
 
 
-def test_fetch_dependency_uses_authenticated_headers(
-    tmp_path: Path,
+def test_fetch_dependency_uses_authenticated_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "tok")
     dep = RemoteConfig(
         repo_name="test-repo",
         branch="main",
         repo_link="https://github.com/getsentry/test-repo",
     )
     zip_bytes = _make_zip_bytes(BASIC_SERVICE_CONFIG)
-    with (
-        mock.patch(
-            "devservices.utils.dependencies.github.api_headers",
-            return_value={
-                "Accept": "application/vnd.github+json",
-                "Authorization": "Bearer tok",
-            },
-        ),
-        mock.patch(
-            "devservices.utils.dependencies.urllib.request.urlopen",
-            return_value=_make_urlopen_response(zip_bytes),
-        ) as urlopen_mock,
-    ):
+    with mock.patch(
+        "devservices.utils.dependencies.urllib.request.urlopen",
+        return_value=_make_urlopen_response(zip_bytes),
+    ) as urlopen_mock:
         _fetch_dependency(dep, str(tmp_path / "dest"))
     req = urlopen_mock.call_args.args[0]
-    assert req.get_header("Authorization") == "Bearer tok"
+    # Sent as an unredirected header so it isn't forwarded to the redirect host.
+    assert req.unredirected_hdrs.get("Authorization") == "Bearer tok"
+    assert "Authorization" not in req.headers
 
 
 def test_fetch_dependency_network_error(tmp_path: Path) -> None:
