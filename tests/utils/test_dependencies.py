@@ -125,14 +125,14 @@ def test_fetch_dependency_http_error_not_retried(tmp_path: Path) -> None:
         hdrs=None,  # type: ignore[arg-type]
         fp=None,
     )
-    sleep_mock = mock.patch("devservices.utils.retry.time.sleep")
     urlopen_mock = mock.patch(
         "devservices.utils.dependencies.urllib.request.urlopen",
         side_effect=http_error,
     )
-    with sleep_mock as mock_sleep, urlopen_mock, pytest.raises(DependencyError):
+    with urlopen_mock as mock_urlopen, pytest.raises(DependencyError):
         _fetch_dependency(dep, str(tmp_path / "dest"))
-    mock_sleep.assert_not_called()
+    # HTTP errors must not be retried, so urlopen is only ever called once.
+    mock_urlopen.assert_called_once()
 
 
 def test_fetch_dependency_read_error(tmp_path: Path) -> None:
