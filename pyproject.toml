@@ -38,6 +38,11 @@ devservices = "devservices.main:main"
 [tool.setuptools.packages]
 find = {}
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that hit real external services (run in CI only)",
+]
+
 [[tool.uv.index]]
 url = "https://pypi.devinfra.sentry.io/simple"
 

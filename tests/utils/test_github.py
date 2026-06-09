@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import io
+import os
 import subprocess
+import urllib.request
+import zipfile
 from unittest import mock
 
 import pytest
@@ -119,3 +123,23 @@ def test_warn_unauthenticated_only_warns_once(
         github._warn_unauthenticated()
         github._warn_unauthenticated()
     warning_mock.assert_called_once()
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("CI"), reason="hits real GitHub; runs in CI only"
+)
+def test_build_api_request_downloads_real_zip() -> None:
+    # End-to-end check that a real zipball download works: the request follows
+    # the api.github.com -> codeload.github.com 302 redirect, and the (possibly
+    # authenticated) Authorization header isn't forwarded in a way that breaks
+    # the download. chartcuterie is a small public repo (~280KB zip).
+    url = github.zipball_url("getsentry/chartcuterie", "master")
+    req = github.build_api_request(url)
+    with urllib.request.urlopen(req) as response:
+        data = response.read()
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        # A valid, non-empty zip with the usual single top-level directory.
+        names = zf.namelist()
+        assert names
+        assert names[0].split("/")[0].startswith("getsentry-chartcuterie-")
