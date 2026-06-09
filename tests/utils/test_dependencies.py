@@ -94,6 +94,46 @@ def test_fetch_dependency_success(tmp_path: Path) -> None:
     assert (Path(dest) / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME).exists()
 
 
+def test_fetch_dependency_authenticates_with_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    dep = RemoteConfig(
+        repo_name="test-repo",
+        branch="main",
+        repo_link="https://github.com/getsentry/test-repo",
+    )
+    zip_bytes = _make_zip_bytes(BASIC_SERVICE_CONFIG)
+    with mock.patch(
+        "devservices.utils.dependencies.urllib.request.urlopen",
+        return_value=_make_urlopen_response(zip_bytes),
+    ) as urlopen_mock:
+        _fetch_dependency(dep, str(tmp_path / "dest"))
+    req = urlopen_mock.call_args.args[0]
+    assert req.get_header("Authorization") == "Bearer secret-token"
+
+
+def test_fetch_dependency_no_auth_header_without_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    dep = RemoteConfig(
+        repo_name="test-repo",
+        branch="main",
+        repo_link="https://github.com/getsentry/test-repo",
+    )
+    zip_bytes = _make_zip_bytes(BASIC_SERVICE_CONFIG)
+    with mock.patch(
+        "devservices.utils.dependencies.urllib.request.urlopen",
+        return_value=_make_urlopen_response(zip_bytes),
+    ) as urlopen_mock:
+        _fetch_dependency(dep, str(tmp_path / "dest"))
+    req = urlopen_mock.call_args.args[0]
+    assert req.get_header("Authorization") is None
+
+
 def test_fetch_dependency_network_error(tmp_path: Path) -> None:
     dep = RemoteConfig(
         repo_name="test-repo",

@@ -428,11 +428,16 @@ def _fetch_dependency(
 
     zip_url = f"https://api.github.com/repos/{repo_path}/zipball/{dependency.branch}"
 
+    headers = {"Accept": "application/vnd.github+json"}
+    # Authenticate when a token is available so we get the 5000 req/hr limit
+    # instead of the 60 req/hr unauthenticated limit (which CI runners, sharing
+    # egress IPs, exhaust quickly and then receive HTTP 403s).
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
     def _download() -> bytes:
-        req = urllib.request.Request(
-            zip_url,
-            headers={"Accept": "application/vnd.github+json"},
-        )
+        req = urllib.request.Request(zip_url, headers=headers)
         with urllib.request.urlopen(req) as response:
             return bytes(response.read())
 
