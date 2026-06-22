@@ -28,6 +28,17 @@ def test_parse_repo_path_valid() -> None:
     assert github.parse_repo_path("http://github.com/org/repo") == "org/repo"
 
 
+def test_parse_repo_path_ssh() -> None:
+    assert (
+        github.parse_repo_path("git@github.com:getsentry/test-repo")
+        == "getsentry/test-repo"
+    )
+    assert (
+        github.parse_repo_path("git@github.com:getsentry/test-repo.git")
+        == "getsentry/test-repo"
+    )
+
+
 def test_parse_repo_path_non_github() -> None:
     with pytest.raises(ValueError):
         github.parse_repo_path("file:///path/to/repo")
