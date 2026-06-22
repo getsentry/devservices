@@ -16,11 +16,17 @@ _auth_warned = False
 
 
 def parse_repo_path(repo_link: str) -> str:
-    """Extract the "owner/repo" path from a GitHub URL."""
+    """Extract the "owner/repo" path from a GitHub URL.
+
+    Handles both HTTPS (https://github.com/owner/repo) and SSH
+    (git@github.com:owner/repo) formats.
+    """
     url = repo_link.rstrip("/").removesuffix(".git")
-    if "github.com/" not in url:
-        raise ValueError(f"Not a GitHub URL: {repo_link}")
-    return url.split("github.com/", 1)[1]
+    if "github.com/" in url:
+        return url.split("github.com/", 1)[1]
+    if "github.com:" in url:
+        return url.split("github.com:", 1)[1]
+    raise ValueError(f"Not a GitHub URL: {repo_link}")
 
 
 def zipball_url(repo_path: str, ref: str) -> str:
