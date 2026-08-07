@@ -30,7 +30,7 @@ class State:
         if cls._instance is None:
             cls._instance = super(State, cls).__new__(cls)
             if not os.path.exists(DEVSERVICES_LOCAL_DIR):
-                os.makedirs(DEVSERVICES_LOCAL_DIR)
+                os.makedirs(DEVSERVICES_LOCAL_DIR, exist_ok=True)
             cls._instance.state_db_file = STATE_DB_FILE
             cls._instance.conn = sqlite3.connect(cls._instance.state_db_file)
             cls._instance.initialize_database()
