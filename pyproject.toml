@@ -13,7 +13,7 @@ dependencies = [
     "sentry-devenv",
     "sentry-sdk",
     "packaging",
-    "supervisor",
+    "supervisor>=4.3.0",
 ]
 
 [dependency-groups]
