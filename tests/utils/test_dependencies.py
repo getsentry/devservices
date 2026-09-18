@@ -316,6 +316,87 @@ def test_get_installed_remote_dependencies_single_dep_installed(tmp_path: Path) 
         }
 
 
+def test_get_installed_remote_dependencies_does_not_return_unnecessary_dependencies(
+    tmp_path: Path,
+) -> None:
+    """Cached traversal only returns nested deps in the active mode."""
+    with mock.patch(
+        "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
+        str(tmp_path / "dependency-dir"),
+    ):
+        repo_a_config = {
+            "x-sentry-service-config": {
+                "version": 0.1,
+                "service_name": "repo-a",
+                "dependencies": {
+                    "repo-b": {
+                        "description": "nested dependency",
+                        "remote": {
+                            "repo_name": "repo-b",
+                            "repo_link": "https://github.com/getsentry/repo-b",
+                            "branch": "main",
+                        },
+                    },
+                    "unnecessary-repo": {
+                        "description": "unnecessary nested dependency",
+                        "remote": {
+                            "repo_name": "unnecessary-repo",
+                            "repo_link": "invalid-link",
+                            "branch": "main",
+                        },
+                    },
+                },
+                "modes": {"default": ["repo-b"], "other": ["unnecessary-repo"]},
+            },
+        }
+
+        with mock.patch(
+            "devservices.utils.dependencies.urllib.request.urlopen",
+            side_effect=_url_dispatch(
+                {
+                    "repo-a": _make_zip_bytes(repo_a_config),
+                    "repo-b": _make_zip_bytes(BASIC_SERVICE_CONFIG),
+                }
+            ),
+        ):
+            install_dependency(
+                RemoteConfig(
+                    repo_name="repo-a",
+                    branch="main",
+                    repo_link="https://github.com/getsentry/repo-a",
+                )
+            )
+
+            installed = get_installed_remote_dependencies(
+                dependencies=[
+                    Dependency(
+                        description="test repo",
+                        remote=RemoteConfig(
+                            repo_name="repo-a",
+                            branch="main",
+                            repo_link="https://github.com/getsentry/repo-a",
+                        ),
+                        dependency_type=DependencyType.SERVICE,
+                    )
+                ]
+            )
+
+        assert installed == {
+            InstalledRemoteDependency(
+                service_name="repo-a",
+                repo_path=str(
+                    tmp_path / "dependency-dir" / DEPENDENCY_CONFIG_VERSION / "repo-a"
+                ),
+            ),
+            InstalledRemoteDependency(
+                service_name="basic",
+                repo_path=str(
+                    tmp_path / "dependency-dir" / DEPENDENCY_CONFIG_VERSION / "repo-b"
+                ),
+            ),
+        }
+
+
 def test_install_dependency_invalid_repo(tmp_path: Path) -> None:
     with mock.patch(
         "devservices.utils.dependencies.DEVSERVICES_DEPENDENCIES_CACHE_DIR",
