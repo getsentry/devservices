@@ -275,9 +275,10 @@ def get_installed_remote_dependencies(
                 mode=remote_config.mode,
             )
         )
-        nested_remote_configs = _get_remote_configs(
-            list(service_config.dependencies.values())
+        active_nested_dependencies = _get_active_nested_dependencies(
+            service_config, remote_config.mode
         )
+        nested_remote_configs = _get_remote_configs(active_nested_dependencies)
         remote_configs.extend(nested_remote_configs)
 
     return installed_dependencies
@@ -359,18 +360,9 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
                 branch=dependency.branch,
             ) from e
 
-    if dependency.mode not in installed_config.modes:
-        raise ModeDoesNotExistError(
-            service_name=installed_config.service_name,
-            mode=dependency.mode,
-            available_modes=list(installed_config.modes.keys()),
-        )
-
-    active_nested_dependencies = [
-        nested_dependency
-        for nested_dependency_name, nested_dependency in installed_config.dependencies.items()
-        if nested_dependency_name in installed_config.modes[dependency.mode]
-    ]
+    active_nested_dependencies = _get_active_nested_dependencies(
+        installed_config, dependency.mode
+    )
     nested_remote_configs = _get_remote_configs(active_nested_dependencies)
 
     installed_dependencies: set[InstalledRemoteDependency] = set(
@@ -482,6 +474,22 @@ def _fetch_dependency(
             repo_link=dependency.repo_link,
             branch=dependency.branch,
         ) from e
+
+
+def _get_active_nested_dependencies(
+    service_config: ServiceConfig, mode: str
+) -> list[Dependency]:
+    if mode not in service_config.modes:
+        raise ModeDoesNotExistError(
+            service_name=service_config.service_name,
+            mode=mode,
+            available_modes=list(service_config.modes.keys()),
+        )
+    return [
+        dependency
+        for dependency_name, dependency in service_config.dependencies.items()
+        if dependency_name in service_config.modes[mode]
+    ]
 
 
 def _get_remote_configs(dependencies: list[Dependency]) -> list[RemoteConfig]:
