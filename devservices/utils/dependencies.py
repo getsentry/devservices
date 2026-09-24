@@ -10,6 +10,7 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import TypeGuard
 
 from sentry_sdk import logger as sentry_logger
@@ -113,13 +114,29 @@ class InstalledRemoteDependency:
     mode: str = "default"
 
 
+class DependencyUpdateMode(StrEnum):
+    """Controls how remote dependencies are resolved during installation.
+
+    FORCE always fetches from the network, IF_NEEDED uses the cache when valid and
+    otherwise fetches, and OFFLINE never fetches and raises if the cache is
+    incomplete.
+    """
+
+    FORCE = "force"
+    IF_NEEDED = "if_needed"
+    OFFLINE = "offline"
+
+
 def install_and_verify_dependencies(
     service: Service,
-    force_update_dependencies: bool = False,
+    update_mode: DependencyUpdateMode = DependencyUpdateMode.IF_NEEDED,
     modes: list[str] | None = None,
 ) -> set[InstalledRemoteDependency]:
     """
-    Install and verify dependencies for a service
+    Install and verify dependencies for a service.
+
+    update_mode controls whether dependencies are fetched from the network. See
+    DependencyUpdateMode.
     """
     if modes is None:
         modes = ["default"]
@@ -138,18 +155,18 @@ def install_and_verify_dependencies(
         if dependency_key in mode_dependencies
     ]
 
-    if force_update_dependencies:
-        remote_dependencies = install_dependencies(matching_dependencies)
+    skip_dependency_install = update_mode is DependencyUpdateMode.OFFLINE or (
+        update_mode is DependencyUpdateMode.IF_NEEDED
+        and verify_local_dependencies(matching_dependencies)
+    )
+
+    if skip_dependency_install:
+        remote_dependencies = get_installed_remote_dependencies(matching_dependencies)
     else:
-        are_dependencies_valid = verify_local_dependencies(matching_dependencies)
-        if not are_dependencies_valid:
-            # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
-            #       since the dependencies may have changed since the service was started.
-            remote_dependencies = install_dependencies(matching_dependencies)
-        else:
-            remote_dependencies = get_installed_remote_dependencies(
-                matching_dependencies
-            )
+        # TODO: Figure out how to handle this case as installing dependencies may not be the right thing to do
+        #       since the dependencies may have changed since the service was started.
+        remote_dependencies = install_dependencies(matching_dependencies)
+
     return remote_dependencies
 
 
