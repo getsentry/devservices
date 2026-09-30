@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
 import os
@@ -254,17 +255,25 @@ def get_docker_compose_commands_to_run(
     service_config_file_path: str,
     mode_dependencies: list[str],
 ) -> list[DockerComposeCommand]:
+    dependency_config_paths = [
+        os.path.join(dependency.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME)
+        for dependency in remote_dependencies
+    ]
+
+    # Each lookup shells out to `docker compose config`, so run them concurrently
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        *dependency_non_remote_services, non_remote_services = executor.map(
+            lambda config_path: get_non_remote_services(config_path, current_env),
+            [*dependency_config_paths, service_config_file_path],
+        )
+
     docker_compose_commands = []
-    for dependency in remote_dependencies:
+    for dependency, dependency_config_path, dependency_services in zip(
+        remote_dependencies, dependency_config_paths, dependency_non_remote_services
+    ):
         # TODO: Consider passing in service config in InstalledRemoteDependency instead of loading it here
         dependency_service_config = load_service_config_from_file(dependency.repo_path)
-        dependency_config_path = os.path.join(
-            dependency.repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
-        )
-        non_remote_services = get_non_remote_services(
-            dependency_config_path, current_env
-        )
-        services_to_use = non_remote_services.intersection(
+        services_to_use = dependency_services.intersection(
             set(dependency_service_config.modes[dependency.mode])
         )
         docker_compose_commands.append(
@@ -278,7 +287,6 @@ def get_docker_compose_commands_to_run(
         )
 
     # Add docker compose command for the top level service
-    non_remote_services = get_non_remote_services(service_config_file_path, current_env)
     services_to_use = non_remote_services.intersection(set(mode_dependencies))
     if len(services_to_use) > 0:
         docker_compose_commands.append(
