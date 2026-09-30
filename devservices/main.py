@@ -84,6 +84,13 @@ if not disable_sentry:
             ArgvIntegration(),
             LoggingIntegration(sentry_logs_level=logging.DEBUG),
         ],
+        # By default the Sentry SDK loads integrations for all relevant libraries in
+        # the venv. When running devservices in the seer directory we end up loading
+        # Hugging Face, OpenAI, Anthropic and Celery. Likewise in sentry we end up
+        # loading Django, Redis and boto3. This is in spite of devservices not
+        # actually using those libraries. By disabling this behaviour we can reduce
+        # startup time for devservices.
+        auto_enabling_integrations=False,
         enable_logs=True,
         environment=sentry_environment,
         before_send=before_send_error,
