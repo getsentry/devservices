@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
@@ -25,6 +26,21 @@ from devservices.utils.docker_compose import get_non_remote_services
 from devservices.utils.docker_compose import install_docker_compose
 from devservices.utils.services import Service
 from testing.utils import create_mock_git_repo
+
+
+def mock_docker_compose_config_services(
+    services_by_repo_path: dict[str, str],
+) -> Callable[..., subprocess.CompletedProcess[str]]:
+    def _run(
+        cmd: list[str], *args: object, **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        config_path = cmd[cmd.index("-f") + 1]
+        repo_path = os.path.dirname(os.path.dirname(config_path))
+        return subprocess.CompletedProcess(
+            args=cmd, returncode=0, stdout=services_by_repo_path[repo_path]
+        )
+
+    return _run
 
 
 @mock.patch("subprocess.run")
@@ -452,18 +468,12 @@ def test_get_all_commands_to_run_simple_remote(
         parent_service_repo_path, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     mode_dependencies = service_config.modes["default"]
-    mock_run.side_effect = [
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="child-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="parent-service\n",
-        ),
-    ]
+    mock_run.side_effect = mock_docker_compose_config_services(
+        {
+            child_service_repo_path_str: "child-service\n",
+            parent_service_repo_path_str: "parent-service\n",
+        }
+    )
     commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
@@ -555,23 +565,13 @@ def test_get_all_commands_to_run_complex_remote(
         grandparent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     mode_dependencies = service_config.modes["default"]
-    mock_run.side_effect = [
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="child-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="parent-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="grandparent-service\n",
-        ),
-    ]
+    mock_run.side_effect = mock_docker_compose_config_services(
+        {
+            child_service_repo_path_str: "child-service\n",
+            parent_service_repo_path_str: "parent-service\n",
+            grandparent_service_repo_path_str: "grandparent-service\n",
+        }
+    )
     commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=list(remote_dependencies),
@@ -685,23 +685,13 @@ def test_get_all_commands_to_run_complex_shared_dependency(
         grandparent_service_repo_path_str, DEVSERVICES_DIR_NAME, CONFIG_FILE_NAME
     )
     mode_dependencies = service_config.modes["default"]
-    mock_run.side_effect = [
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="child-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="parent-service\n",
-        ),
-        subprocess.CompletedProcess(
-            args=["docker", "compose", "config", "--services"],
-            returncode=0,
-            stdout="grandparent-service\n",
-        ),
-    ]
+    mock_run.side_effect = mock_docker_compose_config_services(
+        {
+            child_service_repo_path_str: "child-service\n",
+            parent_service_repo_path_str: "parent-service\n",
+            grandparent_service_repo_path_str: "grandparent-service\n",
+        }
+    )
     commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=remote_dependencies,
