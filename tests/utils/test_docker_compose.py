@@ -83,7 +83,33 @@ def test_check_docker_compose_version_unsupported(
 ) -> None:
     mock_run.return_value.stdout = "2.20.0-desktop.1\n"
     check_docker_compose_version()
-    assert mock_install_docker_compose.is_called()
+    mock_install_docker_compose.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "installed_version",
+    ["2.29.7", "2.29.7-desktop.1", "2.38.2", "2.40.3-desktop.1", "5.6.0", "6.0.0"],
+)
+@mock.patch("subprocess.run")
+@mock.patch("devservices.utils.docker_compose.install_docker_compose")
+def test_check_docker_compose_version_at_or_above_minimum(
+    mock_install_docker_compose: mock.Mock,
+    mock_run: mock.Mock,
+    installed_version: str,
+) -> None:
+    mock_run.return_value.stdout = f"{installed_version}\n"
+    check_docker_compose_version()
+    mock_install_docker_compose.assert_not_called()
+
+
+@mock.patch("subprocess.run")
+@mock.patch("devservices.utils.docker_compose.install_docker_compose")
+def test_check_docker_compose_version_below_minimum(
+    mock_install_docker_compose: mock.Mock, mock_run: mock.Mock
+) -> None:
+    mock_run.return_value.stdout = "2.29.6\n"
+    check_docker_compose_version()
+    mock_install_docker_compose.assert_called_once()
 
 
 @mock.patch("subprocess.run")

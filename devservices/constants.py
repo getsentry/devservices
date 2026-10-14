@@ -22,7 +22,10 @@ class DependencyType(StrEnum):
     SUPERVISOR = "supervisor"
 
 
-MINIMUM_DOCKER_COMPOSE_VERSION = "5.6.0"
+# Any installed Docker Compose at or above the minimum is used as is. The install
+# version is only downloaded when Compose is missing or older than the minimum.
+MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
+DOCKER_COMPOSE_INSTALL_VERSION = "5.6.0"
 DEVSERVICES_DIR_NAME = "devservices"
 CONFIG_FILE_NAME = "config.yml"
 DOCKER_CONFIG_DIR = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
