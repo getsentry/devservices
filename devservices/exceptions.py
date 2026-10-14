@@ -99,7 +99,12 @@ class DependencyError(Exception):
         self.stderr = stderr
 
     def __str__(self) -> str:
-        return f"DependencyError: {self.repo_name} ({self.repo_link}) on {self.branch}"
+        message = (
+            f"DependencyError: {self.repo_name} ({self.repo_link}) on {self.branch}"
+        )
+        if self.__cause__ is not None:
+            message += f" ({type(self.__cause__).__name__}: {self.__cause__})"
+        return message
 
 
 class InvalidDependencyConfigError(DependencyError):

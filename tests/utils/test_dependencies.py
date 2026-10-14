@@ -106,7 +106,7 @@ def test_fetch_dependency_network_error(tmp_path: Path) -> None:
         _fetch_dependency(dep, str(tmp_path / "dest"))
 
 
-def test_fetch_dependency_http_error_not_retried(tmp_path: Path) -> None:
+def test_fetch_dependency_client_error_not_retried(tmp_path: Path) -> None:
     dep = RemoteConfig(
         repo_name="test-repo",
         branch="main",
@@ -125,8 +125,73 @@ def test_fetch_dependency_http_error_not_retried(tmp_path: Path) -> None:
     )
     with urlopen_mock as mock_urlopen, pytest.raises(DependencyError):
         _fetch_dependency(dep, str(tmp_path / "dest"))
-    # HTTP errors must not be retried, so urlopen is only ever called once.
+    # Client errors won't fix themselves, so urlopen is only ever called once.
     mock_urlopen.assert_called_once()
+
+
+def _http_error(code: int, msg: str) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        url="https://api.github.com/repos/getsentry/test-repo/zipball/main",
+        code=code,
+        msg=msg,
+        hdrs=None,  # type: ignore[arg-type]
+        fp=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("code", "msg"),
+    [(500, "Internal Server Error"), (503, "Service Unavailable"), (429, "Too Many")],
+)
+def test_fetch_dependency_retries_transient_http_error(
+    tmp_path: Path, code: int, msg: str
+) -> None:
+    dep = RemoteConfig(
+        repo_name="test-repo",
+        branch="main",
+        repo_link="https://github.com/getsentry/test-repo",
+    )
+    zip_bytes = _make_zip_bytes(BASIC_SERVICE_CONFIG)
+    dest = str(tmp_path / "dest")
+    with (
+        mock.patch("devservices.utils.retry.time.sleep") as mock_sleep,
+        mock.patch(
+            "devservices.utils.dependencies.urllib.request.urlopen",
+            side_effect=[
+                _http_error(code, msg),
+                _http_error(code, msg),
+                _make_urlopen_response(zip_bytes),
+            ],
+        ) as mock_urlopen,
+    ):
+        _fetch_dependency(dep, dest)
+    assert mock_urlopen.call_count == 3
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [1.0, 2.0]
+    assert (Path(dest) / DEVSERVICES_DIR_NAME / CONFIG_FILE_NAME).exists()
+
+
+def test_fetch_dependency_server_error_exhausts_retries(tmp_path: Path) -> None:
+    dep = RemoteConfig(
+        repo_name="test-repo",
+        branch="main",
+        repo_link="https://github.com/getsentry/test-repo",
+    )
+    with (
+        mock.patch("devservices.utils.retry.time.sleep") as mock_sleep,
+        mock.patch(
+            "devservices.utils.dependencies.urllib.request.urlopen",
+            side_effect=_http_error(500, "Internal Server Error"),
+        ) as mock_urlopen,
+        pytest.raises(DependencyError) as exc_info,
+    ):
+        _fetch_dependency(dep, str(tmp_path / "dest"))
+    assert mock_urlopen.call_count == 5
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [1.0, 2.0, 4.0, 8.0]
+    # The underlying cause is surfaced so CI logs show what actually failed.
+    assert str(exc_info.value) == (
+        "DependencyError: test-repo (https://github.com/getsentry/test-repo) on main "
+        "(HTTPError: HTTP Error 500: Internal Server Error)"
+    )
 
 
 def test_fetch_dependency_read_error(tmp_path: Path) -> None:

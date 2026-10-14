@@ -12,6 +12,7 @@ def retry(
     *,
     retries: int = 3,
     delay: float = 1.0,
+    backoff: float = 1.0,
     exceptions: tuple[type[BaseException], ...] = (Exception,),
     on_retry: Callable[[BaseException, int], None] | None = None,
     should_retry: Callable[[BaseException], bool] | None = None,
@@ -23,7 +24,8 @@ def retry(
     Args:
         fn: Callable to invoke.
         retries: Total number of attempts (must be >= 1).
-        delay: Seconds to sleep between attempts.
+        delay: Seconds to sleep before the first retry.
+        backoff: Multiplier applied to the delay after each retry.
         exceptions: Exception types that trigger a retry.
         on_retry: Optional callback(exc, attempts_remaining) invoked before each sleep.
         should_retry: Optional predicate; if it returns False the exception is re-raised
@@ -41,5 +43,5 @@ def retry(
                 raise
             if on_retry is not None:
                 on_retry(e, retries - attempt - 1)
-            time.sleep(delay)
+            time.sleep(delay * backoff**attempt)
     raise AssertionError("unreachable")
