@@ -22,7 +22,7 @@ class DependencyType(StrEnum):
     SUPERVISOR = "supervisor"
 
 
-MINIMUM_DOCKER_COMPOSE_VERSION = "2.29.7"
+MINIMUM_DOCKER_COMPOSE_VERSION = "5.6.0"
 DEVSERVICES_DIR_NAME = "devservices"
 CONFIG_FILE_NAME = "config.yml"
 DOCKER_CONFIG_DIR = os.environ.get("DOCKER_CONFIG", os.path.expanduser("~/.docker"))
@@ -42,15 +42,13 @@ DEVSERVICES_RELEASES_URL = (
     "https://api.github.com/repos/getsentry/devservices/releases/latest"
 )
 
-# We mirror this in our GCP bucket since GitHub downloads can be flaky at times.
-# gsutil cp docker-compose-darwin-aarch64 gs://sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-darwin-aarch64
-# gsutil cp docker-compose-linux-x86_64 gs://sentry-dev-infra-assets/docker-compose/v2.29.7/docker-compose-linux-x86_64
-DOCKER_COMPOSE_DOWNLOAD_URL = (
-    "https://storage.googleapis.com/sentry-dev-infra-assets/docker-compose"
-)
+DOCKER_COMPOSE_DOWNLOAD_URL = "https://github.com/docker/compose/releases/download"
 
 DEVSERVICES_DOWNLOAD_URL = "https://github.com/getsentry/devservices/releases/download"
 BINARY_PERMISSIONS = 0o755
+# Seconds a download may stall (connecting or between reads) before the attempt
+# is abandoned and retried.
+DOWNLOAD_TIMEOUT = 15
 MAX_LOG_LINES = "100"
 LOGGER_NAME = "devservices"
 DOCKER_NETWORK_NAME = "devservices"

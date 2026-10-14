@@ -23,6 +23,7 @@ from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
 from devservices.constants import DEVSERVICES_DEPENDENCIES_CACHE_DIR
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import DOWNLOAD_TIMEOUT
 from devservices.constants import DependencyType
 from devservices.exceptions import ConfigNotFoundError
 from devservices.exceptions import ConfigParseError
@@ -441,7 +442,7 @@ def _fetch_dependency(
 
     def _download() -> bytes:
         req = github.build_api_request(zip_url)
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as response:
             return bytes(response.read())
 
     try:
