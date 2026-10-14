@@ -11,6 +11,7 @@ import pytest
 from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
+from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
 from devservices.exceptions import BinaryInstallError
 from devservices.exceptions import DockerComposeError
 from devservices.exceptions import DockerComposeInstallationError
@@ -44,9 +45,13 @@ def mock_docker_compose_config_services(
 
 
 @mock.patch("subprocess.run")
-def test_check_docker_compose_version_success(mock_run: mock.Mock) -> None:
-    mock_run.return_value.stdout = "2.29.7\n"
+@mock.patch("devservices.utils.docker_compose.install_docker_compose")
+def test_check_docker_compose_version_success(
+    mock_install_docker_compose: mock.Mock, mock_run: mock.Mock
+) -> None:
+    mock_run.return_value.stdout = f"{MINIMUM_DOCKER_COMPOSE_VERSION}\n"
     check_docker_compose_version()  # Should not raise any exception
+    mock_install_docker_compose.assert_not_called()
 
 
 @mock.patch("subprocess.run")
