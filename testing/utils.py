@@ -69,10 +69,10 @@ def make_urlopen_response(zip_bytes: bytes) -> mock.MagicMock:
 
 def url_dispatch(
     zip_bytes_by_repo_name: dict[str, bytes],
-) -> Callable[[mock.MagicMock], mock.MagicMock]:
+) -> Callable[..., mock.MagicMock]:
     """Return a urlopen side_effect that routes requests by repo name in the URL."""
 
-    def _side_effect(request: mock.MagicMock) -> mock.MagicMock:
+    def _side_effect(request: mock.MagicMock, timeout: float) -> mock.MagicMock:
         url = request.full_url
         for repo_name, zip_bytes in zip_bytes_by_repo_name.items():
             if f"/{repo_name}/" in url:
