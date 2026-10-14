@@ -10,7 +10,6 @@ import shlex
 import subprocess
 import time
 from typing import NamedTuple
-from typing import cast
 
 from packaging import version
 from sentry_sdk import logger as sentry_logger
@@ -19,6 +18,7 @@ from devservices.configs.service_config import load_service_config_from_file
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEVSERVICES_DIR_NAME
 from devservices.constants import DOCKER_COMPOSE_DOWNLOAD_URL
+from devservices.constants import DOCKER_COMPOSE_INSTALL_VERSION
 from devservices.constants import DOCKER_USER_PLUGIN_DIR
 from devservices.constants import LOGGER_NAME
 from devservices.constants import MINIMUM_DOCKER_COMPOSE_VERSION
@@ -69,7 +69,7 @@ def install_docker_compose() -> None:
     else:
         raise DockerComposeInstallationError(f"Unsupported operating system: {system}")
 
-    url = f"{DOCKER_COMPOSE_DOWNLOAD_URL}/v{MINIMUM_DOCKER_COMPOSE_VERSION}/{binary_name_with_extension}"
+    url = f"{DOCKER_COMPOSE_DOWNLOAD_URL}/v{DOCKER_COMPOSE_INSTALL_VERSION}/{binary_name_with_extension}"
     destination = os.path.join(DOCKER_USER_PLUGIN_DIR, binary_name)
     os.makedirs(DOCKER_USER_PLUGIN_DIR, exist_ok=True)
 
@@ -77,14 +77,14 @@ def install_docker_compose() -> None:
         install_binary(
             binary_name,
             destination,
-            MINIMUM_DOCKER_COMPOSE_VERSION,
+            DOCKER_COMPOSE_INSTALL_VERSION,
             url,
         )
     except BinaryInstallError as e:
         raise DockerComposeInstallationError(f"Failed to install Docker Compose: {e}")
 
     console.success(
-        f"Docker Compose {MINIMUM_DOCKER_COMPOSE_VERSION} installed successfully to {destination}"
+        f"Docker Compose {DOCKER_COMPOSE_INSTALL_VERSION} installed successfully to {destination}"
     )
 
     # Verify the installation
@@ -138,42 +138,25 @@ def check_docker_compose_version() -> None:
     # Throw an error if docker daemon isn't running
     check_docker_daemon_running()
     try:
-        # Run the docker compose version command
-        docker_compose_version = get_docker_compose_version()
+        version_output = get_docker_compose_version()
     except DockerComposeError:
-        docker_compose_version = None
         console.warning(
-            f"Docker Compose is not installed, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
+            f"Docker Compose is not installed, attempting to install v{DOCKER_COMPOSE_INSTALL_VERSION}"
         )
+        install_docker_compose()
+        return
 
-    # Extract the version number from the output
-    version_output = (
-        docker_compose_version if docker_compose_version is not None else ""
-    )
-
-    # Use regex to find the version number
-    pattern = r"^(\d+\.\d+\.\d+)"
-
-    match = re.search(pattern, version_output)
-    if match:
-        # There is a chance that Any type is returned, so cast this
-        docker_compose_version = cast(str, match.group(1))
+    # Docker Desktop reports versions like "2.29.7-desktop.1", so only match the prefix
+    match = re.search(r"^(\d+\.\d+\.\d+)", version_output)
+    if match is None:
+        console.warning(
+            f"Unable to detect Docker Compose version, attempting to install v{DOCKER_COMPOSE_INSTALL_VERSION}"
+        )
+    elif version.parse(match.group(1)) < version.parse(MINIMUM_DOCKER_COMPOSE_VERSION):
+        console.warning(
+            f"Docker Compose v{match.group(1)} is older than the minimum supported v{MINIMUM_DOCKER_COMPOSE_VERSION}, attempting to install v{DOCKER_COMPOSE_INSTALL_VERSION}"
+        )
     else:
-        docker_compose_version = None
-
-    if docker_compose_version is None:
-        console.warning(
-            f"Unable to detect Docker Compose version, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
-        )
-    elif version.parse(docker_compose_version) != version.parse(
-        MINIMUM_DOCKER_COMPOSE_VERSION
-    ):
-        console.warning(
-            f"Docker Compose version v{docker_compose_version} unsupported, attempting to install v{MINIMUM_DOCKER_COMPOSE_VERSION}"
-        )
-    elif version.parse(docker_compose_version) == version.parse(
-        MINIMUM_DOCKER_COMPOSE_VERSION
-    ):
         return
     install_docker_compose()
 
