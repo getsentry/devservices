@@ -42,7 +42,6 @@ class DockerComposeCommand(NamedTuple):
 
 def install_docker_compose() -> None:
     console = Console()
-    # Determine the platform
     system = platform.system()
     machine = platform.machine()
 
@@ -61,7 +60,6 @@ def install_docker_compose() -> None:
 
     binary_name = "docker-compose"
 
-    # Determine the download URL based on the platform
     if system == "Linux":
         binary_name_with_extension = f"docker-compose-linux-{arch}"
     elif system == "Darwin":
@@ -87,7 +85,6 @@ def install_docker_compose() -> None:
         f"Docker Compose {DOCKER_COMPOSE_INSTALL_VERSION} installed successfully to {destination}"
     )
 
-    # Verify the installation
     try:
         version = get_docker_compose_version()
     except DockerComposeError as e:
@@ -135,7 +132,6 @@ def get_container_names_for_project(
 
 def check_docker_compose_version() -> None:
     console = Console()
-    # Throw an error if docker daemon isn't running
     check_docker_daemon_running()
     try:
         version_output = get_docker_compose_version()

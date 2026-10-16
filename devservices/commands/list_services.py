@@ -30,7 +30,6 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
 def list_services(args: Namespace) -> None:
     """List the services installed locally."""
     console = Console()
-    # Get all of the services installed locally
     coderoot = get_coderoot()
     try:
         services = get_local_services(coderoot)

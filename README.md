@@ -1,56 +1,60 @@
 # devservices
 
-A standalone cli tool used to manage dependencies for services. It simplifies the process of managing services for development purposes and bringing services up/down.
+`devservices` is a CLI that brings a service's development dependencies up and down. It reads them from the `devservices/config.yml` file in your repository.
 
-## Overview
+## Requirements
 
-`devservices` reads configuration files located in the `devservices` directory of your repository. These configurations define services, their dependencies, and various modes of operation.
+- Docker must be running. If Docker Compose is missing or older than 2.29.7, `devservices` downloads a newer Compose into your Docker CLI plugins directory.
+- Commands that take a service name, and `devservices list-services`, look for repositories in the devenv `coderoot` set in `~/.config/sentry-devenv/config.ini`.
 
-## Usage
+## Install
 
-devservices provides several commands to manage your services:
+1. Add `devservices` to your repository's `requirements.txt` and install it in your virtualenv:
 
-### Commands
+   ```
+   devservices==1.2.4
+   ```
 
-NOTE: service-name is an optional parameter. If not provided, devservices will attempt to automatically find a devservices configuration in the current directory in order to proceed.
+2. Add a `devservices/config.yml` file to your repository. See [Configuration](#configuration).
+3. Run `devservices up`.
 
-- `devservices up <service-name>`: Bring up a service and its dependencies.
-- `devservices down <service-name>`: Bring down service including its dependencies.
-- `devservices status <service-name>`: Display the current status of all services, including their dependencies and ports.
-- `devservices logs <service-name>`: View logs for a specific service.
-- `devservices list-services`: List all available Sentry services.
-- `devservices list-dependencies <service-name>`: List all dependencies for a service and whether they are enabled/disabled.
-- `devservices update` Update devservices to the latest version.
-- `devservices purge`: Purge the local devservices cache.
-- `devservices toggle <service-name>`: Toggle the runtime for a service between containerized and local.
-- `devservices serve`: Run a service's devserver.
-- `devservices foreground <process-name>`: Foreground a process that is currently running in the background. This enables interactive debugging.
+## Commands
 
-## Installation
+If you omit `<service-name>`, `devservices` uses the `devservices/config.yml` file in the current directory. Run `devservices <command> --help` for every flag.
 
-### 1. Add devservices to your requirements.txt
+- `devservices up <service-name>`: Bring up a service and its dependencies. Use `--mode <mode>` to pick a mode other than `default`. Use `--offline` to use cached dependencies and images.
+- `devservices down <service-name>`: Bring down a service and its dependencies.
+- `devservices status <service-name>`: Show the status and ports of a running service and its dependencies.
+- `devservices logs <service-name>`: Show logs for a running service.
+- `devservices list-services` (alias `ls`): List running services. Use `--all` to include stopped services in your coderoot.
+- `devservices list-dependencies <service-name>`: List a service's dependencies.
+- `devservices toggle <service-name> [local|containerized]`: Switch a service's runtime between containerized and local.
+- `devservices serve`: Run the `devserver` program from the current directory's `x-programs` block. Arguments after `serve` go to the devserver.
+- `devservices foreground <program-name>`: Stop a background program and run it in the foreground for interactive debugging.
+- `devservices reset <service-name>`: Remove the volumes of a Docker Compose service.
+- `devservices purge <service-name>`: Remove all devservices state, cached dependencies, containers, and volumes. If you pass a service name, `purge` asks for confirmation and removes only that service.
+- `devservices update`: Update devservices to the latest version.
 
-The recommended way to install devservices is through a virtualenv in the requirements.txt. Once that is installed and a devservices config file is added, you should be able to run `devservices up` to begin local development.
+The global `-c <path>` flag (`--config`) loads a config file from another path. You cannot combine `-c` with a service name.
 
-```
-devservices==1.2.4
-```
+## Environment variables
 
-### 2. Add devservices config files
+- `GITHUB_TOKEN` or `GH_TOKEN`: Token for downloading remote dependencies from GitHub. Without one, `devservices` uses `gh auth token`, then falls back to rate-limited unauthenticated downloads.
+- `DEVSERVICES_DISABLE_SENTRY=1`: Stop sending errors and traces to Sentry.
 
-Each repo should have a `devservices` directory with a `config.yml` file. This file is used to define services, dependencies, and modes. Other files and subdirectories in the `devservices` directory are optional and can be most commonly used for volume mounts.
+## Configuration
 
-The configuration file is a yaml file that looks like this:
+`devservices/config.yml` is a Docker Compose file with an `x-sentry-service-config` block and an optional `x-programs` block. Other files in the `devservices` directory are optional. You usually use them for volume mounts.
 
 ```yaml
-# This is a yaml block that holds devservices specific configuration settings. This is comprised of a few main sections:
-# - version: The version of the devservices config file. This is used to ensure compatibility between devservices and the config file.
-# - service_name: The name of the service. This is used to identify the service in the config file.
-# - dependencies: A list of dependencies for the service. Each dependency is a yaml block that holds the dependency configuration. There are two types of dependencies:
-#   - local: A dependency that is defined in the config file. These dependencies do not have a remote field and must correspond to either a service defined in the 'services' section or a program defined in the 'x-programs' section.
-#   - remote: A dependency that is defined in the devservices directory in a remote repository. These configs are automatically fetched from the remote repository and installed. Any dependency with a remote field will be treated as a remote dependency. Example: https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L8
-# - modes: A list of modes for the service. Each mode includes a list of dependencies that are used in that mode.
-# - healthcheck_timeout: Optional. The number of seconds to wait for all containers to become healthy before failing. Defaults to 180.
+# devservices settings:
+# - version: Config file version. The only valid value is 0.1.
+# - service_name: The name you pass to commands such as `devservices up <service-name>`.
+# - dependencies: Each dependency accepts only `description` and `remote`.
+#   - A dependency without `remote` must match a service in `services` or a program in `x-programs`.
+#   - A dependency with `remote` is fetched from the `devservices` directory of that repository. Example: https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L8
+# - modes: Each mode lists the dependencies it runs. A `default` mode is required.
+# - healthcheck_timeout: Optional. Seconds to wait for all containers to become healthy. Defaults to 180.
 x-sentry-service-config:
   version: 0.1
   service_name: example-service
@@ -65,49 +69,29 @@ x-sentry-service-config:
         repo_name: example-repository
         branch: main
         repo_link: https://github.com/getsentry/example-repository.git
-        mode: default # Optional field, mode to run remote dependency in that defaults to `default`
+        mode: default # Optional. The remote dependency's mode. Defaults to `default`.
   modes:
     default: [example-dependency-1, example-remote-dependency]
     custom-mode: [example-dependency-1, example-dependency-2, example-remote-dependency]
 
-# This block defines supervisor programs that can be managed by devservices.
-# Programs defined here are managed using Python's supervisor package and can be:
-# - Started and stopped along with docker services when running `devservices up/down`
-# - Run in the foreground for interactive debugging using `devservices foreground <program-name>`
-# - Used as development server with `devservices serve` (requires a program named "devserver")
-#
-# These are particularly useful for:
-# - Defining a devserver to run locally
-# - Background workers or task processors
-# - Any process that needs to be managed alongside your docker services
+# Programs that devservices runs with supervisor. List a program in `dependencies` to start and stop it with `devservices up` and `devservices down`.
+# - `devservices foreground <program-name>` runs a program in the foreground.
+# - `devservices serve` runs the program named `devserver`.
 x-programs:
-  # Example devserver
   devserver:
-    # Required: The command to execute
+    # Required.
     command: "python manage.py run_server"
-    # Optional: You can also specify any of the supervisor program settings defined here: https://supervisord.org/configuration.html#program-x-section-settings
+    # Optional: any supervisor program setting from https://supervisord.org/configuration.html#program-x-section-settings
 
-  # Example background worker
   example-worker:
     command: "python manage.py worker"
 
-# This will be a standard block used by docker compose to define dependencies.
-#
-# The following fields are important to all dependencies:
-# - image: The docker image to use for the dependency.
-# - ports: The ports to expose for the dependency. Please only expose ports to localhost(127.0.0.1)
-# - healthcheck: The docker healthcheck to use for the dependency.
-# - environment: The environment variables to set for the dependency.
-# - extra_hosts: The extra hosts to add to the dependency.
-# - networks: The networks to add to the dependency. In order for devservices to work properly, the dependency must be on the `devservices` network.
-# - labels: The labels to add to the dependency. The `orchestrator=devservices` label is required for devservices to determine a container is managed by devservices.
-# - restart: The restart policy to use for the dependency.
-#
-# These fields are optional:
-# - ulimits: The ulimits to set for the dependency. This is useful for setting resource constraints for the dependency.
-# - volumes: The volumes to mount for the dependency. This is useful for mounting data volumes for the dependency if data should be persisted between runs. It can also be useful to use a bind mount to mount a local directory into a container. Example of bind mounting clickhouse configs from a local directory https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L44
-# - command: The command to run for the dependency. This can override the default command for the docker image.
-# For more information on the docker compose file services block, see the docker compose file reference: https://docs.docker.com/reference/compose-file/services/
+# Standard Docker Compose services: https://docs.docker.com/reference/compose-file/services/
+# - Publish ports on 127.0.0.1 only.
+# - Put every service on the `devservices` network.
+# - Add the `orchestrator=devservices` label. `devservices purge` and `devservices reset` find containers by this label.
+# - Add a healthcheck. `devservices up` waits for containers to become healthy.
+# - Use `volumes` to keep data between runs or to bind mount local files. Example: https://github.com/getsentry/snuba/blob/59a5258ccbb502827ebc1d3b1bf80c607a3301bf/devservices/config.yml#L44
 services:
   example-dependency-1:
     image: ghcr.io/getsentry/example-dependency-1:1.0.0
@@ -125,7 +109,7 @@ services:
     volumes:
       - example-dependency-1-data:/var/lib/example-dependency-1
     restart: unless-stopped
-    # Everything below this line is required for devservices to work properly.
+    # devservices requires the fields below.
     ports:
       - 127.0.0.1:1234:1234
     extra_hosts:
@@ -146,7 +130,7 @@ services:
     environment:
       EXAMPLE_ENV_VAR: example-value
     restart: unless-stopped
-    # Everything below this line is required for devservices to work properly.
+    # devservices requires the fields below.
     ports:
       - 127.0.0.1:2345:2345
     extra_hosts:
@@ -156,23 +140,22 @@ services:
     labels:
       - orchestrator=devservices
 
-# This is a standard block used by docker compose to define volumes.
-# For more information, see the docker compose file reference: https://docs.docker.com/reference/compose-file/volumes/
+# Standard Docker Compose volumes: https://docs.docker.com/reference/compose-file/volumes/
 volumes:
   example-dependency-1-data:
 
-# This is a standard block used by docker compose to define networks. Defining the devservices network is required for devservices to work properly. By default, devservices will create an external network called `devservices` that is used to connect all dependencies.
-# For more information, see the docker compose file reference: https://docs.docker.com/reference/compose-file/networks/
+# The external `devservices` network is required. `devservices up` creates it if it does not exist.
+# Docker Compose networks reference: https://docs.docker.com/reference/compose-file/networks/
 networks:
   devservices:
     name: devservices
     external: true
 ```
 
-## Dev
+## Get help
 
-```sh
-uv sync
-direnv allow
-pytest -n4
-```
+Open an issue in [getsentry/devservices](https://github.com/getsentry/devservices/issues).
+
+## License
+
+See [LICENSE.md](LICENSE.md).

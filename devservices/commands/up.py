@@ -174,7 +174,6 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
             service, mode, status, offline
         )
         _create_devservices_network()
-        # Add the service to the starting services table
         state.update_service_entry(service.name, mode, StateTables.STARTING_SERVICES)
         mode_dependencies = modes[mode]
         for service_with_local_runtime in services_with_local_runtime:

@@ -158,7 +158,6 @@ def main() -> None:
 
     subparsers = parser.add_subparsers(dest="command", title="commands", metavar="")
 
-    # Add subparsers for each command
     up.add_parser(subparsers)
     down.add_parser(subparsers)
     list_dependencies.add_parser(subparsers)
@@ -174,13 +173,11 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # If the command has a debug flag, set the logger to debug
     if "debug" in args and args.debug:
         logger = logging.getLogger(LOGGER_NAME)
         logger.setLevel(logging.DEBUG)
 
     if args.command:
-        # Call the appropriate function based on the command
         with start_transaction(op="command", name=args.command):
             args.func(args)
     else:
