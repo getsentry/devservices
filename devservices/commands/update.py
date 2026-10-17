@@ -63,7 +63,7 @@ def update(_args: Namespace) -> None:
         console.warning(
             f"For example, update the line in requirements.txt to: devservices=={latest_version}"
         )
-        console.warning("Then, run: pip install --update -r requirements.txt")
+        console.warning("Then, run: pip install --upgrade -r requirements.txt")
         return
 
     console.info("Upgrading to the latest version...")

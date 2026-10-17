@@ -30,7 +30,7 @@ def test_update_in_virtualenv(
         "For example, update the line in requirements.txt to: devservices==1.0.0"
         in captured.out
     )
-    assert "Then, run: pip install --update -r requirements.txt" in captured.out
+    assert "Then, run: pip install --upgrade -r requirements.txt" in captured.out
 
 
 @mock.patch("devservices.commands.update.metadata.version", return_value="0.0.1")
