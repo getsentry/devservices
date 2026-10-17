@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from argparse import ArgumentParser
 from argparse import Namespace
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
+from devservices.commands.reset import add_parser
 from devservices.commands.reset import reset
 from devservices.constants import DEVSERVICES_ORCHESTRATOR_LABEL
 from devservices.exceptions import DockerDaemonNotRunningError
@@ -13,6 +15,16 @@ from devservices.exceptions import DockerError
 from devservices.utils.state import State
 from devservices.utils.state import StateTables
 from testing.utils import create_config_file
+
+
+def test_reset_requires_service_name() -> None:
+    parser = ArgumentParser()
+    add_parser(parser.add_subparsers())
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["reset"])
+
+    assert parser.parse_args(["reset", "redis"]).service_name == "redis"
 
 
 @mock.patch(

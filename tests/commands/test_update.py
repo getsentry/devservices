@@ -23,14 +23,11 @@ def test_update_in_virtualenv(
     captured = capsys.readouterr()
     assert "You are running in a virtual environment." in captured.out
     assert (
-        "To update, please update your requirements.txt or requirements-dev.txt file with the new version."
+        "To update, set the devservices requirement in your pyproject.toml to: devservices>=1.0.0"
         in captured.out
     )
-    assert (
-        "For example, update the line in requirements.txt to: devservices==1.0.0"
-        in captured.out
-    )
-    assert "Then, run: pip install --update -r requirements.txt" in captured.out
+    assert "Then, run: uv lock --upgrade-package devservices && uv sync" in captured.out
+    assert "pip" not in captured.out
 
 
 @mock.patch("devservices.commands.update.metadata.version", return_value="0.0.1")

@@ -58,12 +58,9 @@ def update(_args: Namespace) -> None:
     if is_in_virtualenv():
         console.warning("You are running in a virtual environment.")
         console.warning(
-            "To update, please update your requirements.txt or requirements-dev.txt file with the new version."
+            f"To update, set the devservices requirement in your pyproject.toml to: devservices>={latest_version}"
         )
-        console.warning(
-            f"For example, update the line in requirements.txt to: devservices=={latest_version}"
-        )
-        console.warning("Then, run: pip install --update -r requirements.txt")
+        console.warning("Then, run: uv lock --upgrade-package devservices && uv sync")
         return
 
     console.info("Upgrading to the latest version...")
