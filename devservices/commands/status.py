@@ -333,7 +333,6 @@ def generate_service_status_details(
 ) -> str:
     output = [f"{indentation}{Color.BOLD}{dependency.name}{Color.RESET}:"]
 
-    # Handle supervisor dependencies
     if dependency.dependency_type == DependencyType.SUPERVISOR:
         return generate_supervisor_status_details(
             dependency, process_statuses, indentation

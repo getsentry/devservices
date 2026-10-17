@@ -141,7 +141,6 @@ class SupervisorManager:
             DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{service_name}.sock"
         )
 
-        # Load service config and extract x-programs data
         if os.path.exists(service_config_path):
             with open(service_config_path, "r", encoding="utf-8") as stream:
                 config = yaml.safe_load(stream)
@@ -155,18 +154,15 @@ class SupervisorManager:
 
         self.has_programs = len(programs_data.keys()) > 0
 
-        # Generate supervisor config file from x-programs data
         self.config_file_path = self._generate_config_from_programs_data(programs_data)
 
     def _generate_config_from_programs_data(self, programs_data: ProgramData) -> str:
         config = configparser.ConfigParser()
 
-        # Add program sections
         for program_name, program_config in programs_data.items():
             section_name = f"program:{program_name}"
             config[section_name] = {}
 
-            # Apply defaults for any missing configuration values
             program_config_with_defaults = {
                 **SUPERVISOR_PROGRAM_DEFAULTS,
                 **program_config,
@@ -180,17 +176,14 @@ class SupervisorManager:
 
         os.makedirs(DEVSERVICES_SUPERVISOR_CONFIG_DIR, exist_ok=True)
 
-        # Set unix http server to use the socket path
         config["unix_http_server"] = {"file": self.socket_path}
 
-        # Set generated pidfile to use service name
         config["supervisord"] = {
             "pidfile": os.path.join(
                 DEVSERVICES_SUPERVISOR_CONFIG_DIR, f"{self.service_name}.pid"
             )
         }
 
-        # Set supervisorctl to use the socket path
         config["supervisorctl"] = {"serverurl": f"unix://{self.socket_path}"}
 
         # Required by supervisor to work properly
@@ -384,7 +377,6 @@ class SupervisorManager:
             return
 
         try:
-            # Use supervisorctl tail -f command to follow logs
             subprocess.run(
                 [
                     "supervisorctl",
@@ -404,7 +396,6 @@ class SupervisorManager:
 
     def get_all_process_info(self) -> dict[str, ProcessInfo]:
         """Get status information for all supervisor programs."""
-        # Check if supervisor client is up first, return empty list if down
         if not self.has_programs:
             return {}
 
@@ -434,7 +425,6 @@ class SupervisorManager:
             if not isinstance(process_info, dict):
                 continue
 
-            # Extract basic fields with defaults
             name = process_info.get("name", "")
             state = process_info.get("state", SupervisorProcessState.UNKNOWN)
             state_name = SupervisorProcessState(state).name

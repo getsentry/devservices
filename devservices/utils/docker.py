@@ -71,7 +71,6 @@ def wait_for_healthy(
     )
     start = time.time()
     while time.time() - start < timeout:
-        # Run docker inspect to get the container's health status
         try:
             # For containers with no healthchecks, the output will be "unknown"
             result = subprocess.check_output(
@@ -102,7 +101,6 @@ def wait_for_healthy(
             )
             return
 
-        # If not healthy, wait and try again
         time.sleep(HEALTHCHECK_INTERVAL)
 
     raise ContainerHealthcheckFailedError(container.short_name, timeout)

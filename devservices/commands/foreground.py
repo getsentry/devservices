@@ -109,13 +109,11 @@ def foreground(args: Namespace) -> None:
         return
 
     try:
-        # Stop the supervisor process before running in foreground
         console.info(f"Stopping {program_name} in supervisor")
         manager.stop_process(program_name)
         console.info(f"Starting {program_name} in foreground")
         argv = shlex.split(program_command)
 
-        # Run the process in foreground
         pty.spawn(argv)
     except SupervisorProcessError as e:
         capture_exception(e)

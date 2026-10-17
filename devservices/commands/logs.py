@@ -118,7 +118,6 @@ def logs(args: Namespace) -> None:
         if log_stdout is not None:
             console.info(log_stdout)
 
-    # Get supervisor program logs
     supervisor_programs = [
         dep
         for dep in mode_dependencies
