@@ -30,8 +30,6 @@ def add_parser(subparsers: _SubParsersAction[ArgumentParser]) -> None:
     parser.add_argument(
         "service_name",
         help="Name of the service to reset volumes for",
-        nargs="?",
-        default=None,
     )
     parser.set_defaults(func=reset)
 
