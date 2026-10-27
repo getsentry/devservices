@@ -40,3 +40,23 @@ jobs:
         uses: codecov/test-results-action@1b5b448b98e58ba90d1a1a1d9fcb72ca2263be46 # v1.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-sentry-sdk-3:
+    runs-on: ubuntu-latest
+    env:
+      SENTRY_SDK: sentry-sdk>=3.0.0b2,<4
+    steps:
+      - name: Configure git
+        run: |
+          git config --global user.email "test@example.com"
+          git config --global user.name "test"
+      - name: Checkout repo
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
+      - name: Install dependencies
+        run: uv sync --python 3.13.1
+      - name: Type check
+        run: uv run --with "$SENTRY_SDK" mypy devservices tests
+      - name: Run tests
+        run: uv run --with "$SENTRY_SDK" pytest -n4
