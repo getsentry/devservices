@@ -10,7 +10,7 @@ from argparse import _SubParsersAction
 from sentry_sdk import capture_exception
 from sentry_sdk import logger as sentry_logger
 from sentry_sdk import set_context
-from sentry_sdk import start_span
+from sentry_sdk.traces import start_span
 
 from devservices.constants import CONFIG_FILE_NAME
 from devservices.constants import DEPENDENCY_CONFIG_VERSION
@@ -133,7 +133,8 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
     ) as status:
         local_runtime_dependency_names = set()
         with start_span(
-            op="service.dependencies.check", name="Check local runtime dependencies"
+            name="Check local runtime dependencies",
+            attributes={"sentry.op": "service.dependencies.check"},
         ) as span:
             services_with_local_runtime = state.get_services_by_runtime(
                 ServiceRuntime.LOCAL
@@ -149,13 +150,14 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                         status.warning(
                             f"Skipping '{service_with_local_runtime}' as it is set to run locally"
                         )
-            span.set_data("service_name", service.name)
-            span.set_data("mode", mode)
-            span.set_data(
+            span.set_attribute("service_name", service.name)
+            span.set_attribute("mode", mode)
+            span.set_attribute(
                 "local_runtime_dependency_count", len(local_runtime_dependency_names)
             )
-            span.set_data(
-                "local_runtime_dependency_names", local_runtime_dependency_names
+            span.set_attribute(
+                "local_runtime_dependency_names",
+                sorted(local_runtime_dependency_names),
             )
 
         context_name = f"local_runtime_dependencies.{service.name}"
@@ -219,11 +221,12 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                 )
             status.warning(f"Continuing with service '{service.name}'")
         with start_span(
-            op="service.containers.start", name="Start service containers"
+            name="Start service containers",
+            attributes={"sentry.op": "service.containers.start"},
         ) as span:
-            span.set_data("service_name", service.name)
-            span.set_data("mode", mode)
-            span.set_data("exclude_local", exclude_local)
+            span.set_attribute("service_name", service.name)
+            span.set_attribute("mode", mode)
+            span.set_attribute("exclude_local", exclude_local)
             try:
                 bring_up_docker_compose_services(
                     service,
@@ -238,10 +241,11 @@ def up(args: Namespace, existing_status: Status | None = None) -> None:
                 status.failure(f"Failed to start {service.name}: {dce.stderr}")
                 exit(1)
         with start_span(
-            op="service.supervisor.start", name="Start supervisor programs"
+            name="Start supervisor programs",
+            attributes={"sentry.op": "service.supervisor.start"},
         ) as span:
-            span.set_data("service_name", service.name)
-            span.set_data("supervisor_programs", supervisor_programs)
+            span.set_attribute("service_name", service.name)
+            span.set_attribute("supervisor_programs", supervisor_programs)
             try:
                 bring_up_supervisor_programs(service, supervisor_programs, status)
             except SupervisorError as se:
@@ -257,14 +261,15 @@ def _install_service_dependencies(
     service: Service, mode: str, status: Status, offline: bool = False
 ) -> set[InstalledRemoteDependency]:
     with start_span(
-        op="service.dependencies.install", name="Install dependencies"
+        name="Install dependencies",
+        attributes={"sentry.op": "service.dependencies.install"},
     ) as span:
         status.info(
             "Using cached dependencies" if offline else "Retrieving dependencies"
         )
-        span.set_data("service_name", service.name)
-        span.set_data("mode", mode)
-        span.set_data("offline", offline)
+        span.set_attribute("service_name", service.name)
+        span.set_attribute("mode", mode)
+        span.set_attribute("offline", offline)
 
         update_mode = (
             DependencyUpdateMode.OFFLINE if offline else DependencyUpdateMode.FORCE
@@ -275,7 +280,7 @@ def _install_service_dependencies(
                 update_mode,
                 modes=[mode],
             )
-            span.set_data("remote_dependency_count", len(remote_dependencies))
+            span.set_attribute("remote_dependency_count", len(remote_dependencies))
             return remote_dependencies
         except DependencyError as de:
             capture_exception(de)
@@ -295,7 +300,8 @@ def _install_service_dependencies(
 
 def _create_devservices_network() -> None:
     with start_span(
-        op="service.network.create", name="Create devservices network"
+        name="Create devservices network",
+        attributes={"sentry.op": "service.network.create"},
     ) as span:
         try:
             subprocess.run(
@@ -304,17 +310,19 @@ def _create_devservices_network() -> None:
                 stderr=subprocess.DEVNULL,
                 check=True,
             )
-            span.set_data("network_created", True)
+            span.set_attribute("network_created", True)
         except subprocess.CalledProcessError:
             # Network already exists, ignore the error
-            span.set_data("network_created", False)
+            span.set_attribute("network_created", False)
 
 
 def _pull_dependency_images(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
 ) -> None:
-    with start_span(op="service.images.pull", name="Pull dependency images") as span:
-        span.set_data("command", cmd.full_command)
+    with start_span(
+        name="Pull dependency images", attributes={"sentry.op": "service.images.pull"}
+    ) as span:
+        span.set_attribute("command", cmd.full_command)
         run_cmd(cmd.full_command, current_env, retries=4)
         for dependency in cmd.services:
             status.info(f"Pulled image for {dependency}")
@@ -324,10 +332,11 @@ def _bring_up_dependency(
     cmd: DockerComposeCommand, current_env: dict[str, str], status: Status
 ) -> None:
     with start_span(
-        op="service.containers.up", name="Bring up dependency containers"
+        name="Bring up dependency containers",
+        attributes={"sentry.op": "service.containers.up"},
     ) as span:
-        span.set_data("command", cmd.full_command)
-        span.set_data("services", cmd.services)
+        span.set_attribute("command", cmd.full_command)
+        span.set_attribute("services", cmd.services)
         for dependency in cmd.services:
             status.info(f"Starting {dependency}")
         run_cmd(cmd.full_command, current_env)
