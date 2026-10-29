@@ -12,7 +12,7 @@
 1. Add `devservices` to your repository's `requirements.txt` and install it in your virtualenv:
 
    ```
-   devservices==1.2.4
+   devservices==1.5.5
    ```
 
 2. Add a `devservices/config.yml` file to your repository. See [Configuration](#configuration).
