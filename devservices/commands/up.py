@@ -409,16 +409,19 @@ def bring_up_docker_compose_services(
 
     containers_to_check = []
     with concurrent.futures.ThreadPoolExecutor() as ps_executor:
-        ps_futures = {
-            cmd.project_name: ps_executor.submit(
-                get_container_names_for_project,
+        ps_futures = [
+            (
                 cmd.project_name,
-                cmd.config_path,
-                cmd.services,
+                ps_executor.submit(
+                    get_container_names_for_project,
+                    cmd.project_name,
+                    cmd.config_path,
+                    cmd.services,
+                ),
             )
             for cmd in up_commands
-        }
-    for project_name, ps_future in ps_futures.items():
+        ]
+    for project_name, ps_future in ps_futures:
         try:
             containers_to_check.extend(ps_future.result())
         except DockerComposeError as dce:
