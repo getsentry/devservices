@@ -36,6 +36,7 @@ from devservices.utils.dependencies import construct_dependency_graph
 from devservices.utils.dependencies import install_and_verify_dependencies
 from devservices.utils.docker import check_all_containers_healthy
 from devservices.utils.docker_compose import DockerComposeCommand
+from devservices.utils.docker_compose import create_docker_compose_command
 from devservices.utils.docker_compose import get_container_names_for_project
 from devservices.utils.docker_compose import get_docker_compose_commands_to_run
 from devservices.utils.docker_compose import run_cmd
@@ -373,35 +374,8 @@ def bring_up_docker_compose_services(
         ),
     )
 
-    if offline:
-        status.info("Skipping image pull (offline mode)")
-    else:
-        # Pull all images in parallel
-        status.info("Pulling images")
-        pull_commands = get_docker_compose_commands_to_run(
-            service=service,
-            remote_dependencies=sorted_remote_dependencies,
-            current_env=current_env,
-            command="pull",
-            options=[],
-            service_config_file_path=service_config_file_path,
-            mode_dependencies=mode_dependencies,
-        )
-
-        with concurrent.futures.ThreadPoolExecutor() as pull_dependency_executor:
-            futures = [
-                pull_dependency_executor.submit(
-                    _pull_dependency_images, cmd, current_env, status
-                )
-                for cmd in pull_commands
-            ]
-            for future in concurrent.futures.as_completed(futures):
-                _ = future.result()
-
-    # Bring up all necessary containers. In offline mode, never pull missing images.
-    up_options = ["-d"]
-    if offline:
-        up_options += ["--pull", "never"]
+    # In offline mode, never pull missing images.
+    up_options = ["-d", "--pull", "never"] if offline else ["-d"]
     up_commands = get_docker_compose_commands_to_run(
         service=service,
         remote_dependencies=sorted_remote_dependencies,
@@ -411,27 +385,45 @@ def bring_up_docker_compose_services(
         service_config_file_path=service_config_file_path,
         mode_dependencies=mode_dependencies,
     )
+    status.info("Skipping image pull (offline mode)" if offline else "Pulling images")
 
-    containers_to_check = []
+    # Each project starts as soon as its own images are pulled, not after every project's pull
+    def _pull_and_bring_up(cmd: DockerComposeCommand) -> None:
+        if not offline:
+            _pull_dependency_images(
+                create_docker_compose_command(
+                    cmd.project_name, cmd.config_path, set(cmd.services), "pull", []
+                ),
+                current_env,
+                status,
+            )
+        _bring_up_dependency(cmd, current_env, status)
+
     with concurrent.futures.ThreadPoolExecutor() as up_dependency_executor:
         futures = [
-            up_dependency_executor.submit(
-                _bring_up_dependency, cmd, current_env, status
-            )
+            up_dependency_executor.submit(_pull_and_bring_up, cmd)
             for cmd in up_commands
         ]
         for future in concurrent.futures.as_completed(futures):
             _ = future.result()
 
-    for cmd in up_commands:
-        try:
-            container_names = get_container_names_for_project(
-                cmd.project_name, cmd.config_path, cmd.services
+    containers_to_check = []
+    with concurrent.futures.ThreadPoolExecutor() as ps_executor:
+        ps_futures = {
+            cmd.project_name: ps_executor.submit(
+                get_container_names_for_project,
+                cmd.project_name,
+                cmd.config_path,
+                cmd.services,
             )
-            containers_to_check.extend(container_names)
+            for cmd in up_commands
+        }
+    for project_name, ps_future in ps_futures.items():
+        try:
+            containers_to_check.extend(ps_future.result())
         except DockerComposeError as dce:
             status.failure(
-                f"Failed to get containers to healthcheck for {cmd.project_name}: {dce.stderr}"
+                f"Failed to get containers to healthcheck for {project_name}: {dce.stderr}"
             )
             exit(1)
     try:

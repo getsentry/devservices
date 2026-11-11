@@ -314,10 +314,11 @@ def install_dependencies(
     os.makedirs(DEVSERVICES_DEPENDENCIES_CACHE_DIR, exist_ok=True)
 
     installed_dependencies: set[InstalledRemoteDependency] = set()
+    fetched: set[tuple[str, str, str]] = set()
 
     with ThreadPoolExecutor() as executor:
         futures = [
-            executor.submit(install_dependency, dependency)
+            executor.submit(install_dependency, dependency, fetched)
             for dependency in remote_configs
         ]
         for future in as_completed(futures):
@@ -331,7 +332,17 @@ def install_dependencies(
     return installed_dependencies
 
 
-def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependency]:
+def install_dependency(
+    dependency: RemoteConfig, fetched: set[tuple[str, str, str]] | None = None
+) -> set[InstalledRemoteDependency]:
+    # Shared dependencies (e.g. kafka) appear under several services, with or without .git; fetch each once per install
+    if fetched is None:
+        fetched = set()
+    fetch_key = (
+        dependency.repo_name,
+        dependency.repo_link.rstrip("/").removesuffix(".git"),
+        dependency.branch,
+    )
     dependency_repo_dir = os.path.join(
         DEVSERVICES_DEPENDENCIES_CACHE_DIR,
         DEPENDENCY_CONFIG_VERSION,
@@ -357,7 +368,9 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
         DEVSERVICES_DEPENDENCIES_CACHE_DIR, f"{dependency.repo_name}.lock"
     )
     with lock(lock_path):
-        _fetch_dependency(dependency, dependency_repo_dir)
+        if fetch_key not in fetched:
+            _fetch_dependency(dependency, dependency_repo_dir)
+            fetched.add(fetch_key)
 
         if not verify_local_dependency(dependency):
             # TODO: what should we do if the local dependency isn't installed correctly?
@@ -395,7 +408,7 @@ def install_dependency(dependency: RemoteConfig) -> set[InstalledRemoteDependenc
 
     with ThreadPoolExecutor() as nested_executor:
         nested_futures = [
-            nested_executor.submit(install_dependency, nested_remote_config)
+            nested_executor.submit(install_dependency, nested_remote_config, fetched)
             for nested_remote_config in nested_remote_configs
         ]
         for nested_future in as_completed(nested_futures):

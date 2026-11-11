@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 import shutil
 import subprocess
@@ -51,6 +52,8 @@ def build_api_request(url: str) -> urllib.request.Request:
     return req
 
 
+# Every dependency fetch needs the token, and `gh auth token` takes ~0.2s
+@functools.cache
 def _get_token() -> str | None:
     # Prefer an explicit token from the environment (CI sets these), otherwise
     # fall back to the locally authenticated `gh` CLI so local users are authed
