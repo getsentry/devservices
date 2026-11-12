@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from devservices.utils.github import _get_token
 from devservices.utils.state import State
 
 
@@ -23,6 +24,7 @@ def deterministic_github_auth(
 
     Integration tests opt out so they can authenticate against real GitHub.
     """
+    _get_token.cache_clear()
     if request.node.get_closest_marker("integration"):
         return
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)

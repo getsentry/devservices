@@ -1050,7 +1050,7 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
                         "description": "nested dependency",
                         "remote": {
                             "repo_name": "repo-c",
-                            "repo_link": "https://github.com/getsentry/repo-c",
+                            "repo_link": "https://github.com/getsentry/repo-c.git",
                             "branch": "main",
                         },
                     },
@@ -1087,8 +1087,15 @@ def test_install_dependencies_nested_dependency_file_contention(tmp_path: Path) 
                     "repo-c": _make_zip_bytes(shared_config),
                 }
             ),
-        ):
+        ) as mock_urlopen:
             installed = install_dependencies([repo_a_dep, repo_b_dep])
+
+        # The shared repo-c is fetched once, not once per repo that needs it
+        fetched_urls = [call.args[0].full_url for call in mock_urlopen.call_args_list]
+        assert sorted(fetched_urls) == [
+            f"https://api.github.com/repos/getsentry/{repo}/zipball/main"
+            for repo in ("repo-a", "repo-b", "repo-c")
+        ]
 
         assert installed == {
             InstalledRemoteDependency(

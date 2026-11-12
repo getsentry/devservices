@@ -63,5 +63,5 @@ DEVSERVICES_LATEST_VERSION_CACHE_FILE = os.path.join(
 DEVSERVICES_LATEST_VERSION_CACHE_TTL = timedelta(minutes=15)
 # Healthcheck timeout set to 3 minutes to account for slow healthchecks
 HEALTHCHECK_TIMEOUT = 180
-HEALTHCHECK_INTERVAL = 5
+HEALTHCHECK_INTERVAL = 1
 SUPERVISOR_TIMEOUT = 10

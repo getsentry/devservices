@@ -150,12 +150,10 @@ def test_up_simple(
                     f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                     mock.ANY,
                 ),
-                mock.call(
-                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    mock.ANY,
-                ),
             ]
         )
+
+        assert mock_get_non_remote_services.call_count == 1
 
         mock_update_service_entry.assert_has_calls(
             [
@@ -696,10 +694,6 @@ def test_up_docker_compose_container_lookup_error(
                     f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                     mock.ANY,
                 ),
-                mock.call(
-                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    mock.ANY,
-                ),
             ]
         )
 
@@ -843,10 +837,6 @@ def test_up_docker_compose_container_healthcheck_failed(
                     f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                     mock.ANY,
                 ),
-                mock.call(
-                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    mock.ANY,
-                ),
             ]
         )
 
@@ -980,10 +970,6 @@ def test_up_mode_simple(
 
         mock_get_non_remote_services.assert_has_calls(
             [
-                mock.call(
-                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    mock.ANY,
-                ),
                 mock.call(
                     f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                     mock.ANY,
@@ -2543,10 +2529,6 @@ def test_up_supervisor_program(
                     f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                     mock.ANY,
                 ),
-                mock.call(
-                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    mock.ANY,
-                ),
             ]
         )
 
@@ -2640,10 +2622,6 @@ def test_up_supervisor_program_error(
 
         mock_get_non_remote_services.assert_has_calls(
             [
-                mock.call(
-                    f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
-                    mock.ANY,
-                ),
                 mock.call(
                     f"{service_path}/{DEVSERVICES_DIR_NAME}/{CONFIG_FILE_NAME}",
                     mock.ANY,
