@@ -22,8 +22,7 @@ repos:
         language: system
         types: [shell]
         args: [--norc]
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+  - repo: builtin
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
