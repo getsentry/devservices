@@ -21,7 +21,7 @@ dev = [
     "build",
     "freezegun",
     "mypy",
-    "pre-commit",
+    "prek>=0.5.10",
     "pytest>=9.0.3",
     "pytest-cov",
     "ruff",

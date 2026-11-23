@@ -4,9 +4,9 @@ Python CLI that manages Docker Compose and supervisor dependencies for Sentry se
 
 ## Commands
 
-- Set up: `direnv allow`. [.envrc](.envrc) runs `uv sync` and installs the pre-commit hooks.
+- Set up: `direnv allow`. [.envrc](.envrc) runs `uv sync` and installs the prek hooks.
 - Test: `pytest -n4`. Tests marked `integration` call real GitHub.
-- Lint, format, and type check: `pre-commit run --all-files` (ruff, mypy, shellcheck).
+- Lint, format, and type check: `prek run --all-files` (ruff, mypy, shellcheck).
 
 ## Invariants
 
