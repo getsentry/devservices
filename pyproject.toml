@@ -44,7 +44,9 @@ markers = [
 ]
 
 [[tool.uv.index]]
-url = "https://pypi.devinfra.sentry.io/simple"
+name = "sfw"
+url = "https://sfw.security.sentry.io/pypi/simple"
+default = true
 
 [tool.mypy]
 python_version = "3.13"
