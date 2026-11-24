@@ -7,9 +7,7 @@ import logging
 import os
 import platform
 from importlib import metadata
-from typing import Any
 
-from sentry_sdk import VERSION as SENTRY_SDK_VERSION
 from sentry_sdk import capture_exception
 from sentry_sdk import flush
 from sentry_sdk import init
@@ -51,8 +49,6 @@ if os.environ.get("CI", default="false") == "true":
 disable_sentry = os.environ.get("DEVSERVICES_DISABLE_SENTRY", default="0") == "1"
 logging.basicConfig(level=logging.INFO)
 current_version = metadata.version("devservices")
-# devservices supports both sentry-sdk 2.x and 3.x
-sentry_sdk_major_version = int(SENTRY_SDK_VERSION.split(".")[0])
 
 error_trace_ids = set()
 
@@ -69,25 +65,39 @@ def before_send_error(event: Event, hint: Hint) -> Event:
 
 
 if not disable_sentry:
-    # sentry-sdk 3.x renamed LoggingIntegration's sentry_logs_level option to level
-    # and captures Sentry logs by default, which 2.x only does with capture_sentry_logs
-    if sentry_sdk_major_version >= 3:
-        logging_integration_options: dict[str, Any] = {"level": logging.DEBUG}
-    else:
-        logging_integration_options = {
-            "sentry_logs_level": logging.DEBUG,
-            "capture_sentry_logs": True,
-        }
-
     init(
         dsn="https://56470da7302c16e83141f62f88e46449@o1.ingest.us.sentry.io/4507946704961536",
         traces_sample_rate=1.0,
-        trace_lifecycle="stream",
         profile_session_sample_rate=1.0,
         profile_lifecycle="trace",
+        attach_stacktrace=False,
+        data_collection={
+            "user_info": False,
+            "http_bodies": [],
+            "graphql": {"document": False, "variables": False},
+            "gen_ai": {"inputs": False, "outputs": False},
+            "mcp": {"inputs": False, "outputs": False},
+            "database_query_data": False,
+            "queues": False,
+            "http_headers": {
+                "request": {
+                    "mode": "denylist",
+                    "terms": ["forwarded", "-ip", "remote-", "via", "-user"],
+                },
+            },
+            "cookies": {
+                "mode": "denylist",
+                "terms": ["forwarded", "-ip", "remote-", "via", "-user"],
+            },
+            "url_query_params": {
+                "mode": "denylist",
+                "terms": ["forwarded", "-ip", "remote-", "via", "-user"],
+            },
+            "stack_frame_variables": {"mode": "denylist"},
+        },
         integrations=[
             ArgvIntegration(),
-            LoggingIntegration(**logging_integration_options),
+            LoggingIntegration(level=logging.DEBUG, event_level=logging.ERROR),
         ],
         # By default the Sentry SDK loads integrations for all relevant libraries in
         # the venv. When running devservices in the seer directory we end up loading
